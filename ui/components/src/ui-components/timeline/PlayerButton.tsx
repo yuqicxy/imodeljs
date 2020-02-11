@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import classnames from "classnames";
@@ -21,7 +21,7 @@ export class PlayerButton extends React.PureComponent<any> {
     const { icon } = this.props;
     return (
       <button data-testid={this.props.className} className={classnames("player-button", this.props.className)} onClick={this._onClick}>
-        <span className={classnames("icon", icon && icon)}></span>
+        <span className={classnames("icon", !!icon)}></span>
       </button>
     );
   }
@@ -52,9 +52,10 @@ export class PlayButton extends React.Component<PlayerButtonProps, PlayButtonSta
     this.state = { isPlaying: this.props.isPlaying };
   }
 
-  public componentWillReceiveProps(nextProps: Readonly<PlayerButtonProps>): void {
-    if (nextProps.isPlaying !== this.state.isPlaying) {
-      this.setState({ isPlaying: nextProps.isPlaying });
+  /** @internal */
+  public componentDidUpdate() {
+    if (this.props.isPlaying !== this.state.isPlaying) {
+      this.setState((_, props) => ({ isPlaying: props.isPlaying }));
     }
   }
 

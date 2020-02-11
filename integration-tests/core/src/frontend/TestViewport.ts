@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import { Id64String, SortedArray } from "@bentley/bentleyjs-core";
@@ -109,8 +109,14 @@ function readUniquePixelData(vp: Viewport, readRect?: ViewRect, excludeNonLocata
     if (undefined === pixels)
       return;
 
-    for (let x = rect.left; x < rect.right; x++)
-      for (let y = rect.top; y < rect.bottom; y++)
+    const sRect = rect.clone();
+    sRect.left = vp.cssPixelsToDevicePixels(sRect.left);
+    sRect.right = vp.cssPixelsToDevicePixels(sRect.right);
+    sRect.bottom = vp.cssPixelsToDevicePixels(sRect.bottom);
+    sRect.top = vp.cssPixelsToDevicePixels(sRect.top);
+
+    for (let x = sRect.left; x < sRect.right; x++)
+      for (let y = sRect.top; y < sRect.bottom; y++)
         set.insert(pixels.getPixel(x, y));
   }, excludeNonLocatable);
 
@@ -128,16 +134,6 @@ function readUniqueColors(vp: Viewport, readRect?: ViewRect): ColorSet {
     colors.insert(Color.from(rgba));
 
   return colors;
-}
-
-function readPixel(vp: Viewport, x: number, y: number, excludeNonLocatable = false): Pixel.Data {
-  let pixel = new Pixel.Data();
-  vp.readPixels(new ViewRect(x, y, x + 1, y + 1), Pixel.Selector.All, (pixels: Pixel.Buffer | undefined) => {
-    if (undefined !== pixels)
-      pixel = pixels.getPixel(x, y);
-  }, excludeNonLocatable);
-
-  return pixel;
 }
 
 function readColor(vp: Viewport, x: number, y: number): Color {
@@ -160,8 +156,6 @@ export interface TestableViewport {
   readUniquePixelData(readRect?: ViewRect, excludeNonLocatable?: boolean): PixelDataSet;
   // Read pixel colors within rectangular region and return unique colors.
   readUniqueColors(readRect?: ViewRect): ColorSet;
-  // Return the data associated with the pixel at (x, y).
-  readPixel(x: number, y: number): Pixel.Data;
   // Return the color of the pixel at (x, y).
   readColor(x: number, y: number): Color;
   // True if all tiles appropriate for rendering the current view have been loaded.
@@ -171,7 +165,6 @@ export interface TestableViewport {
 class OffScreenTestViewport extends OffScreenViewport implements TestableViewport {
   public readUniquePixelData(readRect?: ViewRect, excludeNonLocatable = false): PixelDataSet { return readUniquePixelData(this, readRect, excludeNonLocatable); }
   public readUniqueColors(readRect?: ViewRect): ColorSet { return readUniqueColors(this, readRect); }
-  public readPixel(x: number, y: number): Pixel.Data { return readPixel(this, x, y); }
   public readColor(x: number, y: number): Color { return readColor(this, x, y); }
   public get areAllTilesLoaded(): boolean { return areAllTilesLoaded(this); }
 
@@ -187,7 +180,7 @@ class OffScreenTestViewport extends OffScreenViewport implements TestableViewpor
     await new Promise<void>((resolve: any) => setTimeout(resolve, 100));
 
     // This viewport isn't added to ViewManager, so it won't be notified (and have its scene invalidated) when new tiles become loaded.
-    this.sync.invalidateScene();
+    this.invalidateScene();
     return this.waitForAllTilesToRender();
   }
 
@@ -210,7 +203,6 @@ export class ScreenTestViewport extends ScreenViewport implements TestableViewpo
 
   public readUniquePixelData(readRect?: ViewRect, excludeNonLocatable = false): PixelDataSet { return readUniquePixelData(this, readRect, excludeNonLocatable); }
   public readUniqueColors(readRect?: ViewRect): ColorSet { return readUniqueColors(this, readRect); }
-  public readPixel(x: number, y: number): Pixel.Data { return readPixel(this, x, y); }
   public readColor(x: number, y: number): Color { return readColor(this, x, y); }
   public get areAllTilesLoaded(): boolean { return areAllTilesLoaded(this); }
 
@@ -278,16 +270,23 @@ export async function createOffScreenTestViewport(viewId: Id64String, imodel: IM
 }
 
 // Create an on-screen viewport for tests. The viewport is added to the ViewManager on construction, and dropped on disposal.
-export async function createOnScreenTestViewport(viewId: Id64String, imodel: IModelConnection, width: number, height: number): Promise<ScreenTestViewport> {
-  return ScreenTestViewport.createTestViewport(viewId, imodel, width, height);
+export async function createOnScreenTestViewport(viewId: Id64String, imodel: IModelConnection, width: number, height: number, devicePixelRatio?: number): Promise<ScreenTestViewport> {
+  const vp = await ScreenTestViewport.createTestViewport(viewId, imodel, width, height);
+  if (undefined !== devicePixelRatio) {
+    const debugControl = vp.target.debugControl;
+    if (undefined !== debugControl)
+      debugControl.devicePixelRatioOverride = devicePixelRatio;
+  }
+
+  return vp;
 }
 
-export async function testOnScreenViewport(viewId: Id64String, imodel: IModelConnection, width: number, height: number, test: (vp: ScreenTestViewport) => Promise<void>): Promise<void> {
+export async function testOnScreenViewport(viewId: Id64String, imodel: IModelConnection, width: number, height: number, test: (vp: ScreenTestViewport) => Promise<void>, devicePixelRatio?: number): Promise<void> {
   if (!IModelApp.initialized)
     return Promise.resolve();
 
   // ###TODO: Make ScreenTestViewport integrate properly with the (non-continuous) render loop...
-  const onscreen = await createOnScreenTestViewport(viewId, imodel, width, height);
+  const onscreen = await createOnScreenTestViewport(viewId, imodel, width, height, devicePixelRatio);
   onscreen.continuousRendering = true;
   try {
     await test(onscreen);
@@ -300,11 +299,11 @@ export async function testOnScreenViewport(viewId: Id64String, imodel: IModelCon
 }
 
 // Execute a test against both an off-screen and on-screen viewport.
-export async function testViewports(viewId: Id64String, imodel: IModelConnection, width: number, height: number, test: (vp: TestViewport) => Promise<void>): Promise<void> {
+export async function testViewports(viewId: Id64String, imodel: IModelConnection, width: number, height: number, test: (vp: TestViewport) => Promise<void>, devicePixelRatio?: number): Promise<void> {
   if (!IModelApp.initialized)
     return Promise.resolve();
 
-  await testOnScreenViewport(viewId, imodel, width, height, test);
+  await testOnScreenViewport(viewId, imodel, width, height, test, devicePixelRatio);
 
   const offscreen = await createOffScreenTestViewport(viewId, imodel, width, height);
   try {

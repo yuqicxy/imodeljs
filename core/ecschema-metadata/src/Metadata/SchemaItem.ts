@@ -1,15 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { Schema } from "./Schema";
 import { SchemaItemProps } from "./../Deserialization/JsonProps";
-import { SchemaItemType, schemaItemTypeToString } from "./../ECObjects";
+import { SchemaItemType, schemaItemTypeToString, schemaItemTypeToXmlString } from "./../ECObjects";
 import { ECObjectsError, ECObjectsStatus } from "./../Exception";
 import { SchemaItemKey, ECVersion } from "./../SchemaKey";
 
-const SCHEMAURL3_2 = "https://dev.bentley.com/json_schemas/ec/32/draft-01/schemaitem";
+const SCHEMAURL3_2 = "https://dev.bentley.com/json_schemas/ec/32/schemaitem";
 
 /**
  * An abstract class that supplies all of the common parts of a SchemaItem.
@@ -47,11 +47,26 @@ export abstract class SchemaItem {
         itemJson.schemaVersion = this.key.schemaKey.version.toString();
     }
     itemJson.schemaItemType = schemaItemTypeToString(this.schemaItemType);
-    if (this.label !== undefined)
+    if (undefined !== this.label)
       itemJson.label = this.label;
-    if (this.description !== undefined)
+    if (undefined !== this.description)
       itemJson.description = this.description;
     return itemJson;
+  }
+
+  /** @internal */
+  public async toXml(schemaXml: Document): Promise<Element> {
+    const itemType = schemaItemTypeToXmlString(this.schemaItemType);
+    const itemElement = schemaXml.createElement(itemType);
+    itemElement.setAttribute("typeName", this.name);
+    if (undefined !== this.label)
+      itemElement.setAttribute("displayLabel", this.label);
+    if (undefined !== this.description)
+      itemElement.setAttribute("description", this.description);
+
+    // When all schema items support custom attributes they should be added here rather than in ECClass
+
+    return itemElement;
   }
 
   public deserializeSync(schemaItemProps: SchemaItemProps) {
@@ -89,9 +104,10 @@ export abstract class SchemaItem {
   }
 
   /**
-   * Parses the given full name, {schemaName}.{schemaItemName}, into two separate strings.
-   * If the name is not a string with a '.' in it than the second string in the tuple will be the name provided.
+   * Parses the given full name, {schemaName}.{schemaItemName} or {schemaName}:{schemaItemName}, into two separate strings.
+   * @note  The schema name can be a schema alias.
    * @param fullName The full name to be parsed.
+   * @returns A tuple of the parsed Schema name and Schema Item name.  If the full name does not contain a '.' or ':', the second string in the tuple will returned the exact string pass in.
    */
   public static parseFullName(fullName: string): [string, string] {
     const matches = /^([a-zA-Z_]+[a-zA-Z0-9_]*(\.\d+\.\d+\.\d+)?)[.:]([a-zA-Z_]+[a-zA-Z0-9_]*)$/.exec(fullName);
@@ -108,7 +124,7 @@ export abstract class SchemaItem {
    * @param thisSchemaItem The first SchemaItem.
    * @param thatSchemaItemOrKey The second SchemaItem or SchemaItemKey.
    */
-  public static equalByKey(thisSchemaItem: SchemaItem, thatSchemaItemOrKey?: SchemaItem | SchemaItemKey) {
+  public static equalByKey(thisSchemaItem: SchemaItem, thatSchemaItemOrKey?: SchemaItem | SchemaItemKey): boolean {
     if (!thatSchemaItemOrKey)
       return true;
 

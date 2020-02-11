@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 
 import { GeometryQuery } from "./GeometryQuery";
 import { NullGeometryHandler } from "../geometry3d/GeometryHandler";
@@ -59,8 +61,6 @@ export class ConstructCurveBetweenCurves extends NullGeometryHandler {
         const workPoint = Point3d.create();
         const workPoint0 = Point3d.create();
         const workPoint1 = Point3d.create();
-        let workVector0;
-        let workVector1;
         const fraction = this._fraction;
         for (let i = 0; i < numPoints; i++) {
           ls0.pointAt(i, workPoint0);
@@ -80,10 +80,8 @@ export class ConstructCurveBetweenCurves extends NullGeometryHandler {
           ls.strokeData = ls0.strokeData.clone();
         }
         if (ls0.packedDerivatives && ls1.packedDerivatives) {
-          if (!workVector0)
-            workVector0 = Vector3d.create();
-          if (!workVector1)
-            workVector1 = Vector3d.create();
+          const workVector0 = Vector3d.create();
+          const workVector1 = Vector3d.create();
           for (let i = 0; i < numPoints; i++) {
             ls0.packedDerivatives.getVector3dAtCheckedVectorIndex(i, workVector0);
             ls1.packedDerivatives.getVector3dAtCheckedVectorIndex(i, workVector1);

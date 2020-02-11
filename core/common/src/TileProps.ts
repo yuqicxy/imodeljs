@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WireFormats */
+/** @packageDocumentation
+ * @module Tile
+ */
 
 import { TransformProps, Range3dProps } from "@bentley/geometry-core";
 
@@ -36,8 +38,6 @@ export interface TileTreeProps {
   maxTilesToSkip?: number;
   /** Optional - set to True for Y Axis up. By default Z Axis is up. */
   yAxisUp?: boolean;
-  /** Optional - if defined and true, this TileTree contains only background map tiles. */
-  isBackgroundMap?: boolean;
   /** Optionally specifies the maximum tile format version supported. */
   formatVersion?: number;
   /** Optional volume within which content of all tiles' contents are guaranteed to be contained - never larger than `rootTile.range` and sometimes much smaller. */

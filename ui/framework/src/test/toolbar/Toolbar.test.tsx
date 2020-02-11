@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 
@@ -14,30 +14,85 @@ import { Direction, ToolbarPanelAlignment } from "@bentley/ui-ninezone";
 import { ItemList } from "../../ui-framework/shared/ItemMap";
 import { Orientation } from "@bentley/ui-core";
 
-describe("<Toolbar />", async () => {
+describe("<Toolbar  />", async () => {
+
+  const testItemEventId = "test-event";
+  const testItemStateFunc = (currentState: Readonly<BaseItemState>): BaseItemState => {
+    const returnState: BaseItemState = { ...currentState };
+    returnState.isEnabled = true;
+    return returnState;
+  };
 
   const tool1 = new CommandItemDef({
-    commandId: "tool1",
-    label: "Tool 1",
+    commandId: "test.tool1",
+    label: "Tool_1",
     iconSpec: "icon-placeholder",
     isEnabled: false,
   });
 
   const tool2 = new CommandItemDef({
-    commandId: "tool2",
-    label: "Tool 2",
+    commandId: "test.tool2",
+    label: "Tool_2",
     iconSpec: "icon-placeholder",
     isEnabled: true,
   });
 
-  const group1 = new GroupItemDef({
-    label: "Tool Group",
+  const tool1a = new CommandItemDef({
+    commandId: "test.tool1_a",
+    label: "Tool_1",
     iconSpec: "icon-placeholder",
-    items: [tool1, tool2],
+    isEnabled: false,
+  });
+
+  const tool2a = new CommandItemDef({
+    commandId: "test.tool2_a",
+    label: "Tool_2",
+    iconSpec: "icon-placeholder",
+    isEnabled: true,
+  });
+
+  const tool1b = new CommandItemDef({
+    commandId: "test.tool1_b",
+    label: "Tool_1",
+    iconSpec: "icon-placeholder",
+    isEnabled: false,
+  });
+
+  const tool2b = new CommandItemDef({
+    commandId: "test.tool2_b",
+    label: "Tool_2",
+    iconSpec: "icon-placeholder",
+    isEnabled: true,
+  });
+
+  const tool1c = new CommandItemDef({
+    commandId: "test.tool1_c",
+    label: "Tool_1",
+    iconSpec: "icon-placeholder",
+    isEnabled: false,
+    stateSyncIds: [testItemEventId],
+    stateFunc: testItemStateFunc,
+  });
+
+  const tool1d = new CommandItemDef({
+    commandId: "test.tool1_d",
+    label: "Tool_1",
+    iconSpec: "icon-placeholder",
+    isEnabled: false,
+    stateSyncIds: [testItemEventId],
+    stateFunc: testItemStateFunc,
+  });
+
+  const group1 = new GroupItemDef({
+    groupId: "test.group",
+    label: "Tool_Group",
+    iconSpec: "icon-placeholder",
+    items: [tool1a, tool2a, tool1c],
     itemsInColumn: 4,
   });
 
   const custom1 = new CustomItemDef({
+    customId: "test.custom",
     reactElement: (
       <PopupButton iconSpec="icon-arrow-down" label="Popup Test">
         <div style={{ width: "200px", height: "100px" }}>
@@ -47,16 +102,19 @@ describe("<Toolbar />", async () => {
     ),
   });
 
-  const testItemEventId = "test-event";
-  const testItemStateFunc = (currentState: Readonly<BaseItemState>): BaseItemState => {
-    const returnState: BaseItemState = { ...currentState };
-    returnState.isEnabled = true;
-    return returnState;
-  };
-
   const conditional1 = new ConditionalItemDef({
-    items: [tool1, tool2],
+    items: [tool1b, tool2b],
     isEnabled: false,
+    stateSyncIds: [testItemEventId],
+    stateFunc: testItemStateFunc,
+  });
+
+  const group2 = new GroupItemDef({
+    groupId: "test.group2",
+    label: "Tool_Group_2",
+    iconSpec: "icon-placeholder",
+    isEnabled: false,
+    items: [tool1d],
     stateSyncIds: [testItemEventId],
     stateFunc: testItemStateFunc,
   });
@@ -65,13 +123,19 @@ describe("<Toolbar />", async () => {
     await TestUtils.initializeUiFramework();
   });
 
+  after(() => {
+    TestUtils.terminateUiFramework();
+  });
+
   afterEach(cleanup);
 
   it("should render", async () => {
-    const renderedComponent = render(<Toolbar orientation={Orientation.Horizontal} items={new ItemList([
-      tool1,
-      tool2,
-    ])} />);
+    const renderedComponent = render(
+      <Toolbar orientation={Orientation.Horizontal}
+        items={new ItemList([
+          tool1,
+          tool2,
+        ])} />);
     expect(renderedComponent).not.to.be.undefined;
   });
 
@@ -133,19 +197,28 @@ describe("<Toolbar />", async () => {
           tool1,
           tool2,
           group1,
+          group2,
           conditional1,
           custom1,
         ])}
       />);
     expect(renderedComponent).not.to.be.undefined;
 
-    expect(tool1.isEnabled).to.be.false;
-    expect(tool2.isEnabled).to.be.true;
+    expect(tool1b.isEnabled).to.be.false;
+    expect(tool2b.isEnabled).to.be.true;
+
+    expect(group2.isEnabled).to.be.false;
+    expect(tool1c.isEnabled).to.be.false;
+    expect(tool1d.isEnabled).to.be.false;
 
     SyncUiEventDispatcher.dispatchImmediateSyncUiEvent(testItemEventId);
 
-    expect(tool1.isEnabled).to.be.true;
-    expect(tool2.isEnabled).to.be.true;
+    expect(tool1b.isEnabled).to.be.true;
+    expect(tool2b.isEnabled).to.be.true;
+
+    expect(group2.isEnabled).to.be.true;
+    expect(tool1c.isEnabled).to.be.true;
+    expect(tool1d.isEnabled).to.be.true;
   });
 
 });

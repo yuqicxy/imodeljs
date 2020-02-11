@@ -6,15 +6,13 @@
 
 import { AccessToken } from '@bentley/imodeljs-clients';
 import { AuthorizedClientRequestContext } from '@bentley/imodeljs-clients';
-import { BeEvent } from '@bentley/bentleyjs-core';
 import { Client } from 'openid-client';
 import { ClientRequestContext } from '@bentley/bentleyjs-core';
 import { FileHandler } from '@bentley/imodeljs-clients';
 import * as https from 'https';
-import { IOidcFrontendClient } from '@bentley/imodeljs-clients';
+import { IAuthorizationClient } from '@bentley/imodeljs-clients';
 import { Issuer } from 'openid-client';
 import { OidcClient } from '@bentley/imodeljs-clients';
-import { OidcFrontendClientConfiguration } from '@bentley/imodeljs-clients';
 import { ProgressInfo } from '@bentley/imodeljs-clients';
 import { TokenSet } from 'openid-client';
 import { Transform } from 'stream';
@@ -45,7 +43,9 @@ export class BufferedStream extends Transform {
 // @public
 export enum ClientsBackendLoggerCategory {
     IModelHub = "imodeljs-clients.imodelhub",
-    OidcDeviceClient = "imodeljs-clients-device.OidcDeviceClient"
+    OidcAgentClient = "imodeljs-clients-backend.OidcAgentClient",
+    OidcDesktopClient = "imodeljs-clients.OidcDesktopClient",
+    OidcDeviceClient = "imodeljs-clients-backend.OidcDeviceClient"
 }
 
 // @internal
@@ -62,15 +62,38 @@ export class IOSAzureFileHandler implements FileHandler {
     uploadFile(requestContext: AuthorizedClientRequestContext, uploadUrlString: string, uploadFromPathname: string): Promise<void>;
 }
 
-// @internal
-export class OidcAgentClient extends OidcBackendClient {
+// @beta
+export class OidcAgentClient extends OidcBackendClient implements IAuthorizationClient {
     constructor(agentConfiguration: OidcAgentClientConfiguration);
+    getAccessToken(requestContext?: ClientRequestContext): Promise<AccessToken>;
+    // @deprecated
     getToken(requestContext: ClientRequestContext): Promise<AccessToken>;
+    get hasExpired(): boolean;
+    get hasSignedIn(): boolean;
+    get isAuthorized(): boolean;
+    // @deprecated
     refreshToken(requestContext: ClientRequestContext, jwt: AccessToken): Promise<AccessToken>;
 }
 
-// @internal
+// @beta
 export type OidcAgentClientConfiguration = OidcBackendClientConfiguration;
+
+// @internal @deprecated
+export interface OidcAgentClientConfigurationV1 extends OidcBackendClientConfiguration {
+    // (undocumented)
+    serviceUserEmail: string;
+    // (undocumented)
+    serviceUserPassword: string;
+}
+
+// @internal @deprecated
+export class OidcAgentClientV1 extends OidcBackendClient {
+    constructor(_agentConfiguration: OidcAgentClientConfigurationV1);
+    // (undocumented)
+    getToken(requestContext: ClientRequestContext): Promise<AccessToken>;
+    // (undocumented)
+    refreshToken(requestContext: ClientRequestContext, jwt: AccessToken): Promise<AccessToken>;
+}
 
 // @beta
 export abstract class OidcBackendClient extends OidcClient {
@@ -103,20 +126,6 @@ export class OidcDelegationClient extends OidcBackendClient {
 
 // @beta (undocumented)
 export type OidcDelegationClientConfiguration = OidcBackendClientConfiguration;
-
-// @alpha (undocumented)
-export class OidcDeviceClient extends OidcClient implements IOidcFrontendClient {
-    constructor(clientConfiguration: OidcFrontendClientConfiguration);
-    dispose(): void;
-    getAccessToken(requestContext?: ClientRequestContext): Promise<AccessToken>;
-    readonly hasExpired: boolean;
-    readonly hasSignedIn: boolean;
-    initialize(requestContext: ClientRequestContext): Promise<void>;
-    readonly isAuthorized: boolean;
-    readonly onUserStateChanged: BeEvent<(token: AccessToken | undefined, message: string) => void>;
-    signIn(requestContext: ClientRequestContext): Promise<void>;
-    signOut(requestContext: ClientRequestContext): Promise<void>;
-    }
 
 // @internal
 export class RequestHost {

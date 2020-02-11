@@ -1,13 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WireFormats */
+/** @packageDocumentation
+ * @module Entities
+ */
 
-import { EntityProps, EntityQueryParams } from "./EntityProps";
+import { GuidString, Id64String } from "@bentley/bentleyjs-core";
 import { XYProps } from "@bentley/geometry-core";
-import { Id64String } from "@bentley/bentleyjs-core";
 import { RelatedElementProps } from "./ElementProps";
+import { EntityProps, EntityQueryParams } from "./EntityProps";
 
 /** Properties that define a [Model]($docs/bis/intro/model-fundamentals)
  * @public
@@ -29,9 +31,32 @@ export interface ModelQueryParams extends EntityQueryParams {
   wantPrivate?: boolean;
 }
 
+/** Properties that describe a [GeometricModel]($backend)
+ * @public
+ */
+export interface GeometricModelProps extends ModelProps {
+  /** A unique identifier that is updated each time a change affecting the appearance of a geometric element within this model
+   * is committed to the iModel. In other words, between versions of the iModel, if this value is the same you can
+   * assume the appearance of all of the geometry in the model is the same (Note: other properties of elements may have changed.)
+   * If undefined, the state of the geometry is unknown.
+   */
+  geometryGuid?: GuidString;
+}
+
 /** Properties that define a [GeometricModel2d]($backend)
  * @public
  */
-export interface GeometricModel2dProps extends ModelProps {
+export interface GeometricModel2dProps extends GeometricModelProps {
+  /** The actual coordinates of (0,0) in modeling coordinates. An offset applied to all modeling coordinates. */
   globalOrigin?: XYProps;
+}
+
+/** Properties that define a [GeometricModel3d]($backend)
+ * @public
+ */
+export interface GeometricModel3dProps extends GeometricModelProps {
+  /** If true, then the elements in this GeometricModel3d are not in real-world coordinates and will not be in the spatial index. */
+  isNotSpatiallyLocated?: boolean;
+  /** If true, then the elements in this GeometricModel3d are expected to be in an XY plane. */
+  isPlanProjection?: boolean;
 }

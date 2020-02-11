@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Dialog */
+/** @packageDocumentation
+ * @module Dialog
+ */
 
 import * as React from "react";
 import * as classnames from "classnames";
@@ -107,6 +109,9 @@ export class MessageContainer extends React.PureComponent<MessageContainerProps>
     let iconClassName = "";
 
     switch (severity) {
+      case MessageSeverity.None:
+        iconClassName = hollow ? "icon-status-success-hollow" : "icon-status-success" + " core-message-box-success";
+        break;
       case MessageSeverity.Information:
         iconClassName = hollow ? "icon-info-hollow" : "icon-info" + " core-message-box-information";
         break;
@@ -120,7 +125,7 @@ export class MessageContainer extends React.PureComponent<MessageContainerProps>
         iconClassName = hollow ? "icon-status-error-hollow" : "icon-status-error" + " core-message-box-error";
         break;
       case MessageSeverity.Fatal:
-        iconClassName = hollow ? "icon-status-rejected" : "icon-status-rejected" + " core-message-box-fatal"; // TODO - need icon-status-rejected-hollow icon
+        iconClassName = hollow ? "icon-status-rejected-hollow" : "icon-status-rejected" + " core-message-box-fatal";
         break;
     }
 

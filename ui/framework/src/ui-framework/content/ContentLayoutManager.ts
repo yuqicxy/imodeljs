@@ -1,10 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ContentView */
+/** @packageDocumentation
+ * @module ContentView
+ */
 
-import { UiError } from "@bentley/ui-core";
+import { UiError } from "@bentley/ui-abstract";
 
 import { ContentLayoutDef } from "./ContentLayout";
 import { ContentGroup } from "./ContentGroup";

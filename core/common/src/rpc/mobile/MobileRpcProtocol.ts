@@ -1,7 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module RpcInterface
+ */
+
 import { RpcProtocol, SerializedRpcRequest, RpcRequestFulfillment } from "../core/RpcProtocol";
 import { MobileRpcConfiguration } from "./MobileRpcManager";
 import { MobileRpcRequest } from "./MobileRpcRequest";
@@ -71,7 +75,6 @@ export class MobileRpcProtocol extends RpcProtocol {
 
   constructor(configuration: MobileRpcConfiguration, endPoint: RpcEndpoint) {
     super(configuration);
-
     if (endPoint === RpcEndpoint.Frontend) {
       this.initializeFrontend();
     } else if (endPoint === RpcEndpoint.Backend) {
@@ -83,8 +86,10 @@ export class MobileRpcProtocol extends RpcProtocol {
     if (typeof (WebSocket) === "undefined") {
       throw new IModelError(BentleyStatus.ERROR, "MobileRpcProtocol on frontend require websocket to work");
     }
-
-    this.socket = new WebSocket(`ws://localhost:${window.location.hash.substr(1)}`);
+    if (!MobileRpcConfiguration.args.port) {
+      throw new IModelError(BentleyStatus.ERROR, "MobileRpcProtocol require 'port' parameter");
+    }
+    this.socket = new WebSocket(`ws://localhost:${MobileRpcConfiguration.args.port}`);
     this.socket.binaryType = "arraybuffer";
     this.socket.addEventListener("message", async (event) => this.handleMessageFromBackend(event.data));
     this.socket.addEventListener("open", (_event) => this.scheduleSend());

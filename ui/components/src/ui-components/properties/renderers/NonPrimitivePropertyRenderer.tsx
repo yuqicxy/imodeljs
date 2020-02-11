@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Properties */
+/** @packageDocumentation
+ * @module Properties
+ */
 
 import * as React from "react";
 import _ from "lodash";
@@ -39,7 +41,7 @@ export class NonPrimitivePropertyRenderer extends React.Component<NonPrimitivePr
   /** @internal */
   public readonly state: NonPrimitivePropertyRendererState = {
     /** If it's not collapsible, that means it's expanded by default and can't be collapsed */
-    isExpanded: !this.props.isCollapsible,
+    isExpanded: !this.props.isCollapsible || this.props.propertyRecord.autoExpand,
   };
 
   constructor(props: NonPrimitivePropertyRendererProps) {
@@ -88,7 +90,7 @@ export class NonPrimitivePropertyRenderer extends React.Component<NonPrimitivePr
           displayValue: items.length.toString(),
         },
         {
-          displayLabel: UiComponents.translate("general.length"),
+          displayLabel: UiComponents.translate("property.arrayLength"),
           name: "array_length",
           typename: "int",
         }),
@@ -96,7 +98,7 @@ export class NonPrimitivePropertyRenderer extends React.Component<NonPrimitivePr
 
     const modifiedProperties: PropertyRecord[] = items.map((item, index): PropertyRecord => {
       const newProperty = { ...item.property };
-      newProperty.displayLabel = `[${index}]`;
+      newProperty.displayLabel = `[${index + 1}]`;
       newProperty.name = `${newProperty.name}_${index}`;
       return new PropertyRecord(item.value, newProperty);
     });
@@ -115,6 +117,7 @@ export class NonPrimitivePropertyRenderer extends React.Component<NonPrimitivePr
         indentation={this.props.indentation ? this.props.indentation + 1 : 1}
         orientation={this.props.orientation}
         columnRatio={this.props.columnRatio}
+        actionButtonRenderers={this.props.actionButtonRenderers}
       />
     );
   }

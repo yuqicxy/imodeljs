@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { DOMParser } from "xmldom";
@@ -17,33 +17,25 @@ export function createSchemaJsonWithItems(itemsJson: any, referenceJson?: any): 
   };
 }
 
-export function createSchemaXmlWithItems(itemsXml: string | Element, referenceXml?: string | Element): Document {
+export function createSchemaXmlWithItems(itemsXml: string | Element, ec32: boolean = false): Document {
   const parser = new DOMParser();
+
+  const ecVersion = ec32 ? "3.2" : "3.1";
 
   let schemaDoc: Document;
   if (typeof itemsXml === "string") {
-    const schemaString = `
-    <?xml version="1.0" encoding="utf-8"?>
-    <ECSchema schemaName="TestSchema" alias="testschema" version="01.00.00" description="A test schema" xmlns="http://www.bentley.com/schemas/Bentley.ECXML.3.2">
-    ${referenceXml && typeof referenceXml === "string" ? referenceXml : ""}
-    ${itemsXml}
-    </ECSchema>
-    `;
+    const schemaString = `<?xml version="1.0" encoding="utf-8"?>
+      <ECSchema schemaName="TestSchema" alias="testschema" version="01.00.00" description="A test schema" xmlns="http://www.bentley.com/schemas/Bentley.ECXML.${ecVersion}">
+        ${itemsXml}
+      </ECSchema>`;
 
     schemaDoc = parser.parseFromString(schemaString);
-    return schemaDoc;
   } else {
-    const schemaString = `
-    <?xml version="1.0" encoding="utf-8"?>
-    <ECSchema schemaName="TestSchema" alias="testschema" version="01.00.00" description="A test schema" xmlns="http://www.bentley.com/schemas/Bentley.ECXML.3.2">
-    ${referenceXml && typeof referenceXml === "string" ? referenceXml : ""}
-    </ECSchema>
-    `;
-
+    const schemaString = `<?xml version="1.0" encoding="utf-8"?>
+      <ECSchema schemaName="TestSchema" alias="testschema" version="01.00.00" description="A test schema" xmlns="http://www.bentley.com/schemas/Bentley.ECXML.${ecVersion}">
+      </ECSchema>`;
     schemaDoc = parser.parseFromString(schemaString);
-    if (referenceXml && typeof referenceXml !== "string")
-      schemaDoc.getElementsByTagName("ECSchema")[0].appendChild(referenceXml);
     schemaDoc.getElementsByTagName("ECSchema")[0].appendChild(itemsXml);
-    return schemaDoc;
   }
+  return schemaDoc;
 }

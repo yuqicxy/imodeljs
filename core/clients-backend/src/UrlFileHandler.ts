@@ -1,14 +1,17 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Utils */
+/** @packageDocumentation
+ * @module Utils
+ */
 import { ProgressInfo, FileHandler, AuthorizedClientRequestContext } from "@bentley/imodeljs-clients";
 import * as fs from "fs-extra";
 import * as path from "path";
 import * as https from "https";
 import { URL } from "url";
 import WriteStreamAtomic = require("fs-write-stream-atomic");
+import * as http from "http";
 
 /**
  * Provides methods to upload and download files from the Internet
@@ -37,7 +40,7 @@ export class UrlFileHandler implements FileHandler {
     UrlFileHandler.makeDirectoryRecursive(path.dirname(downloadToPathname));
 
     return new Promise<void>((resolve, reject) => {
-      https.get(downloadUrl, (response) => {
+      const callback = (response: http.IncomingMessage) => {
         if (response.statusCode !== 200) {
           reject();
         } else {
@@ -56,14 +59,16 @@ export class UrlFileHandler implements FileHandler {
 
           response.pipe(target);
         }
-      });
+      };
+      downloadUrl.startsWith("https:") ? https.get(downloadUrl, callback) : http.get(downloadUrl, callback);
     });
   }
 
   public async uploadFile(_requestContext: AuthorizedClientRequestContext, uploadUrlString: string, uploadFromPathname: string, progressCallback?: (progress: ProgressInfo) => void): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const uploadUrl = new URL(uploadUrlString);
-      const request = https.request({ method: "POST", hostname: uploadUrl.hostname, port: uploadUrl.port, path: uploadUrl.pathname }, (response) => {
+      const requestOptions = { method: "POST", hostname: uploadUrl.hostname, port: uploadUrl.port, path: uploadUrl.pathname };
+      const callback = (response: http.IncomingMessage) => {
         if (response.statusCode === 200) {
           if (progressCallback)
             progressCallback({ percent: 100, total: 1, loaded: 1 });
@@ -71,7 +76,8 @@ export class UrlFileHandler implements FileHandler {
         } else {
           reject(new Error(response.statusCode!.toString()));
         }
-      });
+      };
+      const request = uploadUrlString.startsWith("https:") ? https.request(requestOptions, callback) : http.request(requestOptions, callback);
 
       const source = fs.createReadStream(uploadFromPathname);
       source.on("error", (err) => {

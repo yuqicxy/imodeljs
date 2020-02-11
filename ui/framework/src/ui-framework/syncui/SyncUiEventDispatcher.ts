@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module SyncUi */
+/** @packageDocumentation
+ * @module SyncUi
+ */
 
 // cSpell:ignore configurableui
 import { UiEvent } from "@bentley/ui-core";
@@ -11,18 +13,18 @@ import { FrontstageManager } from "../frontstage/FrontstageManager";
 import { Backstage } from "../backstage/Backstage";
 import { WorkflowManager } from "../workflow/Workflow";
 import { ContentViewManager } from "../content/ContentViewManager";
-import { SessionStateActionId } from "../SessionState";
-import { UiFramework, PresentationSelectionScope } from "../UiFramework";
+import { SessionStateActionId, PresentationSelectionScope } from "../redux/SessionState";
+import { UiFramework } from "../UiFramework";
 import { IModelConnection, IModelApp, SelectedViewportChangedArgs, SelectionSetEvent } from "@bentley/imodeljs-frontend";
 import { Presentation, SelectionChangeEventArgs, ISelectionProvider } from "@bentley/presentation-frontend";
 import { SelectionScope, getInstancesCount } from "@bentley/presentation-common";
 
-// cSpell:ignore activecontentchanged, activitymessageupdated, activitymessagecancelled, backstagecloseevent, contentlayoutactivated, contentcontrolactivated,
+// cSpell:ignore activecontentchanged, activitymessageupdated, activitymessagecancelled, backstagecloseevent, backstageevent, contentlayoutactivated, contentcontrolactivated,
 // cSpell:ignore elementtooltipchanged, frontstageactivated, inputfieldmessageadded, inputfieldmessageremoved, modalfrontstagechanged, modaldialogchanged
 // cSpell:ignore navigationaidactivated, notificationmessageadded, toolactivated, taskactivated, widgetstatechanged, workflowactivated frontstageactivating
 // cSpell:ignore frontstageready activeviewportchanged selectionsetchanged presentationselectionchanged
 
-/** Event Id used to sync UI components. Typically used to refresh visibility or enable state of control.
+/** Event Id used to sync UI components. Used to refresh visibility or enable state of control.
  * @public
  */
 export enum SyncUiEventId {
@@ -30,8 +32,12 @@ export enum SyncUiEventId {
   ActiveContentChanged = "activecontentchanged",
   /** The active view maintained by the ViewManager has changed. */
   ActiveViewportChanged = "activeviewportchanged",
-  /** Backstage has been closed. */
+  /** Backstage has been closed.
+   * @deprecated Use BackstageEvent instead
+   */
   BackstageCloseEvent = "backstagecloseevent",
+  /** Backstage has been closed. */
+  BackstageEvent = "backstageevent",
   /** A Content Layout has been activated.  */
   ContentLayoutActivated = "contentlayoutactivated",
   /** A Content Control maintained by FrontstageManager has been activated. */
@@ -56,6 +62,8 @@ export enum SyncUiEventId {
   WorkflowActivated = "workflowactivated",
   /** The SelectionSet for the active IModelConnection has changed. */
   SelectionSetChanged = "selectionsetchanged",
+  /** The current view state has changed (used by view undo/redo toolbar buttons). */
+  ViewStateChanged = "viewstateshanged",
 }
 
 /** SyncUi Event arguments. Contains a set of lower case event Ids.
@@ -70,7 +78,7 @@ export interface SyncUiEventArgs {
  */
 export class SyncUiEvent extends UiEvent<SyncUiEventArgs> { }
 
-/** SyncUi Event Dispatcher class. This class is used to send eventIds to interested Ui components so the component can determine if it needs
+/** This class is used to send eventIds to interested UI components so the component can determine if it needs
  * to refresh its display by calling setState on itself.
  * @public
  */
@@ -191,8 +199,13 @@ export class SyncUiEventDispatcher {
     return false;
   }
 
+  private static _dispatchViewChange() {
+    SyncUiEventDispatcher.dispatchSyncUiEvent(SyncUiEventId.ViewStateChanged);
+  }
+
   /** Initializes the Monitoring of Events that trigger dispatching sync events */
   public static initialize() {
+
     FrontstageManager.onContentControlActivatedEvent.addListener(() => {
       SyncUiEventDispatcher.dispatchSyncUiEvent(SyncUiEventId.ContentControlActivated);
     });
@@ -225,8 +238,8 @@ export class SyncUiEventDispatcher {
       SyncUiEventDispatcher.dispatchSyncUiEvent(SyncUiEventId.WidgetStateChanged);
     });
 
-    Backstage.onBackstageCloseEvent.addListener(() => {
-      SyncUiEventDispatcher.dispatchSyncUiEvent(SyncUiEventId.BackstageCloseEvent);
+    Backstage.onBackstageEvent.addListener(() => {
+      SyncUiEventDispatcher.dispatchSyncUiEvent(SyncUiEventId.BackstageEvent);
     });
 
     WorkflowManager.onTaskActivatedEvent.addListener(() => {
@@ -246,8 +259,18 @@ export class SyncUiEventDispatcher {
         SyncUiEventDispatcher.dispatchSyncUiEvent(SyncUiEventId.ActiveViewportChanged);
 
         // if this is the first view being opened up start the default tool so tool admin is happy.
-        if (undefined === args.previous)
+        if (undefined === args.previous) {
           IModelApp.toolAdmin.startDefaultTool();
+        } else {
+          // istanbul ignore next
+          if (args.previous!.onViewChanged && typeof args.previous!.onViewChanged.removeListener === "function")  // not set during unit test
+            args.previous!.onViewChanged.removeListener(SyncUiEventDispatcher._dispatchViewChange);
+        }
+        // istanbul ignore next
+        if (args.current) {
+          if (args.current.onViewChanged && typeof args.current.onViewChanged.addListener === "function") // not set during unit test
+            args.current.onViewChanged.addListener(SyncUiEventDispatcher._dispatchViewChange);
+        }
       });
     }
   }

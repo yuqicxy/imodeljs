@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import {
   ProgramBuilder,
@@ -13,17 +15,17 @@ import {
 import { addModelViewMatrix, addProjectionMatrix, addLineWeight, addNormalMatrix } from "./Vertex";
 import { addAnimation } from "./Animation";
 import { addViewport, addModelToWindowCoordinates } from "./Viewport";
-import { GL } from "../GL";
 import { addColor } from "./Color";
 import { addWhiteOnWhiteReversal } from "./Fragment";
 import { addShaderFlags } from "./Common";
 import { addLineCode, adjustWidth } from "./Polyline";
 import { octDecodeNormal } from "./Surface";
-import { assert } from "@bentley/bentleyjs-core";
 import { IsInstanced, IsAnimated } from "../TechniqueFlags";
+import { AttributeMap } from "../AttributeMap";
+import { TechniqueId } from "../TechniqueId";
 
 const decodeEndPointAndQuadIndices = `
-  g_otherIndex = decodeUInt32(a_endPointAndQuadIndices.xyz);
+  g_otherIndex = decodeUInt24(a_endPointAndQuadIndices.xyz);
   vec2 tc = computeLUTCoords(g_otherIndex, u_vertParams.xy, g_vert_center, u_vertParams.z);
   vec4 enc1 = floor(TEXTURE(u_vertLUT, tc) * 255.0 + 0.5);
   tc.x += g_vert_stepX;
@@ -88,8 +90,8 @@ const computePosition = `
   perpDist *= sign(0.5 - float(g_quadIndex == 0.0 || g_quadIndex == 3.0)); // negate for index 0 and 3
   alongDist += distance(rawPos, other) * float(g_quadIndex >= 2.0); // index 2 and 3 correspond to 'far' endpoint of segment
 
-  pos.x += perp.x * perpDist * 2.0 * pos.w / u_viewport.z;
-  pos.y += perp.y * perpDist * 2.0 * pos.w / u_viewport.w;
+  pos.x += perp.x * perpDist * 2.0 * pos.w / u_viewport.x;
+  pos.y += perp.y * perpDist * 2.0 * pos.w / u_viewport.y;
 
   lineCodeEyePos = .5 * (rawPos + other);
   lineCodeDist = alongDist;
@@ -99,7 +101,10 @@ const computePosition = `
 const lineCodeArgs = "g_windowDir, g_windowPos, 0.0";
 
 function createBase(isSilhouette: boolean, instanced: IsInstanced, isAnimated: IsAnimated): ProgramBuilder {
-  const builder = new ProgramBuilder(instanced ? ShaderBuilderFlags.InstancedVertexTable : ShaderBuilderFlags.VertexTable);
+  const isInstanced = IsInstanced.Yes === instanced;
+  const attrMap = AttributeMap.findAttributeMap(isSilhouette ? TechniqueId.SilhouetteEdge : TechniqueId.Edge, isInstanced);
+
+  const builder = new ProgramBuilder(attrMap, isInstanced ? ShaderBuilderFlags.InstancedVertexTable : ShaderBuilderFlags.VertexTable);
   const vert = builder.vert;
 
   vert.addGlobal("g_otherPos", VariableType.Vec4);
@@ -127,29 +132,12 @@ function createBase(isSilhouette: boolean, instanced: IsInstanced, isAnimated: I
   addViewport(vert);
   addModelViewMatrix(vert);
 
-  vert.addAttribute("a_endPointAndQuadIndices", VariableType.Vec4, (shaderProg) => {
-    shaderProg.addAttribute("a_endPointAndQuadIndices", (attr, params) => {
-      const geom = params.geometry;
-      assert(undefined !== geom.asEdge);
-      const edgeGeom = geom.asEdge!;
-      attr.enableArray(edgeGeom.endPointAndQuadIndices, 4, GL.DataType.UnsignedByte, false, 0, 0);
-    });
-  });
-
   addLineWeight(vert);
 
   if (isSilhouette) {
     addNormalMatrix(vert);
     vert.set(VertexShaderComponent.CheckForEarlyDiscard, checkForSilhouetteDiscard);
     vert.addFunction(octDecodeNormal);
-    vert.addAttribute("a_normals", VariableType.Vec4, (shaderProg) => {
-      shaderProg.addAttribute("a_normals", (attr, params) => {
-        const geom = params.geometry;
-        assert(undefined !== geom.asSilhouette);
-        const silhouetteGeom = geom.asSilhouette!;
-        attr.enableArray(silhouetteGeom.normalPairs, 4, GL.DataType.UnsignedByte, false, 0, 0);
-      });
-    });
   }
 
   return builder;

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 
@@ -22,7 +22,7 @@ import {
   CoreTools,
 } from "@bentley/ui-framework";
 
-import { AppStatusBarWidgetControl } from "../statusbars/AppStatusBar";
+import { SmallStatusBarWidgetControl } from "../statusbars/SmallStatusBar";
 import { VerticalPropertyGridWidgetControl, HorizontalPropertyGridWidgetControl } from "../widgets/PropertyGridDemoWidget";
 
 import { Toolbar, Direction } from "@bentley/ui-ninezone";
@@ -69,7 +69,7 @@ export class NestedFrontstage1 extends FrontstageProvider {
         bottomCenter={
           <Zone defaultState={ZoneState.Open}
             widgets={[
-              <Widget isStatusBar={true} iconSpec="icon-placeholder" labelKey="SampleApp:widgets.StatusBar" control={AppStatusBarWidgetControl} />,
+              <Widget isStatusBar={true} iconSpec="icon-placeholder" labelKey="SampleApp:widgets.StatusBar" control={SmallStatusBarWidgetControl} />,
             ]}
           />
         }
@@ -94,14 +94,14 @@ class FrontstageToolWidget extends React.Component {
       expandsTo={Direction.Bottom}
       items={
         <>
-          <ActionItemButton actionItem={AppTools.appSelectElementCommand} />
+          <ActionItemButton actionItem={CoreTools.selectElementCommand} />
           <ActionItemButton actionItem={AppTools.item1} />
           <ActionItemButton actionItem={AppTools.item2} />
           <GroupButton
             labelKey="SampleApp:buttons.toolGroup"
             iconSpec="icon-placeholder"
             items={[AppTools.tool1, AppTools.tool2, AppTools.item1, AppTools.item2, AppTools.item3, AppTools.item4, AppTools.item5,
-            AppTools.item6, AppTools.item7, AppTools.item8]}
+              AppTools.item6, AppTools.item7, AppTools.item8]}
             direction={Direction.Bottom}
             itemsInColumn={7}
           />
@@ -121,7 +121,7 @@ class FrontstageToolWidget extends React.Component {
             labelKey="SampleApp:buttons.anotherGroup"
             iconSpec="icon-placeholder"
             items={[AppTools.tool1, AppTools.tool2, AppTools.item3, AppTools.item4, AppTools.item5,
-            AppTools.item6, AppTools.item7, AppTools.item8]}
+              AppTools.item6, AppTools.item7, AppTools.item8]}
           />
         </>
       }

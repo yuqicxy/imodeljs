@@ -1,14 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Utilities */
+/** @packageDocumentation
+ * @module Utilities
+ */
 
 import * as React from "react";
 
+import { StringGetter } from "@bentley/ui-abstract";
+import { Icon } from "@bentley/ui-core";
 import { UiFramework } from "../UiFramework";
-import { StringGetter } from "../shared/ItemProps";
-import { Icon } from "../shared/IconComponent";
 
 /** A set of helper methods for various props
  * @public

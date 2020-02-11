@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { LogLevel } from "@bentley/bentleyjs-core";
 import { DevToolsRpcInterface, IModelToken, DevToolsStatsOptions } from "@bentley/imodeljs-common";
@@ -33,7 +33,8 @@ export class DevTools {
   }
 
   /** Constructor */
-  private constructor(private readonly _iModelToken: IModelToken) {
+  private constructor(
+    private readonly _iModelToken: IModelToken) {
   }
 
   /** Measures the round trip times for one or more pings to the backend

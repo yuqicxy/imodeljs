@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { I18N } from "@bentley/imodeljs-i18n";
 import { UiCore } from "../ui-core/UiCore";
@@ -39,6 +39,27 @@ export class TestUtils {
     const event = new Event(type, { bubbles: true });
     Object.assign(event, props);
     return event;
+  }
+
+  /** Waits until all async operations finish */
+  public static async flushAsyncOperations() {
+    return new Promise((resolve) => setTimeout(resolve));
+  }
+
+  /** Sleeps a specified number of milliseconds */
+  public static sleep(milliseconds: number) {
+    const start = new Date().getTime();
+    for (let i = 0; i < 1e7; i++) {
+      if ((new Date().getTime() - start) > milliseconds) {
+        break;
+      }
+    }
+  }
+
+  /** Sleeps a specified number of milliseconds then flushes async operations */
+  public static async tick(milliseconds: number) {
+    TestUtils.sleep(milliseconds);
+    await TestUtils.flushAsyncOperations();
   }
 
 }

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Codes */
+/** @packageDocumentation
+ * @module Codes
+ */
 
 import { DbResult, Id64, Id64String, Logger } from "@bentley/bentleyjs-core";
 import { CodeScopeSpec, CodeSpec, IModelError, IModelStatus } from "@bentley/imodeljs-common";
@@ -112,7 +114,7 @@ export class CodeSpecs {
     if (typeof codeSpecOrName === "string") {
       const name = codeSpecOrName as string;
       if (scopeType)
-        return this._imodel.insertCodeSpec(new CodeSpec(this._imodel, Id64.invalid, name, scopeType));
+        return this._imodel.insertCodeSpec(CodeSpec.create(this._imodel, name, scopeType));
     }
     throw new IModelError(IModelStatus.BadArg, "Invalid argument", Logger.logError, loggerCategory);
   }
@@ -130,10 +132,7 @@ export class CodeSpecs {
         throw new IModelError(IModelStatus.InvalidId, "Invalid codeSpecId", Logger.logWarning, loggerCategory);
 
       const row: any = stmt.getRow();
-      const jsonProperties = JSON.parse(row.jsonProperties);
-      const scopeType = jsonProperties.scopeSpec && jsonProperties.scopeSpec.type ? jsonProperties.scopeSpec.type : CodeScopeSpec.Type.Repository;
-      const scopeReq = jsonProperties.scopeSpec && jsonProperties.scopeSpec.fGuidRequired ? CodeScopeSpec.ScopeRequirement.FederationGuid : CodeScopeSpec.ScopeRequirement.ElementId;
-      return new CodeSpec(this._imodel, id, row.name, scopeType, scopeReq, jsonProperties);
+      return CodeSpec.createFromJson(this._imodel, id, row.name, JSON.parse(row.jsonProperties));
     });
   }
 }

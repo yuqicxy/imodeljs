@@ -1,58 +1,60 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Zone */
+/** @packageDocumentation
+ * @module Zone
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
+import { useTargeted } from "../../base/useTargeted";
 import { MergeTargetProps } from "./Merge";
+
+/** Properties of [[WidgetTarget]] component.
+ * @internal
+ */
+export interface WidgetTargetProps extends MergeTargetProps {
+  children?: React.ReactNode;
+}
 
 /** Basic component used by widget targets. I.e. [[ZoneTarget]], [[StagePanelTarget]]
  * @internal
  */
-export class WidgetTarget extends React.PureComponent<MergeTargetProps> {
-  private _isTargeted = false;
-  private _target = React.createRef<HTMLDivElement>();
-
-  public componentWillUnmount() {
-    this._isTargeted && this.props.onTargetChanged && this.props.onTargetChanged(false);
-  }
-
-  public render() {
-    const className = classnames(
-      "nz-zones-target-target",
-      this.props.className);
-
-    return (
-      <div
-        className={className}
-        onMouseEnter={this._handleMouseEnter}
-        onMouseMove={this._handleMouseMove}
-        onMouseLeave={this._handleMouseLeave}
-        ref={this._target}
-        style={this.props.style}
-      >
-        {this.props.children}
-      </div>
-    );
-  }
-
-  private _handleMouseEnter = () => {
-    this._isTargeted = true;
-    this.props.onTargetChanged && this.props.onTargetChanged(true);
-  }
-
-  private _handleMouseMove = (e: React.MouseEvent) => {
-    if (this._isTargeted || e.target !== this._target.current)
-      return;
-
-    this._isTargeted = true;
-    this.props.onTargetChanged && this.props.onTargetChanged(true);
-  }
-
-  private _handleMouseLeave = () => {
-    this._isTargeted = false;
-    this.props.onTargetChanged && this.props.onTargetChanged(false);
-  }
+export function WidgetTarget(props: WidgetTargetProps) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const targeted = useTargeted(ref);
+  const isInitialMount = React.useRef(true);
+  const isTargeted = React.useRef(targeted);
+  const onTargetChangedRef = React.useRef(props.onTargetChanged);
+  const { onTargetChanged } = props;
+  React.useEffect(() => {
+    onTargetChangedRef.current = onTargetChanged;
+  }, [onTargetChanged]);
+  React.useEffect(() => {
+    if (isInitialMount.current)
+      isInitialMount.current = false;
+    else {
+      isTargeted.current = targeted;
+      onTargetChangedRef.current && onTargetChangedRef.current(targeted);
+    }
+  }, [targeted]);
+  React.useEffect(() => {
+    return () => {
+      isTargeted.current && onTargetChangedRef.current && onTargetChangedRef.current(false);
+    };
+  }, []);
+  const className = classnames(
+    "nz-zones-target-target",
+    targeted && "nz-targeted",
+    props.className);
+  return (
+    <div
+      className={className}
+      ref={ref}
+      style={props.style}
+    >
+      {props.children}
+    </div>
+  );
 }

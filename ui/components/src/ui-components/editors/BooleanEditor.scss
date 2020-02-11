@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/index";
 
@@ -10,6 +10,10 @@ $checkbox-size: $uicore-font-size * 1.2;
   height:      $checkbox-size;
   width:       $checkbox-size;
   margin-left: 0px;
+
+  &.components-cell-editor {
+    border:      none;
+  }
 }
 
 .components-property-list--horizontal {

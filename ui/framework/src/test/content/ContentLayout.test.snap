@@ -2,7 +2,6 @@
 
 exports[`ContentLayout FourQuadrantsVertical renders correctly 1`] = `
 <div
-  className="uifw-contentlayout-open-mode"
   id="uifw-contentlayout-div"
   key="fourQuadrantsVertical"
   onMouseDown={[Function]}
@@ -29,6 +28,8 @@ exports[`ContentLayout FourQuadrantsVertical renders correctly 1`] = `
             }
           />
         }
+        minSizeBottomRight={50}
+        minSizeTopLeft={50}
         onSplitterChange={[Function]}
         orientation={0}
         percentage={0.5}
@@ -56,6 +57,8 @@ exports[`ContentLayout FourQuadrantsVertical renders correctly 1`] = `
             }
           />
         }
+        minSizeBottomRight={50}
+        minSizeTopLeft={50}
         onSplitterChange={[Function]}
         orientation={0}
         percentage={0.5}
@@ -63,6 +66,8 @@ exports[`ContentLayout FourQuadrantsVertical renders correctly 1`] = `
         splitterStateId=""
       />
     }
+    minSizeBottomRight={100}
+    minSizeTopLeft={100}
     onSplitterChange={[Function]}
     orientation={1}
     percentage={0.5}
@@ -74,7 +79,6 @@ exports[`ContentLayout FourQuadrantsVertical renders correctly 1`] = `
 
 exports[`ContentLayout FourQuadrantsVertical renders correctly 2`] = `
 <div
-  className="uifw-contentlayout-open-mode"
   id="uifw-contentlayout-div"
   key="ContentLayout-1"
   onMouseDown={[Function]}
@@ -101,6 +105,8 @@ exports[`ContentLayout FourQuadrantsVertical renders correctly 2`] = `
             }
           />
         }
+        minSizeBottomRight={100}
+        minSizeTopLeft={100}
         onSplitterChange={[Function]}
         orientation={1}
         percentage={0.5}
@@ -128,6 +134,8 @@ exports[`ContentLayout FourQuadrantsVertical renders correctly 2`] = `
             }
           />
         }
+        minSizeBottomRight={100}
+        minSizeTopLeft={100}
         onSplitterChange={[Function]}
         orientation={1}
         percentage={0.5}
@@ -135,6 +143,8 @@ exports[`ContentLayout FourQuadrantsVertical renders correctly 2`] = `
         splitterStateId=""
       />
     }
+    minSizeBottomRight={100}
+    minSizeTopLeft={100}
     onSplitterChange={[Function]}
     orientation={0}
     percentage={0.5}
@@ -146,7 +156,6 @@ exports[`ContentLayout FourQuadrantsVertical renders correctly 2`] = `
 
 exports[`ContentLayout SingleContent renders correctly 1`] = `
 <div
-  className="uifw-contentlayout-footer-mode"
   id="uifw-contentlayout-div"
   key="SingleContent"
   onMouseDown={[Function]}
@@ -164,7 +173,6 @@ exports[`ContentLayout SingleContent renders correctly 1`] = `
 
 exports[`ContentLayout TwoHalvesHorizontal renders correctly 1`] = `
 <div
-  className="uifw-contentlayout-open-mode"
   id="uifw-contentlayout-div"
   key="TwoHalvesHorizontal"
   onMouseDown={[Function]}
@@ -189,6 +197,8 @@ exports[`ContentLayout TwoHalvesHorizontal renders correctly 1`] = `
         }
       />
     }
+    minSizeBottomRight={6}
+    minSizeTopLeft={6}
     onSplitterChange={[Function]}
     orientation={0}
     percentage={0.5}
@@ -200,7 +210,6 @@ exports[`ContentLayout TwoHalvesHorizontal renders correctly 1`] = `
 
 exports[`ContentLayout TwoHalvesVertical renders correctly 1`] = `
 <div
-  className="uifw-contentlayout-footer-mode"
   id="uifw-contentlayout-div"
   key="TwoHalvesVertical"
   onMouseDown={[Function]}
@@ -225,6 +234,8 @@ exports[`ContentLayout TwoHalvesVertical renders correctly 1`] = `
         }
       />
     }
+    minSizeBottomRight={6}
+    minSizeTopLeft={6}
     onSplitterChange={[Function]}
     orientation={1}
     percentage={0.5}

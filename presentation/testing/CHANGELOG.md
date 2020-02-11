@@ -1,6 +1,65 @@
 # Change Log - @bentley/presentation-testing
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+*Version update only*
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Update sinon version.
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+*Version update only*
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Added a log in for authorization client in initialize
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+*Version update only*
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Add module descriptions
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+*Version update only*
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+*Version update only*
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+*Version update only*
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

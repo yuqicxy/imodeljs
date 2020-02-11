@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Logger, Id64, GuidString } from "@bentley/bentleyjs-core";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@bentley/imodeljs-clients";
 import * as utils from "./TestUtils";
 
-describe.skip("iModelHub Performance tests", function (this: Mocha.ISuiteCallbackContext) {
+describe.skip("iModelHub Performance tests", () => {
   let imodelId: GuidString;
   const imodelName = "imodeljs-clients Performance test";
   let briefcase1: Briefcase;

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Logging */
+/** @packageDocumentation
+ * @module Logging
+ */
 
 /** Logger categories used by this package
  * @note All logger categories in this package start with the `imodeljs-clients` prefix.
@@ -16,5 +18,11 @@ export enum ClientsBackendLoggerCategory {
   IModelHub = "imodeljs-clients.imodelhub",
 
   /** The logger category used by OidcDeviceClient */
-  OidcDeviceClient = "imodeljs-clients-device.OidcDeviceClient",
+  OidcDeviceClient = "imodeljs-clients-backend.OidcDeviceClient",
+
+  /** The logger category used by OidcAgentClient */
+  OidcAgentClient = "imodeljs-clients-backend.OidcAgentClient",
+
+  /** The logger category used by OidcDesktopClient */
+  OidcDesktopClient = "imodeljs-clients.OidcDesktopClient",
 }

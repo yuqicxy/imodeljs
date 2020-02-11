@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Popup */
+/** @packageDocumentation
+ * @module Popup
+ */
 
 import * as React from "react";
 import { Logger } from "@bentley/bentleyjs-core";
@@ -18,7 +20,7 @@ interface Props extends React.AllHTMLAttributes<any> {
   active?: boolean;
   /** restore focus to element that had focus before trap was activated */
   returnFocusOnDeactivate: boolean;
-  /** Optional referent to element to receive focus when trap is activated. Optionally a CSS Selector
+  /** Optional reference to element to receive focus when trap is activated. Optionally a CSS Selector
    * string can be supplied to locate an element in the FocusTrap container. If no specification is defined
    * the first focusable element is used.
    */
@@ -80,7 +82,7 @@ export class FocusTrap extends React.Component<Props, State> {
   // We must wait until we have the HTMLElementRefs populate before we can attempt to set focus
   public componentDidUpdate(prevProps: Props, prevState: State): void {
     let newActiveState = !!this.props.active;
-    let initialFocusElement: HTMLElement | null = this.state.initialFocusElement ? this.state.initialFocusElement : null;
+    let initialFocusElement: HTMLElement | null;
 
     // istanbul ignore else
     if ((newActiveState !== prevState.active) || (this.props.initialFocusElement !== prevProps.initialFocusElement) || !this._initialFocusElementProcessed) {
@@ -135,8 +137,6 @@ export class FocusTrap extends React.Component<Props, State> {
       default:
         return false;
     }
-
-    return true;
   }
 
   private attemptFocus(element: HTMLElement): boolean {

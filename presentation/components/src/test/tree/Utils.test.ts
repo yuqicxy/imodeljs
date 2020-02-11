@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 /* tslint:disable:no-direct-imports */
 
@@ -36,6 +36,13 @@ describe("Utils", () => {
     it("creates tree node with custom label styles", () => {
       const node = createRandomECInstanceNode();
       node.fontStyle = "Bold Italic";
+      const treeNode = createTreeNodeItem(node);
+      expect(treeNode).to.matchSnapshot();
+    });
+
+    it("creates tree node without labelDefinition", () => {
+      const node = createRandomECInstanceNode();
+      node.labelDefinition = undefined;
       const treeNode = createTreeNodeItem(node);
       expect(treeNode).to.matchSnapshot();
     });

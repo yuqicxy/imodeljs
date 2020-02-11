@@ -1,23 +1,28 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Zone */
+/** @packageDocumentation
+ * @module Zone
+ */
 
 import * as React from "react";
-
-import { ZoneState, ZoneDef } from "./ZoneDef";
-import { WidgetDef } from "../widgets/WidgetDef";
+import { CommonProps, RectangleProps } from "@bentley/ui-core";
+import {
+  ZoneTargetType, ZoneManagerProps, WidgetZoneId, DraggedWidgetManagerProps, WidgetManagerProps, ToolSettingsWidgetManagerProps,
+  ToolSettingsWidgetMode, DisabledResizeHandles,
+} from "@bentley/ui-ninezone";
 import { ConfigurableUiControlType } from "../configurableui/ConfigurableUiControl";
-import { FrameworkZone } from "./FrameworkZone";
-import { StatusBarWidgetControl } from "../widgets/StatusBarWidgetControl";
-import { WidgetProps } from "../widgets/Widget";
 import { WidgetChangeHandler, TargetChangeHandler, ZoneDefProvider } from "../frontstage/FrontstageComposer";
-import { ToolSettingsZone } from "./toolsettings/ToolSettingsZone";
+import { StatusBarWidgetControl } from "../statusbar/StatusBarWidgetControl";
+import { WidgetProps } from "../widgets/Widget";
+import { WidgetDef, WidgetStateChangedEventArgs, WidgetState, WidgetType } from "../widgets/WidgetDef";
+import { WidgetTabs } from "../widgets/WidgetStack";
+import { FrameworkZone } from "./FrameworkZone";
 import { StatusBarZone } from "./StatusBarZone";
-
-import { isStatusZone, DropTarget, RectangleProps, ZoneManagerProps, ZonesManagerWidgets, WidgetZoneIndex, DraggingWidgetProps } from "@bentley/ui-ninezone";
-import { CommonProps } from "@bentley/ui-core";
+import { ZoneState, ZoneDef } from "./ZoneDef";
+import { ToolSettingsZone } from "./toolsettings/ToolSettingsZone";
+import { FrontstageManager } from "../frontstage/FrontstageManager";
 
 /** Enum for [[Zone]] Location.
  * @public
@@ -45,6 +50,8 @@ export interface ZoneProps extends CommonProps {
   applicationData?: any;
   /** Indicates with which other zone to merge. */
   mergeWithZone?: ZoneLocation;
+  /** Describes preferred initial width of the zone. */
+  initialWidth?: number;
 
   /** Properties for the Widgets in this Zone. */
   widgets?: Array<React.ReactElement<WidgetProps>>;
@@ -57,17 +64,22 @@ export interface ZoneProps extends CommonProps {
  * @internal
  */
 export interface ZoneRuntimeProps {
-  draggingWidget: DraggingWidgetProps | undefined;
-  getWidgetContentRef: (id: WidgetZoneIndex) => React.Ref<HTMLDivElement>;
-  zoneDef: ZoneDef;
-  zoneProps: ZoneManagerProps;
-  widgetChangeHandler: WidgetChangeHandler;
-  targetChangeHandler: TargetChangeHandler;
-  zoneDefProvider: ZoneDefProvider;
+  activeTabIndex: number;
+  disabledResizeHandles: DisabledResizeHandles | undefined;
+  draggedWidget: DraggedWidgetManagerProps | undefined;
+  dropTarget: ZoneTargetType | undefined;
+  getWidgetContentRef: (id: WidgetZoneId) => React.Ref<HTMLDivElement>;
   ghostOutline: RectangleProps | undefined;
-  dropTarget: DropTarget;
   isHidden: boolean;
-  widgets: ZonesManagerWidgets;
+  isInFooterMode: boolean;
+  openWidgetId: WidgetZoneId | undefined;
+  targetChangeHandler: TargetChangeHandler;
+  widget: WidgetManagerProps | undefined;
+  widgetTabs: WidgetTabs;
+  widgetChangeHandler: WidgetChangeHandler;
+  zoneDefProvider: ZoneDefProvider;
+  zoneDef: ZoneDef;
+  zone: ZoneManagerProps;
 }
 
 /** Zone React component.
@@ -75,7 +87,6 @@ export interface ZoneRuntimeProps {
  * @public
  */
 export class Zone extends React.Component<ZoneProps> {
-
   constructor(props: ZoneProps) {
     super(props);
   }
@@ -89,6 +100,7 @@ export class Zone extends React.Component<ZoneProps> {
       zoneDef.applicationData = props.applicationData;
     if (props.mergeWithZone !== undefined)
       zoneDef.mergeWithZone = props.mergeWithZone;
+    zoneDef.setInitialWidth(props.initialWidth);
 
     // istanbul ignore else
     if (props.widgets) {
@@ -112,6 +124,14 @@ export class Zone extends React.Component<ZoneProps> {
     return widgetDef;
   }
 
+  public componentDidMount(): void {
+    FrontstageManager.onWidgetStateChangedEvent.addListener(this._handleWidgetStateChangedEvent);
+  }
+
+  public componentWillUnmount(): void {
+    FrontstageManager.onWidgetStateChangedEvent.removeListener(this._handleWidgetStateChangedEvent);
+  }
+
   public render(): React.ReactNode {
     const { runtimeProps } = this.props;
 
@@ -120,18 +140,29 @@ export class Zone extends React.Component<ZoneProps> {
 
     const { zoneDef } = runtimeProps;
 
+    let widgetElement: React.ReactNode;
     // istanbul ignore else
-    if (runtimeProps.zoneProps.widgets.length === 1) {
-      if (zoneDef.isToolSettings) {
+    if (runtimeProps.zone.widgets.length === 1) {
+      if (zoneDef.isToolSettings && isToolSettingsWidgetManagerProps(runtimeProps.widget) && runtimeProps.widget.mode === ToolSettingsWidgetMode.TitleBar) {
+        const widgetDef = zoneDef.getSingleWidgetDef();
+        const isClosed = widgetDef ? (widgetDef.state === WidgetState.Closed || widgetDef.state === WidgetState.Hidden) : false;
         return (
           <ToolSettingsZone
             className={this.props.className}
+            dropTarget={runtimeProps.dropTarget}
+            getWidgetContentRef={runtimeProps.getWidgetContentRef}
+            isClosed={isClosed}
+            isHidden={runtimeProps.isHidden}
+            lastPosition={runtimeProps.draggedWidget && runtimeProps.draggedWidget.lastPosition}
             style={this.props.style}
-            bounds={runtimeProps.zoneProps.bounds}
-            isHidden={runtimeProps.isHidden} />
+            targetChangeHandler={runtimeProps.targetChangeHandler}
+            targetedBounds={runtimeProps.ghostOutline}
+            widgetChangeHandler={runtimeProps.widgetChangeHandler}
+            zone={runtimeProps.zone}
+          />
         );
       } else if (zoneDef.isStatusBar) {
-        if (!isStatusZone(runtimeProps.zoneProps))
+        if (runtimeProps.zone.id !== 8)
           throw new TypeError();
 
         let widgetControl: StatusBarWidgetControl | undefined;
@@ -144,35 +175,99 @@ export class Zone extends React.Component<ZoneProps> {
         return (
           <StatusBarZone
             className={this.props.className}
-            style={this.props.style}
-            widgetControl={widgetControl}
-            zoneProps={runtimeProps.zoneProps}
-            widgetChangeHandler={runtimeProps.widgetChangeHandler}
-            targetChangeHandler={runtimeProps.targetChangeHandler}
-            targetedBounds={runtimeProps.ghostOutline}
             dropTarget={runtimeProps.dropTarget}
             isHidden={runtimeProps.isHidden}
+            isInFooterMode={runtimeProps.isInFooterMode}
+            style={this.props.style}
+            targetChangeHandler={runtimeProps.targetChangeHandler}
+            targetedBounds={runtimeProps.ghostOutline}
+            widgetChangeHandler={runtimeProps.widgetChangeHandler}
+            widgetControl={widgetControl}
+            zoneProps={runtimeProps.zone}
           />
         );
+      }
+
+      const zDef = runtimeProps.zoneDefProvider.getZoneDef(runtimeProps.zone.widgets[0]);
+      // istanbul ignore if
+      if (!zDef) {
+        widgetElement = null;
+      } else if (zDef.widgetCount === 1 && zDef.widgetDefs[0].widgetType !== WidgetType.Rectangular) {
+        /** Return free-form nzWidgetProps */
+        const widgetDef = zDef.widgetDefs[0];
+        widgetElement = (widgetDef.isVisible) ? widgetDef.reactElement : null;
       }
     }
 
     return (
       <FrameworkZone
+        activeTabIndex={runtimeProps.activeTabIndex}
         className={this.props.className}
-        draggingWidget={runtimeProps.draggingWidget}
-        getWidgetContentRef={runtimeProps.getWidgetContentRef}
-        style={this.props.style}
-        zoneProps={runtimeProps.zoneProps}
-        widgetChangeHandler={runtimeProps.widgetChangeHandler}
-        targetedBounds={runtimeProps.ghostOutline}
-        targetChangeHandler={runtimeProps.targetChangeHandler}
-        zoneDefProvider={runtimeProps.zoneDefProvider}
+        disabledResizeHandles={runtimeProps.disabledResizeHandles}
+        draggedWidget={runtimeProps.draggedWidget}
         dropTarget={runtimeProps.dropTarget}
         fillZone={zoneDef.shouldFillZone}
+        getWidgetContentRef={runtimeProps.getWidgetContentRef}
         isHidden={runtimeProps.isHidden}
-        widgets={runtimeProps.widgets}
+        openWidgetId={runtimeProps.openWidgetId}
+        style={this.props.style}
+        targetedBounds={runtimeProps.ghostOutline}
+        targetChangeHandler={runtimeProps.targetChangeHandler}
+        widget={runtimeProps.widget}
+        widgetElement={widgetElement}
+        widgetTabs={runtimeProps.widgetTabs}
+        widgetChangeHandler={runtimeProps.widgetChangeHandler}
+        zone={runtimeProps.zone}
       />
     );
   }
+
+  private _handleWidgetStateChangedEvent = (args: WidgetStateChangedEventArgs) => {
+    const runtimeProps = this.props.runtimeProps;
+    if (!runtimeProps)
+      return;
+
+    const widgetDef = args.widgetDef;
+    const id = this.getWidgetIdForDef(widgetDef);
+    if (!id)
+      return;
+
+    const zoneDef = runtimeProps.zoneDefProvider.getZoneDef(id);
+    // istanbul ignore else
+    if (!zoneDef)
+      return;
+
+    const visibleWidgets = zoneDef.widgetDefs.filter((wd) => wd.isVisible || wd === widgetDef);
+    for (let index = 0; index < visibleWidgets.length; index++) {
+      const wDef = visibleWidgets[index];
+      if (wDef !== widgetDef)
+        continue;
+
+      if (widgetDef.state === WidgetState.Hidden && index < runtimeProps.activeTabIndex) {
+        // Need to decrease active tab index, since removed tab was rendered before active tab and we want to maintain active tab.
+        runtimeProps.widgetChangeHandler.handleTabClick(id, runtimeProps.activeTabIndex - 1);
+        break;
+      }
+      runtimeProps.widgetChangeHandler.handleWidgetStateChange(id, index, widgetDef.state === WidgetState.Open);
+      break;
+    }
+  }
+
+  private getWidgetIdForDef(widgetDef: WidgetDef): WidgetZoneId | undefined {
+    if (!this.props.runtimeProps)
+      return undefined;
+
+    for (const wId of this.props.runtimeProps.zone.widgets) {
+      const zoneDef = this.props.runtimeProps.zoneDefProvider.getZoneDef(wId);
+      if (zoneDef && zoneDef.widgetDefs.some((wDef: WidgetDef) => wDef === widgetDef))
+        return wId;
+    }
+
+    return undefined;
+  }
 }
+
+/** @internal */
+export const isToolSettingsWidgetManagerProps = (props: WidgetManagerProps | undefined): props is ToolSettingsWidgetManagerProps => {
+  return !!props && props.id === 2;
+};

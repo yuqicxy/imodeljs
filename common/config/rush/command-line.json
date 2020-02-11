@@ -6,7 +6,8 @@
       "commandKind": "global",
       "summary": "Runs npm audit for the entire monorepo",
       "description": "Scans the entire monorepo for security vulnerabilities via npm audit",
-      "shellCommand": "node tools/build/scripts/rush/audit.js"
+      "shellCommand": "node tools/build/scripts/rush/audit.js",
+      "allowWarningsInSuccessfulBuild": true
     },
     {
       "name": "clean",
@@ -14,7 +15,8 @@
       "summary": "Cleans build output within each package",
       "description": "Iterates through each package in the monorepo and runs the 'clean' script",
       "enableParallelism": true,
-      "ignoreMissingScript": false
+      "ignoreMissingScript": false,
+      "ignoreDependencyOrder": true
     },
     {
       "name": "cover",
@@ -22,7 +24,9 @@
       "summary": "Run cover script for each package",
       "description": "Iterates through each package in the monorepo and runs the 'cover' script",
       "enableParallelism": true,
-      "ignoreMissingScript": false
+      "ignoreMissingScript": false,
+      "ignoreDependencyOrder": true,
+      "allowWarningsInSuccessfulBuild": true
     },
     {
       "name": "docs",
@@ -30,7 +34,9 @@
       "summary": "Builds the API reference docs for each package",
       "description": "Iterates through each package in the monorepo and runs the 'docs' script",
       "enableParallelism": true,
-      "ignoreMissingScript": false
+      "ignoreMissingScript": false,
+      "ignoreDependencyOrder": true,
+      "allowWarningsInSuccessfulBuild": true
     },
     {
       "name": "extract-api",
@@ -38,7 +44,8 @@
       "summary": "Run api-extractor to generate API signature files",
       "description": "Iterates through each package in the monorepo and runs the 'extract-api' script",
       "enableParallelism": true,
-      "ignoreMissingScript": true
+      "ignoreMissingScript": true,
+      "ignoreDependencyOrder": true
     },
     {
       "name": "lint",
@@ -46,7 +53,9 @@
       "summary": "Run lint rules on each package",
       "description": "Iterates through each package in the monorepo and runs the 'lint' script",
       "enableParallelism": true,
-      "ignoreMissingScript": false
+      "ignoreMissingScript": false,
+      "ignoreDependencyOrder": true,
+      "allowWarningsInSuccessfulBuild": true
     },
     {
       "name": "test",
@@ -54,15 +63,19 @@
       "summary": "Run test script for each package",
       "description": "Iterates through each package in the monorepo and runs the 'test' script",
       "enableParallelism": true,
-      "ignoreMissingScript": false
+      "ignoreMissingScript": false,
+      "ignoreDependencyOrder": true,
+      "allowWarningsInSuccessfulBuild": true
     },
     {
-      "name": "test-integration",
+      "name": "test:integration",
       "commandKind": "bulk",
       "summary": "Run test:integration script for each package",
       "description": "Iterates through each package in the monorepo and runs the 'test:integration' script",
       "enableParallelism": true,
-      "ignoreMissingScript": true
+      "ignoreMissingScript": true,
+      "ignoreDependencyOrder": true,
+      "allowWarningsInSuccessfulBuild": true
     }
   ],
   "parameters": [

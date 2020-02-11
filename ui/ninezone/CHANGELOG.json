@@ -2,6 +2,279 @@
   "name": "@bentley/ui-ninezone",
   "entries": [
     {
+      "version": "1.11.0",
+      "tag": "@bentley/ui-ninezone_v1.11.0",
+      "date": "Wed, 22 Jan 2020 19:24:12 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Upgrade to TypeScript 3.7.2."
+          },
+          {
+            "comment": "Docked tool settings component."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.10.0",
+      "tag": "@bentley/ui-ninezone_v1.10.0",
+      "date": "Tue, 07 Jan 2020 19:44:01 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Fix widget target infinite set state issue."
+          },
+          {
+            "comment": "Add css option to pad between icon and label in Label StatusBar Indicator."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.9.0",
+      "tag": "@bentley/ui-ninezone_v1.9.0",
+      "date": "Tue, 10 Dec 2019 18:08:56 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Invoke onTargetChanged when component unmounts."
+          },
+          {
+            "comment": "No longer accessing this.state or this.props in setState updater - flagged by lgtm report"
+          },
+          {
+            "comment": "Update sinon version."
+          },
+          {
+            "comment": "Added support for NotifyMessageDetails.displayTime for Toast messages"
+          },
+          {
+            "comment": "Ability to determine available tool settings width."
+          },
+          {
+            "comment": "Fix code analysis report issues."
+          },
+          {
+            "comment": "Use exhaustive-deps linter rule."
+          },
+          {
+            "comment": "Expandable group touch support."
+          },
+          {
+            "comment": "Use typescript as webpack configuration language."
+          },
+          {
+            "comment": "Ability to set zone width from zones manager."
+          },
+          {
+            "comment": "Removed unused React state variables. Removed unsupported setState calls from render() methods."
+          },
+          {
+            "comment": "Added ConditionalField and FooterModeField components. StatusBar responsive changes."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.8.0",
+      "tag": "@bentley/ui-ninezone_v1.8.0",
+      "date": "Fri, 22 Nov 2019 14:03:34 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Update Icon package version."
+          },
+          {
+            "comment": "Tablet responsive UI"
+          },
+          {
+            "comment": "Added StatusBarComposer, StatusBarItem, StatusBarManager and StatusBarItemsManager"
+          },
+          {
+            "comment": "Added tslint-react-hooks to UI packages"
+          },
+          {
+            "comment": "Remove unsupported fit-content CSS value."
+          },
+          {
+            "comment": "Fix flex CSS rule shorthand issue in stage panel splitter."
+          },
+          {
+            "comment": "Touch support for widget drag, widget resize and stage panel splitter."
+          },
+          {
+            "comment": "Add disabled resize handles option to widget."
+          },
+          {
+            "comment": "Deprecate history tray components."
+          },
+          {
+            "comment": "Open tool panel via drag interaction."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.7.0",
+      "tag": "@bentley/ui-ninezone_v1.7.0",
+      "date": "Fri, 01 Nov 2019 13:28:37 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Fixed mouse interaction for Navigation Aids"
+          },
+          {
+            "comment": "Made the Status Bar & Backstage more responsive on smaller screens"
+          },
+          {
+            "comment": "Added initial ui-abstract package setup"
+          },
+          {
+            "comment": "Added UiAdmin with support for displaying Menus and Toolbars at a location"
+          },
+          {
+            "comment": "Merge zone to save window resize settings and update target zone bounds."
+          },
+          {
+            "comment": "Fix footer offset in widget mode."
+          },
+          {
+            "comment": "Enable pointer events over toolbar instead of toolbar container."
+          },
+          {
+            "comment": "Persist zones layout on window resize."
+          },
+          {
+            "comment": "Fix Safari high CPU issue."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.6.0",
+      "tag": "@bentley/ui-ninezone_v1.6.0",
+      "date": "Wed, 09 Oct 2019 20:28:43 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Added AutoSuggest component and improved KeyinBrowser component"
+          },
+          {
+            "comment": "Ability to drag and resize tool settings widget."
+          },
+          {
+            "comment": "Change prop type from RefObject<T> to T."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.5.0",
+      "tag": "@bentley/ui-ninezone_v1.5.0",
+      "date": "Mon, 30 Sep 2019 22:28:48 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "copyright headers"
+          },
+          {
+            "comment": "Tool Assistance changes per UX Design"
+          },
+          {
+            "comment": "Tool Assistance for Ctrl+Z and other chars"
+          },
+          {
+            "comment": "upgrade to TypeScript 3.6.2"
+          },
+          {
+            "comment": "Prevent BackstageItem label overflow."
+          },
+          {
+            "comment": "Make components aware of safe area insets."
+          },
+          {
+            "comment": "Enable backstage scrolling."
+          },
+          {
+            "comment": "Scrollable tool settings content."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.4.0",
+      "tag": "@bentley/ui-ninezone_v1.4.0",
+      "date": "Tue, 10 Sep 2019 12:09:49 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "#165662. Allow an app to specify touch-specific instructions in tool assistance."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.3.0",
+      "tag": "@bentley/ui-ninezone_v1.3.0",
+      "date": "Tue, 13 Aug 2019 20:25:53 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Update to use latest icon library"
+          },
+          {
+            "comment": "Add support for BackstageComposer so Plugins can add backstage items."
+          },
+          {
+            "comment": "Added CursorPrompt, improved Pointer messages"
+          },
+          {
+            "comment": "#159907. Fixed Group Button history is overlapping a Popup Button panel when hovering over the Group button"
+          },
+          {
+            "comment": "Updated generic icon package"
+          },
+          {
+            "comment": "Moved Point, PointProps, Rectangle, RectangleProps, Size and SizeProps to ui-core from ui-ninezone"
+          },
+          {
+            "comment": "Improved ToolAssistance item spacing. ViewSelector shows current view."
+          },
+          {
+            "comment": "Update to latest icon package version."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.2.0",
+      "tag": "@bentley/ui-ninezone_v1.2.0",
+      "date": "Wed, 24 Jul 2019 11:47:26 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Move zonesBounds from manager to props."
+          },
+          {
+            "comment": "Update horizontal toolbar styles"
+          },
+          {
+            "comment": "Update <img> height/width for toolbar items so svg icons would display."
+          },
+          {
+            "comment": "Added ToolAssistance support and Tool.iconSpec"
+          },
+          {
+            "comment": "Demo changes."
+          },
+          {
+            "comment": "Refactor and test ZonesManager."
+          }
+        ]
+      }
+    },
+    {
       "version": "1.1.0",
       "tag": "@bentley/ui-ninezone_v1.1.0",
       "date": "Mon, 01 Jul 2019 19:04:29 GMT",

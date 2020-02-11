@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Logging */
+/** @packageDocumentation
+ * @module Logging
+ */
 
 import * as bunyan from "bunyan";
 import { BentleyError, IModelStatus } from "@bentley/bentleyjs-core";
@@ -28,7 +30,6 @@ export class FluentdBunyanLoggerConfig {
     params.fluentdPort = (fluentdConfig.fluentdPort || 9880);
     params.fluentdTimeout = (fluentdConfig.fluentdTimeout || 1500);
     params.seqServerUrl = (fluentdConfig.seqServerUrl || "http://localhost");
-    params.seqServerPort = (fluentdConfig.seqServerPort || 5341);
     params.seqApiKey = (fluentdConfig.seqApiKey || "InvalidApiKey");
 
     // nb: Define only one bunyan stream! Otherwise, we will get logging messages coming out multiple times, once for each stream. (https://github.com/trentm/node-bunyan/issues/334)

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { render, cleanup, fireEvent, wait } from "@testing-library/react";
 import * as React from "react";
@@ -21,7 +21,6 @@ import {
   ConfigurableUiManager,
   CubeNavigationAidControl,
   AnyWidgetProps,
-  WidgetDefFactory,
   NavigationWidgetDef,
 } from "../../ui-framework";
 import TestUtils from "../TestUtils";
@@ -35,6 +34,10 @@ describe("CubeNavigationAid", () => {
 
     if (!ConfigurableUiManager.isControlRegistered("CubeNavigationAid"))
       ConfigurableUiManager.registerControl("CubeNavigationAid", CubeNavigationAidControl);
+  });
+
+  after(() => {
+    TestUtils.terminateUiFramework();
   });
 
   afterEach(cleanup);
@@ -84,6 +87,8 @@ describe("CubeNavigationAid", () => {
   };
 
   describe("<CubeNavigationAid />", () => {
+    afterEach(cleanup);
+
     it("should render", () => {
       render(<CubeNavigationAid iModelConnection={connection.object} />);
     });
@@ -292,6 +297,8 @@ describe("CubeNavigationAid", () => {
       expect(mat2.isIdentity).is.false;
     });
     describe("onViewRotationChangeEvent", () => {
+      afterEach(cleanup);
+
       beforeEach(() => {
         rotation = Matrix3d.createIdentity();
       });
@@ -317,6 +324,8 @@ describe("CubeNavigationAid", () => {
     });
   });
   describe("<NavCubeFace />", () => {
+    afterEach(cleanup);
+
     it("should render", () => {
       render(<NavCubeFace face={Face.Top} label="test" hoverMap={{}} onFaceCellClick={sinon.fake()} onFaceCellHoverChange={sinon.fake()} />);
     });
@@ -353,6 +362,8 @@ describe("CubeNavigationAid", () => {
       expect(faceCell).to.exist;
     });
     describe("onFaceCellClick", () => {
+      afterEach(cleanup);
+
       it("should be called when cell is clicked", () => {
         const cellClick = sinon.spy();
         const pos = Vector3d.create(1, 1, 1);
@@ -362,8 +373,30 @@ describe("CubeNavigationAid", () => {
         fireEvent.mouseUp(faceCell);
         expect(cellClick).to.be.called;
       });
+
+      it("should be called when cell is touched", () => {
+        const cellClick = sinon.spy();
+        const pos = Vector3d.create(1, 1, 1);
+        const component = render(<FaceCell onFaceCellClick={cellClick} onFaceCellHoverChange={sinon.fake()} hoverMap={{}} vector={pos} face={Face.Top} />);
+        const faceCell = component.getByTestId("nav-cube-face-cell-top-1-1-1");
+        fireEvent.touchStart(faceCell, {
+          targetTouches: [{
+            clientX: 10,
+            clientY: 10,
+          }],
+        });
+        fireEvent.touchEnd(faceCell, {
+          changedTouches: [{
+            clientX: 10,
+            clientY: 10,
+          }],
+        });
+        expect(cellClick).to.be.called;
+      });
     });
     describe("onFaceCellHoverChange", () => {
+      afterEach(cleanup);
+
       it("should be called when cell is hovered", () => {
         const cellHover = sinon.spy();
         const pos = Vector3d.create(1, 1, 1);
@@ -410,8 +443,7 @@ describe("CubeNavigationAid", () => {
     };
 
     it("CubeNavigationAidControl creates CubeNavigationAid", () => {
-
-      const widgetDef = WidgetDefFactory.create(widgetProps);
+      const widgetDef = new NavigationWidgetDef(widgetProps);
       expect(widgetDef).to.be.instanceof(NavigationWidgetDef);
 
       const navigationWidgetDef = widgetDef as NavigationWidgetDef;

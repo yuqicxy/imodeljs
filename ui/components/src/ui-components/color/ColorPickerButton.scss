@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/index";
 
@@ -27,16 +27,16 @@
 .components-colorpicker-popup {
   border: 1px solid $buic-inputs-border;
 
-  >.components-colorpicker-popup-container {
+  .components-colorpicker-popup-container {
     color: $buic-foreground-body;
     background: $buic-background-control;
 
-    >.components-colorpicker-popup-colors {
+    > .components-colorpicker-popup-colors {
       display: grid;
       grid-gap: 8px;
       padding: 8px;
 
-      >.components-colorpicker-swatch {
+      > .components-colorpicker-swatch {
         height: 1.5em;
         width: 1.5em;
         transition: scale 0.2s ease;

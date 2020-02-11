@@ -1,7 +1,40 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+
+/** The regular expression to parse [format strings]($docs/bis/ec/kindofquantity.md#format-string)
+ * provided in serialized formats as well as the full name of an [[OverrideFormat]].
+ *
+ * `formatName(precision)[unitName|unitLabel][unitName|unitLabel][unitName|unitLabel][unitName|unitLabel]`
+ *
+ * Explanation of the regex:
+ * - ([\w.:]+)
+ *   - Grabs the format full name
+ * - (\(([^\)]+)\))?
+ *   - Grabs the precision part with and without the `()`.
+ *   - The parentheses are needed to validate the entire string.  (TODO: Need to check if this is true)
+ * - (\[([^\|\]]+)([\|])?([^\]]+)?\])?
+ *   - 4 of these make up the rest of the regex, none of them are required so each end in `?`
+ *   - Grabs the unit name and label including the `[]`
+ *   - Grabs the unit name, `|` and label separately
+ * @internal
+ */
+export const formatStringRgx = /([\w.:]+)(\(([^\)]+)\))?(\[([^\|\]]+)([\|])?([^\]]+)?\])?(\[([^\|\]]+)([\|])?([^\]]+)?\])?(\[([^\|\]]+)([\|])?([^\]]+)?\])?(\[([^\|\]]+)([\|])?([^\]]+)?\])?/;
+
+/** @internal Needs to be moved to quantity */
+export function* getItemNamesFromFormatString(formatString: string): Iterable<string> {
+  const match = formatString.split(formatStringRgx);
+  yield match[1]; // the Format Name
+  let index = 4;
+  while (index < match.length - 1) { // index 0 and 21 are empty strings
+    if (match[index] !== undefined)
+      yield match[index + 1]; // Unit Name
+    else
+      break;
+    index += 4;
+  }
+}
 
 /** @beta Needs to be moved to quantity  */
 export enum FormatTraits {

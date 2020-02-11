@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Utilities */
+/** @packageDocumentation
+ * @module Utilities
+ */
 
-import { Rectangle, RectangleProps } from "./Rectangle";
-import { Point, PointProps } from "./Point";
+import { Point, PointProps, Rectangle, RectangleProps } from "@bentley/ui-core";
 
 /** CSS helpers.
  * @internal

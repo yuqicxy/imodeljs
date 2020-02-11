@@ -1,12 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { FragmentShaderBuilder, VariableType, FragmentShaderComponent, SourceBuilder } from "../ShaderBuilder";
-import { GLSLDecode } from "./Decode";
+import { encodeDepthRgb } from "./Decode";
 import { System } from "../System";
+import { addRenderPass } from "./RenderPass";
 
 /** @internal */
 export function addWindowToTexCoords(frag: FragmentShaderBuilder) {
@@ -14,9 +17,7 @@ export function addWindowToTexCoords(frag: FragmentShaderBuilder) {
   frag.addFunction(windowCoordsToTexCoords);
   frag.addUniform("u_invScreenSize", VariableType.Vec2, (prog) => {
     prog.addProgramUniform("u_invScreenSize", (uniform, params) => {
-      const rect = params.target.viewRect;
-      const invScreenSize = [1.0 / rect.width, 1.0 / rect.height];
-      uniform.setUniform2fv(invScreenSize);
+      params.target.uniforms.viewRect.bindInverseDimensions(uniform);
     });
   });
 }
@@ -25,8 +26,8 @@ export function addWindowToTexCoords(frag: FragmentShaderBuilder) {
 export function addWhiteOnWhiteReversal(frag: FragmentShaderBuilder) {
   frag.addUniform("u_reverseWhiteOnWhite", VariableType.Float, (prog) => {
     prog.addGraphicUniform("u_reverseWhiteOnWhite", (uniform, params) => {
-      const bgColor = params.target.bgColor;
-      const doReversal = (bgColor.isWhite && params.geometry.wantWoWReversal(params.programParams)) ? 1.0 : 0.0;
+      const isWhite = params.target.uniforms.style.isWhiteBackground;
+      const doReversal = (isWhite && params.geometry.wantWoWReversal(params.programParams)) ? 1.0 : 0.0;
       uniform.setUniform1f(doReversal);
     });
   });
@@ -50,24 +51,30 @@ export function addRenderTargetIndex(frag: FragmentShaderBuilder) {
 const reverseWhiteOnWhite = `
   const vec3 white = vec3(1.0);
   const vec3 epsilon = vec3(0.0001);
-  vec3 color = baseColor.rgb / max(0.0001, baseColor.a); // revert premultiplied alpha
+  vec3 color = baseColor.rgb;
   vec3 delta = (color + epsilon) - white;
   vec4 wowColor = vec4(baseColor.rgb * vec3(float(delta.x <= 0.0 || delta.y <= 0.0 || delta.z <= 0.0)), baseColor.a); // set to black if almost white
-  wowColor.rgb *= wowColor.a; // reapply premultiplied alpha
   return mix(baseColor, wowColor, floor(u_reverseWhiteOnWhite + 0.5));
 `;
 
-const computePickBufferOutputs = `
+const multiplyAlpha = `
+  if (u_renderPass >= kRenderPass_OpaqueLinear && u_renderPass <= kRenderPass_OpaqueGeneral)
+    baseColor.a = 1.0;
+  else
+    baseColor = vec4(baseColor.rgb * baseColor.a, baseColor.a);
+`;
+
+const computePickBufferOutputs = multiplyAlpha + `
   vec4 output0 = baseColor;
 
-  // Fix interpolation errors despite all vertices sending exact same v_feature_id...
-  ivec4 v_feature_id_i = ivec4(v_feature_id * 255.0 + 0.5);
-  vec4 output1 = vec4(v_feature_id_i) / 255.0;
+  // Fix interpolation errors despite all vertices sending exact same feature_id...
+  ivec4 feature_id_i = ivec4(feature_id * 255.0 + 0.5);
+  vec4 output1 = vec4(feature_id_i) / 255.0;
   float linearDepth = computeLinearDepth(v_eyeSpace.z);
   vec4 output2 = vec4(u_renderOrder * 0.0625, encodeDepthRgb(linearDepth)); // near=1, far=0
 `;
 
-const computeAltPickBufferOutputs = `
+const computeAltPickBufferOutputs = multiplyAlpha + `
   vec4 output0 = baseColor;
   vec4 output1 = vec4(0.0);
   vec4 output2 = vec4(0.0);
@@ -91,18 +98,25 @@ const reassignFeatureId = "output1 = overrideFeatureId(output1);";
 
 /** @internal */
 export function addPickBufferOutputs(frag: FragmentShaderBuilder): void {
-  frag.addFunction(GLSLDecode.encodeDepthRgb);
-  frag.addFunction(GLSLFragment.computeLinearDepth);
+  frag.addFunction(encodeDepthRgb);
+  frag.addFunction(computeLinearDepth);
 
   const prelude = new SourceBuilder();
+  prelude.add(computePickBufferOutputs);
+
+  const overrideColor = frag.get(FragmentShaderComponent.OverrideColor);
+  if (undefined !== overrideColor) {
+    frag.addFunction("vec4 overrideColor(vec4 currentColor)", overrideColor);
+    prelude.addline("output0 = overrideColor(output0);");
+  }
+
   const overrideFeatureId = frag.get(FragmentShaderComponent.OverrideFeatureId);
   if (undefined !== overrideFeatureId) {
     frag.addFunction("vec4 overrideFeatureId(vec4 currentId)", overrideFeatureId);
-    prelude.add(computePickBufferOutputs);
     prelude.addline(reassignFeatureId);
-  } else
-    prelude.add(computePickBufferOutputs);
+  }
 
+  addRenderPass(frag);
   if (System.instance.capabilities.supportsMRTPickShaders) {
     frag.addDrawBuffersExtension();
     frag.set(FragmentShaderComponent.AssignFragData, prelude.source + assignPickBufferOutputsMRT);
@@ -117,6 +131,13 @@ export function addAltPickBufferOutputs(frag: FragmentShaderBuilder): void {
   const prelude = new SourceBuilder();
   prelude.add(computeAltPickBufferOutputs);
 
+  const overrideColor = frag.get(FragmentShaderComponent.OverrideColor);
+  if (undefined !== overrideColor) {
+    frag.addFunction("vec4 overrideColor(vec4 currentColor)", overrideColor);
+    prelude.addline("output0 = overrideColor(output0);");
+  }
+
+  addRenderPass(frag);
   if (System.instance.capabilities.supportsMRTPickShaders) {
     frag.addDrawBuffersExtension();
     frag.set(FragmentShaderComponent.AssignFragData, prelude.source + assignPickBufferOutputsMRT);
@@ -127,36 +148,31 @@ export function addAltPickBufferOutputs(frag: FragmentShaderBuilder): void {
 }
 
 /** @internal */
-export namespace GLSLFragment {
-  export const assignFragColor = "FragColor = baseColor;";
-
-  export const assignFragColorNoAlpha = "FragColor = vec4(baseColor.rgb, 1.0);";
-
-  export const revertPreMultipliedAlpha = `
-vec4 revertPreMultipliedAlpha(vec4 rgba) {
-  rgba.rgb /= max(0.0001, rgba.a);
-  return rgba;
+export function addFragColorWithPreMultipliedAlpha(frag: FragmentShaderBuilder): void {
+  addRenderPass(frag);
+  const overrideColor = frag.get(FragmentShaderComponent.OverrideColor);
+  if (undefined === overrideColor) {
+    frag.set(FragmentShaderComponent.AssignFragData, assignFragColorWithPreMultipliedAlpha);
+  } else {
+    frag.addFunction("vec4 overrideColor(vec4 currentColor)", overrideColor);
+    frag.set(FragmentShaderComponent.AssignFragData, overrideAndAssignFragColorWithPreMultipliedAlpha);
+  }
 }
+
+/** @internal */
+export const assignFragColor = "FragColor = baseColor;";
+
+const assignFragColorWithPreMultipliedAlpha = multiplyAlpha + `
+  FragColor = baseColor;
 `;
 
-  export const applyPreMultipliedAlpha = `
-vec4 applyPreMultipliedAlpha(vec4 rgba) {
-  rgba.rgb *= rgba.a;
-  return rgba;
-}
+const overrideAndAssignFragColorWithPreMultipliedAlpha = multiplyAlpha + `
+  vec4 fragColor = overrideColor(baseColor);
+  FragColor = fragColor;
 `;
 
-  export const adjustPreMultipliedAlpha = `
-vec4 adjustPreMultipliedAlpha(vec4 rgba, float newAlpha) {
-  float oldAlpha = rgba.a;
-  rgba.rgb /= max(0.0001, oldAlpha);
-  rgba.rgb *= newAlpha;
-  rgba.a = newAlpha;
-  return rgba;
-}
-`;
-
-  export const computeLinearDepth = `
+/** @internal */
+export const computeLinearDepth = `
 float computeLinearDepth(float eyeSpaceZ) {
   float eyeZ = -eyeSpaceZ;
   float near = u_frustum.x, far = u_frustum.y;
@@ -165,4 +181,3 @@ float computeLinearDepth(float eyeSpaceZ) {
   return 1.0 - linearDepth;
 }
 `;
-}

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Properties */
+/** @packageDocumentation
+ * @module Properties
+ */
 
 // import { HorizontalAlignment, VerticalAlignment } from "@bentley/ui-core";
 import { PropertyDescription } from "./Description";
@@ -90,16 +92,18 @@ export class ToolSettingsPropertySyncItem extends ToolSettingsPropertyItem {
  */
 export class ToolSettingsPropertyRecord extends PropertyRecord {
   public editorPosition: EditorPosition;
+  public lockProperty?: PropertyRecord;
 
-  public constructor(value: PropertyValue, property: PropertyDescription, editorPosition: EditorPosition, isReadonly = false) {
+  public constructor(value: PropertyValue, property: PropertyDescription, editorPosition: EditorPosition, isReadonly = false, lockProperty?: PropertyRecord) {
     super(value, property);
     this.editorPosition = editorPosition;
     this.isReadonly = isReadonly;
+    this.lockProperty = lockProperty;
   }
 
   public static clone(record: ToolSettingsPropertyRecord, newValue?: ToolSettingsValue): ToolSettingsPropertyRecord {
     const value = Object.assign({}, newValue ? newValue : record.value);
-    const newRecord = new ToolSettingsPropertyRecord(value, record.property, record.editorPosition, record.isReadonly);
+    const newRecord = new ToolSettingsPropertyRecord(value, record.property, record.editorPosition, record.isReadonly, record.lockProperty);
     newRecord.isDisabled = record.isDisabled;
     return newRecord;
   }

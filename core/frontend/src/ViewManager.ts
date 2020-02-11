@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Views */
-import { BentleyStatus, BeEvent, BeTimePoint, BeUiEvent } from "@bentley/bentleyjs-core";
+/** @packageDocumentation
+ * @module Views
+ */
+import { BentleyStatus, BeEvent, BeTimePoint, BeUiEvent, Id64Arg } from "@bentley/bentleyjs-core";
 import { GeometryStreamProps } from "@bentley/imodeljs-common";
 import { HitDetail } from "./HitDetail";
 import { IModelApp } from "./IModelApp";
@@ -12,7 +14,7 @@ import { EventController } from "./tools/EventController";
 import { BeButtonEvent, EventHandled } from "./tools/Tool";
 import { DecorateContext } from "./ViewContext";
 import { ScreenViewport } from "./Viewport";
-import { TileTreeSet } from "./tile/TileTree";
+import { TileTree, TileTreeSet } from "./tile/TileTree";
 
 /** Interface for drawing "decorations" into, or on top of, the active [[Viewport]]s.
  * Decorators generate [[Decorations]].
@@ -58,6 +60,16 @@ export interface SelectedViewportChangedArgs {
   previous?: ScreenViewport;
 }
 
+/** An object which customizes the locate tooltip.
+ * @internal
+ */
+export interface ToolTipProvider {
+  /** Augment or replace tooltip for the specified HitDetail.
+   * To cooperate with other tooltip providers, replacing the input tooltip instead of appending information is discouraged.
+   */
+  augmentToolTip(hit: HitDetail, tooltip: Promise<HTMLElement | string>): Promise<HTMLElement | string>;
+}
+
 /** The ViewManager holds the list of opened views, plus the *selected view*. It also provides notifications of view open/close and suspend/resume.
  * Applications must call [[addViewport]] when new Viewports that should be associated with user events are created.
  *
@@ -74,6 +86,8 @@ export class ViewManager {
   private _selectedView?: ScreenViewport;
   private _invalidateScenes = false;
   private _skipSceneCreation = false;
+  /** @internal */
+  public readonly toolTipProviders: ToolTipProvider[] = [];
 
   /** @internal */
   public onInitialized() {
@@ -88,6 +102,7 @@ export class ViewManager {
   public onShutDown() {
     this._viewports.length = 0;
     this.decorators.length = 0;
+    this.toolTipProviders.length = 0;
     this._selectedView = undefined;
   }
 
@@ -193,6 +208,12 @@ export class ViewManager {
   /** Get the first opened view. */
   public getFirstOpenView(): ScreenViewport | undefined { return this._viewports.length > 0 ? this._viewports[0] : undefined; }
 
+  /** Check if only a single viewport is being used.  If so, render directly on-screen using its WebGL canvas.  Otherwise, render each view offscreen. */
+  private updateRenderToScreen() {
+    const renderToScreen = 1 === this._viewports.length;
+    this.forEachViewport((vp) => vp.rendersToScreen = renderToScreen);
+  }
+
   /** Add a new Viewport to the list of opened views and create an EventController for it.
    * @param newVp the Viewport to add
    * @returns SUCCESS if vp was successfully added, ERROR if it was already present.
@@ -204,12 +225,12 @@ export class ViewManager {
 
     newVp.setEventController(new EventController(newVp)); // this will direct events to the viewport
     this._viewports.push(newVp);
-
+    this.updateRenderToScreen();
     this.setSelectedView(newVp);
 
     // Start up the render loop if necessary.
     if (1 === this._viewports.length)
-      IModelApp.toolAdmin.startEventLoop();
+      IModelApp.startEventLoop();
 
     this.onViewOpen.emit(newVp);
 
@@ -236,13 +257,16 @@ export class ViewManager {
     this.onViewClose.emit(vp);
 
     // make sure tools don't think the cursor is still in this viewport
-    IModelApp.toolAdmin.onMouseLeave(vp); // tslint:disable-line:no-floating-promises
+    IModelApp.toolAdmin.forgetViewport(vp);
 
     vp.setEventController(undefined);
     this._viewports.splice(index, 1);
 
     if (this.selectedView === vp) // if removed viewport was selectedView, set it to undefined.
       this.setSelectedView(undefined);
+
+    vp.rendersToScreen = false;
+    this.updateRenderToScreen();
 
     if (disposeOfViewport)
       vp.dispose();
@@ -258,12 +282,15 @@ export class ViewManager {
   /** @internal */
   public onSelectionSetChanged(_iModel: IModelConnection) { this.forEachViewport((vp) => vp.markSelectionSetDirty()); }
   /** @internal */
-  public invalidateViewportScenes(): void { this.forEachViewport((vp) => vp.sync.invalidateScene()); }
+  public invalidateViewportScenes(): void { this.forEachViewport((vp) => vp.invalidateScene()); }
   /** @internal */
-  public validateViewportScenes(): void { this.forEachViewport((vp) => vp.sync.setValidScene()); }
+  public validateViewportScenes(): void { this.forEachViewport((vp) => vp.setValidScene()); }
 
   /** @internal */
-  public invalidateScenes(): void { this._invalidateScenes = true; }
+  public invalidateScenes(): void {
+    this._invalidateScenes = true;
+    IModelApp.requestNextAnimation();
+  }
   /** @internal */
   public get sceneInvalidated(): boolean { return this._invalidateScenes; }
   /** @internal */
@@ -273,7 +300,8 @@ export class ViewManager {
    * @internal
    */
   public renderLoop(): void {
-    if (0 === this._viewports.length) return;
+    if (0 === this._viewports.length)
+      return;
     if (this._skipSceneCreation)
       this.validateViewportScenes();
     else if (this._invalidateScenes)
@@ -281,14 +309,10 @@ export class ViewManager {
 
     this._invalidateScenes = false;
 
-    const cursorVp = IModelApp.toolAdmin.cursorView;
-
     this.onBeginRender.raiseEvent();
 
-    if (undefined === cursorVp || cursorVp.renderFrame())
-      for (const vp of this._viewports)
-        if (vp !== cursorVp && !vp.renderFrame())
-          break;
+    for (const vp of this._viewports)
+      vp.renderFrame();
 
     this.onFinishRender.raiseEvent();
   }
@@ -297,26 +321,71 @@ export class ViewManager {
    * @internal
    */
   public purgeTileTrees(olderThan: BeTimePoint): void {
-    const viewportsByIModel = new Map<IModelConnection, ScreenViewport[]>();
+    // A single viewport can display tiles from more than one IModelConnection.
+    // NOTE: A viewport may be displaying no trees - but we need to record its IModel so we can purge those which are NOT being displayed
+    //  NOTE: That won't catch external tile trees previously used by that viewport.
+    const trees = new TileTreeSet();
+    const treesByIModel = new Map<IModelConnection, Set<TileTree>>();
     for (const vp of this._viewports) {
-      let viewports = viewportsByIModel.get(vp.iModel);
-      if (undefined === viewports) {
-        viewports = [];
-        viewportsByIModel.set(vp.iModel, viewports);
+      vp.discloseTileTrees(trees);
+      if (undefined === treesByIModel.get(vp.iModel))
+        treesByIModel.set(vp.iModel, new Set<TileTree>());
+    }
+
+    for (const tree of trees.trees) {
+      let set = treesByIModel.get(tree.iModel);
+      if (undefined === set) {
+        set = new Set<TileTree>();
+        treesByIModel.set(tree.iModel, set);
       }
 
-      viewports.push(vp);
+      set.add(tree);
     }
 
-    for (const entry of viewportsByIModel) {
+    for (const entry of treesByIModel) {
       const iModel = entry[0];
-      const viewports = entry[1];
-      const trees = new TileTreeSet();
-      for (const viewport of viewports)
-        viewport.discloseTileTrees(trees);
-
-      iModel.tiles.purge(olderThan, trees.trees);
+      iModel.tiles.purge(olderThan, entry[1]);
     }
+  }
+
+  /** Get the tooltip for a persistent element.
+   * Calls the backend method [Element.getToolTipMessage]($backend), and replaces all instances of `${localizeTag}` with localized string from IModelApp.i18n.
+   * @beta
+   */
+  public async getElementToolTip(hit: HitDetail): Promise<HTMLElement | string> {
+    const msg: string[] = await hit.iModel.getToolTipMessage(hit.sourceId); // wait for the locate message(s) from the backend
+    // now combine all the lines into one string, replacing any instances of ${tag} with the translated versions.
+    // Add "<br>" at the end of each line to cause them to come out on separate lines in the tooltip.
+    let out = "";
+    msg.forEach((line) => out += IModelApp.i18n.translateKeys(line) + "<br>");
+    const div = document.createElement("div");
+    div.innerHTML = out;
+    return div;
+  }
+
+  /** Add a new [[ToolTipProvider]] to customize the locate tooltip.
+   * @internal
+   * @param provider The new tooltip provider to add.
+   * @throws Error if provider is already active.
+   * @returns a function that may be called to remove this decorator (in lieu of calling [[dropToolTipProvider]].)
+   * @see [[dropToolTipOverrideProvider]]
+   */
+  public addToolTipProvider(provider: ToolTipProvider): () => void {
+    if (this.toolTipProviders.includes(provider))
+      throw new Error("tooltip provider already registered");
+    this.toolTipProviders.push(provider);
+    return () => { this.dropToolTipProvider(provider); };
+  }
+
+  /** Drop (remove) a [[ToolTipProvider]] so it is no longer active.
+   * @internal
+   * @param provider The tooltip to drop.
+   * @note Does nothing if decorator is not currently active.
+   */
+  public dropToolTipProvider(provider: ToolTipProvider) {
+    const index = this.toolTipProviders.indexOf(provider);
+    if (index >= 0)
+      this.toolTipProviders.splice(index, 1);
   }
 
   /** Add a new [[Decorator]] to display decorations into the active views.
@@ -382,6 +451,10 @@ export class ViewManager {
   public get dynamicsCursor(): string { return "url(cursors/dynamics.cur), move"; }
   public get grabCursor(): string { return "url(cursors/openHand.cur), auto"; }
   public get grabbingCursor(): string { return "url(cursors/closedHand.cur), auto"; }
+  public get walkCursor(): string { return "url(cursors/walk.cur), auto"; }
+  public get rotateCursor(): string { return "url(cursors/rotate.cur), auto"; }
+  public get lookCursor(): string { return "url(cursors/look.cur), auto"; }
+  public get zoomCursor(): string { return "url(cursors/zoom.cur), auto"; }
 
   /** Change the cursor shown in all Viewports.
    * @param cursor The new cursor to display. If undefined, the default cursor is used.
@@ -389,10 +462,18 @@ export class ViewManager {
   public setViewCursor(cursor: string = "default") {
     if (cursor === this.cursor)
       return;
-
     this.cursor = cursor;
-    if (undefined !== this.selectedView) {
-      this.selectedView.setCursor(cursor);
-    }
+    for (const vp of this._viewports)
+      vp.setCursor(cursor);
+  }
+
+  /** Intended strictly as a temporary solution for interactive editing applications, until official support for such apps is implemented.
+   * Call this after editing one or more models, passing in the Ids of those models, to cause new tiles to be generated reflecting the changes.
+   * Pass undefined if you are unsure which models changed (this is less efficient as it discards all tiles for all viewed models in all viewports).
+   * @internal
+   */
+  public refreshForModifiedModels(modelIds: Id64Arg | undefined): void {
+    for (const vp of this._viewports)
+      vp.refreshForModifiedModels(modelIds);
   }
 }

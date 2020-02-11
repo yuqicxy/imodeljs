@@ -11,9 +11,13 @@ public;AnnounceCurvePrimitive = (cp: CurvePrimitive) => void
 public;AnnounceDrapePanel = (linestring: GrowableXYZArray, segmentIndex: number, polyface: Polyface, facetIndex: number, points: Point3d[], indexAOnFacet: number, indexBOnFacet: number) => any
 public;AnnounceNumberNumber = (a0: number, a1: number) => void
 public;AnnounceNumberNumberCurvePrimitive = (a0: number, a1: number, cp: CurvePrimitive) => void
-public;AnyCurve = CurvePrimitive | Path | Loop | ParityRegion | UnionRegion | BagOfCurves | CurveCollection
+public;AnyCurve = CurvePrimitive | CurveCollection
+public;AnyGeometryQuery = Polyface | CurvePrimitive | CurveCollection | SolidPrimitive | CoordinateXYZ | PointString3d | BSpline2dNd
 public;AnyRegion = Loop | ParityRegion | UnionRegion
+public;AnySolidPrimitive = Box | Cone | Sphere | LinearSweep | RotationalSweep | RuledSweep | TorusPipe
 public;Arc3d 
+public;ArcBlendData
+public;ArcVectors
 public;AuxChannel
 public;AuxChannelData
 public;AuxChannelDataType
@@ -21,6 +25,7 @@ public;AxisIndex
 public;AxisOrder
 public;AxisScaleSelect
 public;BagOfCurves 
+public;BarycentricTriangle
 public;BeJSONFunctions
 public;Bezier1dNd
 internal;class BezierCoffs
@@ -29,6 +34,7 @@ public;BezierCurve3dH
 public;class BezierCurveBase 
 internal;BezierPolynomialAlgebra
 internal;BilinearPatch 
+internal;BilinearPolynomial
 public;BlockComparisonFunction = (data: Float64Array, blockSize: number, index0: number, index1: number) => number
 public;Box 
 internal;BoxTopology
@@ -54,34 +60,51 @@ internal;ClusterableArray
 internal;compareRange1dLexicalLowHigh(a: Range1d, b: Range1d): number
 internal;Complex 
 public;Cone 
+public;ConsolidateAdjacentCurvePrimitivesOptions
 alpha;Constant
 public;ConstructCurveBetweenCurves 
 public;ConvexClipPlaneSet 
 internal;ConvexPolygon2d
 public;CoordinateXYZ 
 public;class CurveChain 
+internal;CurveChainWireOffsetContext
 public;CurveChainWithDistanceIndex 
 public;class CurveCollection 
+public;CurveCollectionType = "loop" | "path" | "unionRegion" | "parityRegion" | "bagOfCurves"
 public;CurveCurve
 public;CurveCurveApproachType
+internal;CurveCurveIntersectXY 
+internal;CurveCurveIntersectXYZ 
 public;CurveExtendMode
 public;CurveExtendOptions
+public;CurveFactory
 public;CurveIntervalRole
 public;CurveLocationDetail
 public;CurveLocationDetailArrayPair
 public;CurveLocationDetailPair
 public;class CurvePrimitive 
 public;CurvePrimitiveMutator = (primitiveA: CurvePrimitive, primitiveB: CurvePrimitive) => CurvePrimitive | undefined
+public;CurvePrimitiveType = "arc" | "lineSegment" | "lineString" | "bsplineCurve" | "bezierCurve" | "transitionSpiral" | "curveChainWithDistanceIndex"
 public;CurveSearchStatus
+internal;CutLoop
+internal;CutLoopMergeContext
 internal;DeepCompare
 internal;Degree2PowerPolynomial
 internal;Degree3PowerPolynomial
 internal;Degree4PowerPolynomial
+public;Ellipsoid
+public;EllipsoidPatch 
 public;FacetFaceData
+public;FacetProjectedVolumeSums
 public;FrameBuilder
+internal;GaussMapper
+public;GeodesicPathPoint
+public;GeodesicPathSolver
 public;Geometry
 public;class GeometryHandler
 public;class GeometryQuery
+public;GeometryQueryCategory = "polyface" | "curvePrimitive" | "curveCollection" | "solid" | "point" | "pointCollection" | "bsurf"
+internal;GraphCheckPointFunction = (name: string, graph: HalfEdgeGraph, properties: string, extraData?: any) => any
 internal;GraphNodeFunction = (graph: HalfEdgeGraph, node: HalfEdge) => boolean
 public;GrowableBlockedArray
 public;GrowableFloat64Array
@@ -94,17 +117,23 @@ internal;HalfEdgeMask
 internal;HalfEdgeToBooleanFunction = (node: HalfEdge) => boolean
 public;HasZ = Readonly
 public;IModelJson
+public;IndexedCollectionInterval
 public;IndexedPolyface 
 public;IndexedPolyfaceVisitor 
+public;class IndexedReadWriteXYZCollection 
 public;class IndexedXYCollection
 public;class IndexedXYZCollection
+public;IndexedXYZCollectionInterval 
+public;IndexedXYZCollectionPolygonOps
 public;InverseMatrixState
 public;IStrokeHandler
+public;JointOptions
 public;KnotVector
 public;LinearSweep 
 public;LineSegment3d 
 public;LineString3d 
-public;LineStringDataVariant = IndexedXYZCollection | XYAndZ[] | XAndY[]
+public;LineStringDataVariant = IndexedXYZCollection | XYAndZ[] | XAndY[] | number[][]
+public;LongitudeLatitudeNumber 
 public;Loop 
 public;LowAndHighXY = Readonly
 public;LowAndHighXYZ = Readonly
@@ -131,6 +160,7 @@ internal;Order3Bezier
 internal;Order4Bezier 
 internal;Order5Bezier 
 alpha;OrderedRotationAngles
+internal;PackedMatrix3dOps
 public;PackedPointGrid
 public;ParityRegion 
 internal;PascalCoefficients
@@ -146,6 +176,7 @@ public;Point2dArrayCarrier
 public;Point3d 
 public;Point3dArray
 public;Point3dArrayCarrier 
+public;Point3dArrayPolygonOps
 public;Point4d 
 public;Point4dArray
 public;Point4dProps = number[]
@@ -158,6 +189,8 @@ public;PolyfaceData
 public;PolyfaceQuery
 public;PolyfaceVisitor 
 public;PolygonOps
+internal;PolygonWireOffsetContext
+public;PolylineOps
 internal;PowerPolynomial
 internal;Quadrature
 public;Range1d 
@@ -174,14 +207,17 @@ public;RecurseToCurvesGeometryHandler
 public;class RecursiveCurveProcessor
 public;class RecursiveCurveProcessorWithStack 
 internal;RegionMomentsXY 
-alpha;RegionOps
+beta;RegionOps
 public;RotationalSweep 
 public;RuledSweep 
 alpha;Sample
 public;Segment1d
+public;SignedLoops
+internal;SineCosinePolynomial
 public;SmallSystem
 public;SmoothTransformBetweenFrusta
 public;class SolidPrimitive 
+public;SolidPrimitiveType = "box" | "cone" | "sphere" | "linearSweep" | "rotationalSweep" | "ruledSweep" | "torusPipe"
 public;Sphere 
 internal;SphereImplicit
 public;StandardViewIndex

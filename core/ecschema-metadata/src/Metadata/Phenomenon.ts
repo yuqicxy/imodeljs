@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { Schema } from "./Schema";
@@ -26,6 +26,13 @@ export class Phenomenon extends SchemaItem {
     const schemaJson = super.toJson(standalone, includeSchemaVersion);
     schemaJson.definition = this.definition;
     return schemaJson;
+  }
+
+  /** @internal */
+  public async toXml(schemaXml: Document): Promise<Element> {
+    const itemElement = await super.toXml(schemaXml);
+    itemElement.setAttribute("definition", this.definition);
+    return itemElement;
   }
 
   public deserializeSync(phenomenonProps: PhenomenonProps) {

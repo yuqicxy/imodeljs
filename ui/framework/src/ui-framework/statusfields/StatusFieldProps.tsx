@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Notification */
+/** @packageDocumentation
+ * @module StatusBar
+ */
 
 import { CommonProps } from "@bentley/ui-core";
-import { StatusBarFieldId } from "../widgets/StatusBarWidgetControl";
+import { StatusBarFieldId } from "../statusbar/StatusBarWidgetControl";
 
 /** Properties for a StatusBar field component
  * @public

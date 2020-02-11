@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module ArraysAndInterfaces */
+/** @packageDocumentation
+ * @module ArraysAndInterfaces
+ */
 
 /**
  * Type for a OptionalGrowableFloat64Array or undefined.
@@ -21,7 +23,7 @@ export type BlockComparisonFunction = (data: Float64Array, blockSize: number, in
  * * As entries are added to the array, the buffer is reallocated as needed to accommodate.
  * * The reallocations leave unused space to accept further additional entries without reallocation.
  * * The `length` property returns the number of entries in use.
- * * the `capacity` property returns the (usually larger) length of the (overallocated) Float64Array.
+ * * the `capacity` property returns the (usually larger) length of the (over-allocated) Float64Array.
  * @public
  */
 export class GrowableFloat64Array {

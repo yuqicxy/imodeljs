@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as fs from "fs";
 import * as path from "path";
 import * as chai from "chai";
 import { Base64 } from "js-base64";
-import { GuidString, Guid, Id64, Id64String, ClientRequestContext, Logger } from "@bentley/bentleyjs-core";
+import { GuidString, Guid, Id64, Id64String, ClientRequestContext, Logger, WSStatus } from "@bentley/bentleyjs-core";
 import {
   ECJsonTypeMap, AccessToken, UserInfo, Project, Asset, ProgressInfo,
   IModelHubClient, HubCode, CodeState, MultiCode, Briefcase, BriefcaseQuery, ChangeSet, Version,
@@ -14,6 +14,7 @@ import {
   MultiLock, Lock, VersionQuery, Config, IModelBaseHandler,
   IModelBankClient, IModelBankFileSystemContextClient, AuthorizedClientRequestContext,
   ImsUserCredentials,
+  WsgError,
 } from "@bentley/imodeljs-clients";
 import { AzureFileHandler } from "../../imodelhub/AzureFileHandler";
 import { IModelCloudEnvironment } from "@bentley/imodeljs-clients/lib/IModelCloudEnvironment";
@@ -22,6 +23,10 @@ import { TestConfig } from "../TestConfig";
 import { TestUsers } from "../TestUsers";
 import { TestIModelHubCloudEnv } from "./IModelHubCloudEnv";
 import { getIModelBankCloudEnv } from "./IModelBankCloudEnv";
+import { MobileRpcConfiguration } from "@bentley/imodeljs-common";
+import { IOSAzureFileHandler } from "../../imodelhub/IOSAzureFileHandler";
+import { UrlFileHandler } from "../../UrlFileHandler";
+import { LocalhostHandler } from "../../imodelhub/LocalhostFileHandler";
 
 const loggingCategory = "imodeljs-clients-backend.TestUtils";
 
@@ -38,6 +43,69 @@ function configMockSettings() {
   Config.App.set("imjs_test_serviceAccount1_user_password", "test");
   Config.App.set("imjs_test_manager_user_name", "test");
   Config.App.set("imjs_test_manager_user_password", "test");
+}
+export function createFileHanlder(useDownloadBuffer?: boolean) {
+  if (MobileRpcConfiguration.isMobileBackend) {
+    return new IOSAzureFileHandler();
+  } else if (TestConfig.enableIModelBank && !TestConfig.enableMocks) {
+    return createIModelBankFileHandler(useDownloadBuffer);
+  }
+  return new AzureFileHandler(useDownloadBuffer);
+}
+
+export function createIModelBankFileHandler(useDownloadBuffer?: boolean) {
+  const handler = Config.App.getString("imjs_test_imodel_bank_file_handler", "url");
+  switch (handler.toLowerCase()) {
+    case "azure":
+      return new AzureFileHandler(useDownloadBuffer);
+    case "localhost":
+      return new LocalhostHandler();
+    case "url":
+      return new UrlFileHandler();
+    default:
+      throw new Error(`File handler '${handler}' is not supported.`);
+  }
+}
+
+export function getExpectedFileHandlerUrlSchemes(): string[] {
+  const handler = Config.App.getString("imjs_test_imodel_bank_file_handler", "url");
+  switch (handler.toLowerCase()) {
+    case "localhost":
+      return ["file://"];
+    default:
+      return ["https://", "http://"];
+  }
+}
+
+export function doesMatchExpectedUrlScheme(url?: string) {
+  if (!url)
+    return false;
+
+  const expectedSchemes = getExpectedFileHandlerUrlSchemes();
+  for (const scheme of expectedSchemes)
+    if (url!.startsWith(scheme))
+      return true;
+
+  return false;
+}
+
+export function removeFileUrlExpirationTimes(changesets: ChangeSet[]) {
+  for (const cs of changesets) {
+    cs.downloadUrl = removeFileUrlExpirationTime(cs.downloadUrl);
+    cs.uploadUrl = removeFileUrlExpirationTime(cs.uploadUrl);
+  }
+  return changesets;
+}
+
+function removeFileUrlExpirationTime(url?: string) {
+  if (!url)
+    return url;
+  if (url.toLowerCase().startsWith("http")) {
+    const index = url.indexOf("?");
+    if (index > 0)
+      return url.substring(0, index);
+  }
+  return url;
 }
 
 /** Other services */
@@ -98,7 +166,7 @@ let _imodelHubClient: IModelHubClient;
 function getImodelHubClient() {
   if (_imodelHubClient !== undefined)
     return _imodelHubClient;
-  _imodelHubClient = new IModelHubClient(new AzureFileHandler());
+  _imodelHubClient = new IModelHubClient(createFileHanlder());
   if (!TestConfig.enableMocks) {
     _imodelHubClient.requestOptions.setCustomOptions(requestBehaviorOptions.toCustomRequestOptions());
   }
@@ -181,8 +249,18 @@ export async function bootstrapBankProject(requestContext: AuthorizedClientReque
     return;
 
   const bankContext = getCloudEnv().contextMgr as IModelBankFileSystemContextClient;
-  try { await bankContext.deleteContext(requestContext, projectName); } catch (_err) { }
-  await bankContext.createContext(requestContext, projectName);
+  let project: Project | undefined;
+  try {
+    project = await bankContext.queryProjectByName(requestContext, projectName);
+  } catch (err) {
+    if (err instanceof WsgError && err.errorNumber === WSStatus.InstanceNotFound) {
+      project = undefined;
+    } else {
+      throw err;
+    }
+  }
+  if (!project)
+    await bankContext.createContext(requestContext, projectName);
 
   bankProjects.push(projectName);
 }
@@ -555,7 +633,7 @@ export function generateVersion(name?: string, changesetId?: string, addInstance
     result.id = Guid.createValue();
     result.wsgId = result.id;
   }
-  result.changeSetId = changesetId || generateChangeSetId();
+  result.changeSetId = changesetId === undefined || changesetId === null ? generateChangeSetId() : changesetId;
   result.name = name || `TestVersion-${result.changeSetId!}`;
   result.smallThumbnailId = smallThumbnailId;
   result.largeThumbnailId = largeThumbnailId;
@@ -666,7 +744,7 @@ export async function createIModel(requestContext: AuthorizedClientRequestContex
   }
 
   const pathName = fromSeedFile ? getMockSeedFilePath() : undefined;
-  return client.iModels.create(requestContext, contextId, name, pathName, "", undefined, 240000);
+  return client.iModels.create(requestContext, contextId, name, { path: pathName, timeOutInMilliseconds: 240000 });
 }
 
 export function getMockChangeSets(briefcase: Briefcase): ChangeSet[] {
@@ -704,11 +782,12 @@ export async function createChangeSets(requestContext: AuthorizedClientRequestCo
 
   const client = getDefaultClient();
 
-  const result: ChangeSet[] = await client.changeSets.get(requestContext, imodelId);
+  const existingChangeSets: ChangeSet[] = await client.changeSets.get(requestContext, imodelId);
+  const result: ChangeSet[] = existingChangeSets.slice(startingId);
 
   const changeSets = getMockChangeSets(briefcase);
 
-  for (let i = result.length; i < startingId + count; ++i) {
+  for (let i = existingChangeSets.length; i < startingId + count; ++i) {
     const changeSetPath = getMockChangeSetPath(i, changeSets[i].id!);
     const changeSet = await client.changeSets.create(requestContext, imodelId, changeSets[i], changeSetPath);
     result.push(changeSet);

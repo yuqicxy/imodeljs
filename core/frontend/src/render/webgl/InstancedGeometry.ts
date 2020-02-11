@@ -1,47 +1,83 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
-import { assert, dispose, IDisposable } from "@bentley/bentleyjs-core";
+import { assert, dispose } from "@bentley/bentleyjs-core";
 import { Range3d, Point3d, Transform } from "@bentley/geometry-core";
 import { InstancedGraphicParams, RenderMemory } from "../System";
 import { CachedGeometry, LUTGeometry } from "./CachedGeometry";
 import { Target } from "./Target";
 import { ShaderProgramParams } from "./DrawCommand";
-import { AttributeHandle, BufferHandle } from "./Handle";
-import { FeaturesInfo } from "./FeaturesInfo";
+import { BufferHandle, BufferParameters, BuffersContainer } from "./Handle";
+import { GL } from "./GL";
+import { AttributeMap } from "./AttributeMap";
+import { TechniqueId } from "./TechniqueId";
+import { WebGLDisposable } from "./Disposable";
 
 /** @internal */
-export class InstanceBuffers implements IDisposable {
+export class InstanceBuffers implements WebGLDisposable {
   public readonly numInstances: number;
   public readonly transforms: BufferHandle;
   public readonly featureIds?: BufferHandle;
-  public readonly featuresInfo?: FeaturesInfo;
+  public readonly hasFeatures: boolean;
   public readonly symbology?: BufferHandle;
   public readonly shared: boolean;
   // The center of the range of the instances' translations.
   private readonly _rtcCenter: Point3d;
+  // A transform including only rtcCenter.
+  private readonly _rtcOnlyTransform: Transform;
   // A transform from _rtcCenter including model matrix
-  private readonly _rtcTransform: Transform;
-  // The model matrix from which _rtcTransform was previously computed. If it changes, _rtcTransform must be recomputed.
+  private readonly _rtcModelTransform: Transform;
+  // The model matrix from which _rtcModelTransform was previously computed. If it changes, _rtcModelTransform must be recomputed.
   private readonly _modelMatrix = Transform.createIdentity();
   // Holds the instance transforms for computing range. Set to undefined after range computed (immediately after construction)
   private _transforms?: Float32Array;
   // Holds the range computed from the above transforms
   private _range?: Range3d;
 
-  private constructor(shared: boolean, count: number, transforms: BufferHandle, rtcCenter: Point3d, transformsData: Float32Array, symbology?: BufferHandle, featureIds?: BufferHandle, featuresInfo?: FeaturesInfo) {
+  private constructor(shared: boolean, count: number, transforms: BufferHandle, rtcCenter: Point3d, transformsData: Float32Array, symbology?: BufferHandle, featureIds?: BufferHandle) {
     this.shared = shared;
     this.numInstances = count;
     this.transforms = transforms;
     this.featureIds = featureIds;
-    this.featuresInfo = featuresInfo;
+    this.hasFeatures = undefined !== featureIds;
     this.symbology = symbology;
     this._rtcCenter = rtcCenter;
-    this._rtcTransform = Transform.createTranslation(this._rtcCenter);
+    this._rtcOnlyTransform = Transform.createTranslation(this._rtcCenter);
+    this._rtcModelTransform = this._rtcOnlyTransform.clone();
     this._transforms = transformsData;
+  }
+
+  public static createTransformBufferParameters(techniqueId: TechniqueId): BufferParameters[] {
+    const params: BufferParameters[] = [];
+    const numRows = 3;
+    let row = 0;
+    while (row < numRows) {
+      // 3 rows per instance; 4 floats per row; 4 bytes per float.
+      const floatsPerRow = 4;
+      const bytesPerVertex = floatsPerRow * 4;
+      const offset = row * bytesPerVertex;
+      const stride = 3 * bytesPerVertex;
+      const name = "a_instanceMatrixRow" + row;
+      const details = AttributeMap.findAttribute(name, techniqueId, true);
+      assert(details !== undefined);
+      const bParams: BufferParameters = {
+        glAttribLoc: details!.location,
+        glSize: floatsPerRow,
+        glType: GL.DataType.Float,
+        glNormalized: false,
+        glStride: stride,
+        glOffset: offset,
+        glInstanced: true,
+      };
+      params.push(bParams);
+      row++;
+    }
+    return params;
   }
 
   public static create(params: InstancedGraphicParams, shared: boolean): InstanceBuffers | undefined {
@@ -56,24 +92,30 @@ export class InstanceBuffers implements IDisposable {
     if (undefined !== featureIds && undefined === (idBuf = BufferHandle.createArrayBuffer(featureIds)))
       return undefined;
 
-    const featuresInfo = FeaturesInfo.createFromFeatureIds(featureIds);
-
     let symBuf: BufferHandle | undefined;
     if (undefined !== symbologyOverrides && undefined === (symBuf = BufferHandle.createArrayBuffer(symbologyOverrides)))
       return undefined;
 
     const tfBuf = BufferHandle.createArrayBuffer(transforms);
-    return undefined !== tfBuf ? new InstanceBuffers(shared, count, tfBuf, params.transformCenter, transforms, symBuf, idBuf, featuresInfo) : undefined;
+    return undefined !== tfBuf ? new InstanceBuffers(shared, count, tfBuf, params.transformCenter, transforms, symBuf, idBuf) : undefined;
   }
 
-  public getRtcTransform(modelMatrix: Transform): Transform {
+  public getRtcModelTransform(modelMatrix: Transform): Transform {
     if (!this._modelMatrix.isAlmostEqual(modelMatrix)) {
       modelMatrix.clone(this._modelMatrix);
-      const rtcTransform = Transform.createTranslation(this._rtcCenter);
-      modelMatrix.multiplyTransformTransform(rtcTransform, this._rtcTransform);
+      modelMatrix.multiplyTransformTransform(this._rtcOnlyTransform, this._rtcModelTransform);
     }
 
-    return this._rtcTransform;
+    return this._rtcModelTransform;
+  }
+  public getRtcOnlyTransform(): Transform {
+    return this._rtcOnlyTransform;
+  }
+
+  public get isDisposed(): boolean {
+    return this.transforms.isDisposed
+      && (undefined === this.featureIds || this.featureIds.isDisposed)
+      && (undefined === this.symbology || this.symbology.isDisposed);
   }
 
   public dispose() {
@@ -98,10 +140,8 @@ export class InstanceBuffers implements IDisposable {
 
     this._range = new Range3d();
     const tfs = this._transforms;
-    if (undefined === tfs) {
-      assert(false);
+    if (undefined === tfs)
       return this._range.clone(out);
-    }
 
     this._transforms = undefined;
 
@@ -112,11 +152,11 @@ export class InstanceBuffers implements IDisposable {
     const r = new Range3d();
     for (let i = 0; i < tfs.length; i += numFloatsPerTransform) {
       tf.setFromJSON({
-        origin: [ tfs[i + 3], tfs[i + 7], tfs[i + 11] ],
+        origin: [tfs[i + 3], tfs[i + 7], tfs[i + 11]],
         matrix: [
-          [ tfs[i + 0], tfs[i + 1], tfs[i + 2] ],
-          [ tfs[i + 4], tfs[i + 5], tfs[i + 6] ],
-          [ tfs[i + 8], tfs[i + 9], tfs[i + 10] ],
+          [tfs[i + 0], tfs[i + 1], tfs[i + 2]],
+          [tfs[i + 4], tfs[i + 5], tfs[i + 6]],
+          [tfs[i + 8], tfs[i + 9], tfs[i + 10]],
         ],
       });
 
@@ -134,6 +174,7 @@ export class InstanceBuffers implements IDisposable {
 
 /** @internal */
 export class InstancedGeometry extends CachedGeometry {
+  private readonly _buffersContainer: BuffersContainer;
   private readonly _buffers: InstanceBuffers;
   private readonly _repr: LUTGeometry;
   private readonly _ownsRepr: boolean;
@@ -142,7 +183,8 @@ export class InstancedGeometry extends CachedGeometry {
   public get transforms() { return this._buffers.transforms; }
   public get featureIds() { return this._buffers.featureIds; }
   public get symbology() { return this._buffers.symbology; }
-  public getRtcTransform(modelMatrix: Transform) { return this._buffers.getRtcTransform(modelMatrix); }
+  public getRtcModelTransform(modelMatrix: Transform) { return this._buffers.getRtcModelTransform(modelMatrix); }
+  public getRtcOnlyTransform() { return this._buffers.getRtcOnlyTransform(); }
 
   public get asInstanced() { return this; }
   public get asLUT() { return this._repr.asLUT; }
@@ -157,13 +199,12 @@ export class InstancedGeometry extends CachedGeometry {
   public get hasAnimation() { return this._repr.hasAnimation; }
   public get qOrigin() { return this._repr.qOrigin; }
   public get qScale() { return this._repr.qScale; }
-  public get material() { return this._repr.material; }
+  public get materialInfo() { return this._repr.materialInfo; }
   public get polylineBuffers() { return this._repr.polylineBuffers; }
-  public set uniformFeatureIndices(_value: number) { assert(false); } // This is used for decoration graphics. No such thing as instanced decorations.
   public get isEdge() { return this._repr.isEdge; }
-  public get featuresInfo() { return this._buffers.featuresInfo; }
+  public get hasFeatures() { return this._buffers.hasFeatures; }
+  public get techniqueId(): TechniqueId { return this._repr.techniqueId; }
 
-  public getTechniqueId(target: Target) { return this._repr.getTechniqueId(target); }
   public getRenderPass(target: Target) { return this._repr.getRenderPass(target); }
   public wantWoWReversal(params: ShaderProgramParams) { return this._repr.wantWoWReversal(params); }
   public getLineCode(params: ShaderProgramParams) { return this._repr.getLineCode(params); }
@@ -176,6 +217,32 @@ export class InstancedGeometry extends CachedGeometry {
     this._repr = repr;
     this._ownsRepr = ownsRepr;
     this._buffers = buffers;
+    this._buffersContainer = BuffersContainer.create();
+    this._buffersContainer.appendLinkages(repr.lutBuffers.linkages);
+
+    this._buffersContainer.addBuffer(this._buffers.transforms, InstanceBuffers.createTransformBufferParameters(this.techniqueId));
+    if (this._buffers.symbology !== undefined) {
+      const attrInstanceOverrides = AttributeMap.findAttribute("a_instanceOverrides", this.techniqueId, true);
+      const attrInstanceRgba = AttributeMap.findAttribute("a_instanceRgba", this.techniqueId, true);
+      assert(attrInstanceOverrides !== undefined);
+      assert(attrInstanceRgba !== undefined);
+      this._buffersContainer.addBuffer(this._buffers.symbology, [
+        BufferParameters.create(attrInstanceOverrides!.location, 4, GL.DataType.UnsignedByte, false, 8, 0, true),
+        BufferParameters.create(attrInstanceRgba!.location, 4, GL.DataType.UnsignedByte, false, 8, 4, true),
+      ]);
+    }
+    if (this._buffers.featureIds !== undefined) {
+      const attrFeatureId = AttributeMap.findAttribute("a_featureId", this.techniqueId, true);
+      assert(attrFeatureId !== undefined);
+      this._buffersContainer.addBuffer(this._buffers.featureIds, [BufferParameters.create(attrFeatureId!.location, 3, GL.DataType.UnsignedByte, false, 0, 0, true)]);
+    }
+  }
+
+  public get isDisposed(): boolean {
+    let isReprDisposed = true;
+    if (this._ownsRepr)
+      isReprDisposed = this._repr.isDisposed;
+    return this._buffers.isDisposed && isReprDisposed;
   }
 
   public dispose() {
@@ -184,17 +251,13 @@ export class InstancedGeometry extends CachedGeometry {
       this._repr.dispose();
   }
 
-  public bindVertexArray(handle: AttributeHandle) {
-    this._repr.bindVertexArray(handle);
-  }
-
   protected _wantWoWReversal(_target: Target) {
     assert(false, "Should never be called");
     return false;
   }
 
   public draw() {
-    this._repr.drawInstanced(this.numInstances);
+    this._repr.drawInstanced(this.numInstances, this._buffersContainer);
   }
 
   public computeRange(output?: Range3d): Range3d {

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import * as enzyme from "enzyme";
@@ -41,7 +41,7 @@ describe("InputFieldMessage", () => {
     expect(wrapper.find("div.uifw-popup-message-inputField").length).to.eq(1);
     expect(wrapper.find("div.uifw-popup-message-brief").length).to.eq(1);
     expect(wrapper.find("div.uifw-popup-message-detailed").length).to.eq(1);
-    expect(wrapper.find("div.icon-status-error").length).to.eq(1);
+    expect(wrapper.find("i.icon-status-error").length).to.eq(1);
     expect(wrapper.find("div.uifw-popup-message-close").length).to.eq(1);
 
     MessageManager.hideInputFieldMessage();
@@ -53,7 +53,7 @@ describe("InputFieldMessage", () => {
     details.setInputFieldTypeDetails(divElement);
     MessageManager.displayInputFieldMessage(details.inputField!, details.briefMessage, details.detailedMessage, details.priority);
     wrapper.update();
-    expect(wrapper.find("div.icon-status-warning").length).to.eq(1);
+    expect(wrapper.find("i.icon-status-warning").length).to.eq(1);
     MessageManager.hideInputFieldMessage();
 
     // Info icon
@@ -61,7 +61,7 @@ describe("InputFieldMessage", () => {
     details.setInputFieldTypeDetails(divElement);
     MessageManager.displayInputFieldMessage(details.inputField!, details.briefMessage, details.detailedMessage, details.priority);
     wrapper.update();
-    expect(wrapper.find("div.icon-info").length).to.eq(1);
+    expect(wrapper.find("i.icon-info").length).to.eq(1);
     MessageManager.hideInputFieldMessage();
 
     // Without an inputFieldElement

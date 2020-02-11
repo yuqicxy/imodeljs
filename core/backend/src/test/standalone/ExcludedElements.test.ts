@@ -1,13 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Id64, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
+import { DbResult, Id64String, Logger, LogLevel } from "@bentley/bentleyjs-core";
 import { BisCodeSpec, ColorDef, DisplayStyleProps, DisplayStyleSettingsProps, IModel, RenderMode, ViewFlags } from "@bentley/imodeljs-common";
 import { expect } from "chai";
 import * as path from "path";
-import { BackendRequestContext, DictionaryModel, DisplayStyle3d, Element, IModelDb } from "../../imodeljs-backend";
-import { NativeLoggerCategory } from "../../IModelJsNative";
+import { BackendRequestContext, DictionaryModel, DisplayStyle3d, ECSqlStatement, Element, IModelDb, NativeLoggerCategory } from "../../imodeljs-backend";
 import { IModelTestUtils } from "../IModelTestUtils";
 import { HubUtility } from "../integration/HubUtility";
 import { KnownTestLocations } from "../KnownTestLocations";
@@ -29,7 +28,7 @@ describe("ExcludedElements", () => {
     imodel5 = IModelTestUtils.createSnapshotFromSeed(IModelTestUtils.prepareOutputFile("IModel", "mirukuru.ibim"), IModelTestUtils.resolveAssetFile("mirukuru.ibim"));
 
     const schemaPathname = path.join(KnownTestLocations.assetsDir, "TestBim.ecschema.xml");
-    await imodel1.importSchema(requestContext, schemaPathname); // will throw an exception if import fails
+    await imodel1.importSchemas(requestContext, [schemaPathname]); // will throw an exception if import fails
   });
 
   after(() => {
@@ -48,10 +47,10 @@ describe("ExcludedElements", () => {
 
   it("should be able to see all elements in imodel if the excluded elements list is empty", () => {
     // Get a list of elements in imodel1
-    let rows: any[] = imodel1.executeQuery(`SELECT ECInstanceId FROM ${Element.classFullName}`);
     let elementIds: Id64String[] = [];
-    for (const row of rows)
-      elementIds.push(Id64.fromJSON(row.id));
+    imodel1.withPreparedStatement(`SELECT ECInstanceId FROM ${Element.classFullName}`, (statement: ECSqlStatement): void => {
+      while (DbResult.BE_SQLITE_ROW === statement.step()) { elementIds.push(statement.getValue(0).getId()); }
+    });
 
     // Verify that all elements exist in imodel1 when the set of excluded elements is undefined
     let model = imodel1.models.getModel(IModel.dictionaryId) as DictionaryModel;
@@ -84,10 +83,10 @@ describe("ExcludedElements", () => {
     });
 
     // Get a list of elements in imodel2
-    rows = imodel2.executeQuery(`SELECT ECInstanceId FROM ${Element.classFullName}`);
     elementIds = [];
-    for (const row of rows)
-      elementIds.push(Id64.fromJSON(row.id));
+    imodel2.withPreparedStatement(`SELECT ECInstanceId FROM ${Element.classFullName}`, (statement: ECSqlStatement): void => {
+      while (DbResult.BE_SQLITE_ROW === statement.step()) { elementIds.push(statement.getValue(0).getId()); }
+    });
     // Verify that all elements exist in imodel2 when the set of excluded elements is undefined
     model = imodel2.models.getModel(IModel.dictionaryId) as DictionaryModel;
     expect(model).not.to.be.undefined;
@@ -119,10 +118,10 @@ describe("ExcludedElements", () => {
     });
 
     // Get a list of elements in imodel4
-    rows = imodel4.executeQuery(`SELECT ECInstanceId FROM ${Element.classFullName}`);
     elementIds = [];
-    for (const row of rows)
-      elementIds.push(Id64.fromJSON(row.id));
+    imodel4.withPreparedStatement(`SELECT ECInstanceId FROM ${Element.classFullName}`, (statement: ECSqlStatement): void => {
+      while (DbResult.BE_SQLITE_ROW === statement.step()) { elementIds.push(statement.getValue(0).getId()); }
+    });
     // Verify that all elements exist in imodel4 when the set of excluded elements is undefined
     model = imodel4.models.getModel(IModel.dictionaryId) as DictionaryModel;
     expect(model).not.to.be.undefined;
@@ -154,10 +153,10 @@ describe("ExcludedElements", () => {
     });
 
     // Get a list of elements in imodel5
-    rows = imodel5.executeQuery(`SELECT ECInstanceId FROM ${Element.classFullName}`);
     elementIds = [];
-    for (const row of rows)
-      elementIds.push(Id64.fromJSON(row.id));
+    imodel5.withPreparedStatement(`SELECT ECInstanceId FROM ${Element.classFullName}`, (statement: ECSqlStatement): void => {
+      while (DbResult.BE_SQLITE_ROW === statement.step()) { elementIds.push(statement.getValue(0).getId()); }
+    });
     // Verify that all elements exist in imodel5 when the set of excluded elements is undefined
     model = imodel5.models.getModel(IModel.dictionaryId) as DictionaryModel;
     expect(model).not.to.be.undefined;
@@ -191,10 +190,10 @@ describe("ExcludedElements", () => {
 
   it("all elements in imodel should continue to exist, even if an element is or was in the set of excluded elements", () => {
     // Get a list of elements in the imodel
-    let rows: any[] = imodel1.executeQuery(`SELECT ECInstanceId FROM ${Element.classFullName}`);
     let elementIds: Id64String[] = [];
-    for (const row of rows)
-      elementIds.push(Id64.fromJSON(row.id));
+    imodel1.withPreparedStatement(`SELECT ECInstanceId FROM ${Element.classFullName}`, (statement: ECSqlStatement): void => {
+      while (DbResult.BE_SQLITE_ROW === statement.step()) { elementIds.push(statement.getValue(0).getId()); }
+    });
 
     // Add a style that contains a list of excluded elements & verify that elements persist
     let model = imodel1.models.getModel(IModel.dictionaryId) as DictionaryModel;
@@ -229,10 +228,10 @@ describe("ExcludedElements", () => {
     });
 
     // Get a list of elements in imodel2
-    rows = imodel2.executeQuery(`SELECT ECInstanceId FROM ${Element.classFullName}`);
     elementIds = [];
-    for (const row of rows)
-      elementIds.push(Id64.fromJSON(row.id));
+    imodel2.withPreparedStatement(`SELECT ECInstanceId FROM ${Element.classFullName}`, (statement: ECSqlStatement): void => {
+      while (DbResult.BE_SQLITE_ROW === statement.step()) { elementIds.push(statement.getValue(0).getId()); }
+    });
     // Add a style that contains a list of excluded elements & verify that elements persist
     model = imodel2.models.getModel(IModel.dictionaryId) as DictionaryModel;
     expect(model).not.to.be.undefined;
@@ -265,10 +264,10 @@ describe("ExcludedElements", () => {
     });
 
     // Get a list of elements in imodel4
-    rows = imodel4.executeQuery(`SELECT ECInstanceId FROM ${Element.classFullName}`);
     elementIds = [];
-    for (const row of rows)
-      elementIds.push(Id64.fromJSON(row.id));
+    imodel4.withPreparedStatement(`SELECT ECInstanceId FROM ${Element.classFullName}`, (statement: ECSqlStatement): void => {
+      while (DbResult.BE_SQLITE_ROW === statement.step()) { elementIds.push(statement.getValue(0).getId()); }
+    });
     // Add a style that contains a list of excluded elements & verify that elements persist
     model = imodel4.models.getModel(IModel.dictionaryId) as DictionaryModel;
     expect(model).not.to.be.undefined;
@@ -301,10 +300,10 @@ describe("ExcludedElements", () => {
     });
 
     // Get a list of elements in imodel5
-    rows = imodel5.executeQuery(`SELECT ECInstanceId FROM ${Element.classFullName}`);
     elementIds = [];
-    for (const row of rows)
-      elementIds.push(Id64.fromJSON(row.id));
+    imodel5.withPreparedStatement(`SELECT ECInstanceId FROM ${Element.classFullName}`, (statement: ECSqlStatement): void => {
+      while (DbResult.BE_SQLITE_ROW === statement.step()) { elementIds.push(statement.getValue(0).getId()); }
+    });
     // Add a style that contains a list of excluded elements & verify that elements persist
     model = imodel5.models.getModel(IModel.dictionaryId) as DictionaryModel;
     expect(model).not.to.be.undefined;

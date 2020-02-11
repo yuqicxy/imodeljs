@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import * as chai from "chai";
 import { Issuer } from "openid-client";
-import { ClientRequestContext } from "@bentley/bentleyjs-core";
-import { AccessToken, Config } from "@bentley/imodeljs-clients";
+import { ClientRequestContext, BeDuration } from "@bentley/bentleyjs-core";
+import { AccessToken, Config, IncludePrefix } from "@bentley/imodeljs-clients";
 import { IModelJsConfig } from "@bentley/config-loader/lib/IModelJsConfig";
 import { OidcAgentClient, OidcAgentClientConfiguration } from "../imodeljs-clients-backend";
 import { HubAccessTestValidator } from "./HubAccessTestValidator";
@@ -46,7 +46,7 @@ describe("OidcAgentClient (#integration)", () => {
   it("should get valid OIDC tokens for agent applications", async () => {
     const agentClient = new OidcAgentClient(agentConfiguration);
     const now = Date.now();
-    const jwt: AccessToken = await agentClient.getToken(requestContext);
+    const jwt: AccessToken = await agentClient.getAccessToken(requestContext);
 
     const expiresAt = jwt.getExpiresAt();
     chai.assert.isDefined(expiresAt);
@@ -57,13 +57,35 @@ describe("OidcAgentClient (#integration)", () => {
     chai.assert.isAtLeast(startsAt!.getTime(), expiresAt!.getTime() - 1 * 60 * 60 * 1000); // Starts atleast 1 hour before expiry
 
     await validator.validateConnectAccess(jwt);
-    // await validator.validateRbacAccess(jwt);
     await validator.validateIModelHubAccess(jwt);
 
-    const refreshJwt: AccessToken = await agentClient.refreshToken(requestContext, jwt);
+    const refreshJwt: AccessToken = await agentClient.getAccessToken(requestContext);
     await validator.validateConnectAccess(refreshJwt);
-    // await validator.validateRbacAccess(jwt);
     await validator.validateIModelHubAccess(refreshJwt);
   });
 
+  it("should not refresh token unless necessary", async () => {
+    const agentClient = new OidcAgentClient(agentConfiguration);
+
+    const jwt: AccessToken = await agentClient.getAccessToken(requestContext);
+
+    // Refresh after a second, and the token should remain the same
+    await BeDuration.wait(1000);
+    let refreshJwt: AccessToken = await agentClient.getAccessToken(requestContext);
+    chai.assert.strictEqual(refreshJwt, jwt);
+
+    // Set the expiry of the token to be 2 min from now, and the token should remain the same
+    const twoMinFromNow = new Date(Date.now() + 2 * 60 * 1000);
+    const jwtExpiresAtTwoMinFromNow = AccessToken.fromJsonWebTokenString(jwt.toTokenString(IncludePrefix.No), jwt.getStartsAt(), twoMinFromNow, jwt.getUserInfo());
+    (agentClient as any)._accessToken = jwtExpiresAtTwoMinFromNow;
+    refreshJwt = await agentClient.getAccessToken(requestContext);
+    chai.assert.strictEqual(refreshJwt, jwtExpiresAtTwoMinFromNow);
+
+    // Set the expiry of the token to be less than a min from now, and the token should be refreshed
+    const lessThanMinFromNow = new Date(Date.now() + 59 * 1000);
+    const jwtExpiresAtLessThanMinFromNow = AccessToken.fromJsonWebTokenString(jwt.toTokenString(IncludePrefix.No), jwt.getStartsAt(), lessThanMinFromNow, jwt.getUserInfo());
+    (agentClient as any)._accessToken = jwtExpiresAtLessThanMinFromNow;
+    refreshJwt = await agentClient.getAccessToken(requestContext);
+    chai.assert.notStrictEqual(refreshJwt.toTokenString(IncludePrefix.No), jwtExpiresAtLessThanMinFromNow.toTokenString(IncludePrefix.No));
+  });
 });

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 import { ChildNodeRule } from "./ChildNodeRule";
 import { AllInstanceNodesSpecification } from "./AllInstanceNodesSpecification";
@@ -65,6 +67,18 @@ export interface ChildNodeSpecificationBase {
   hideIfNoChildren?: boolean;
 
   /**
+   * An [ECExpression]($docs/learning/presentation/Hierarchies/ECExpressions.md#specification) which
+   * indicates whether a node should be hidden or not.
+   *
+   * @note While the attribute provides much flexibility, it also has performance implications - it's
+   * strongly suggested to first consider using `instanceFilter`, `hideNodesInHierarchy` or `hideIfNoChildren`
+   * and only use `hideExpression` if none of them are sufficient.
+   *
+   * @beta
+   */
+  hideExpression?: string;
+
+  /**
    * Set this flag to `true` to suppress default sorting of ECInstances returned by this specification.
    *
    * **Note:** setting this flag to `true` improves performance.
@@ -74,7 +88,7 @@ export interface ChildNodeSpecificationBase {
   /** Specifications of related instances that can be used in content creation. */
   relatedInstances?: RelatedInstanceSpecification[];
 
-  /** [Nested rule]($docs/learning/hierarchies/Terminology.md#nested-rules) specifications. */
+  /** [Nested rule]($docs/learning/presentation/Hierarchies/Terminology.md#nested-rules) specifications. */
   nestedRules?: ChildNodeRule[];
 }
 

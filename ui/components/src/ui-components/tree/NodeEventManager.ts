@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 import { NodeLoadingOrchestrator, NodeSet, NodeKey } from "./NodeLoadingOrchestrator";
 import { BeInspireTreeNode } from "./component/BeInspireTree";
@@ -16,16 +18,19 @@ interface NodeEventManagerCallbacks {
   onCheckboxStateChanged: (stateChanges: Array<{ node: BeInspireTreeNode<TreeNodeItem>, newState: CheckBoxState }>) => void;
 }
 
-/** @internal */
+/** @internal @deprecated */
 export class NodeEventManager {
   private _loadingOrchestrator: NodeLoadingOrchestrator;
+  private _bulkCheckboxActionsEnabled: boolean;
   private _callbacks: NodeEventManagerCallbacks;
 
   constructor(
     loadingOrchestrator: NodeLoadingOrchestrator,
+    bulkCheckboxActionsEnabled: boolean,
     callbacks: NodeEventManagerCallbacks,
   ) {
     this._loadingOrchestrator = loadingOrchestrator;
+    this._bulkCheckboxActionsEnabled = bulkCheckboxActionsEnabled;
     this._callbacks = callbacks;
   }
 
@@ -86,7 +91,7 @@ export class NodeEventManager {
   }
 
   public setCheckboxState(node: BeInspireTreeNode<TreeNodeItem>, state: CheckBoxState) {
-    if (!node.selected()) {
+    if (!node.selected() || !this._bulkCheckboxActionsEnabled) {
       this._callbacks.onCheckboxStateChanged([{ node, newState: state }]);
       return;
     }

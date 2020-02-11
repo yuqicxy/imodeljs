@@ -1,20 +1,34 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
-
+import { mount, shallow, ReactWrapper } from "enzyme";
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { expect } from "chai";
 import * as sinon from "sinon";
+
 import TestUtils from "../TestUtils";
 import {
   PopupButton,
   SyncUiEventDispatcher,
   BaseItemState,
 } from "../../ui-framework";
+import { WithOnOutsideClickProps } from "@bentley/ui-core";
+import { Item } from "@bentley/ui-ninezone";
+import { BadgeType } from "@bentley/ui-abstract";
+
+// cSpell:ignore buttonstate
 
 describe("<PopupButton />", async () => {
+  before(async () => {
+    await TestUtils.initializeUiFramework();
+  });
+
+  after(() => {
+    TestUtils.terminateUiFramework();
+  });
+
   afterEach(cleanup);
 
   it("should render", async () => {
@@ -31,7 +45,8 @@ describe("<PopupButton />", async () => {
   });
 
   it("should render with many props", async () => {
-    const renderedComponent = render(<PopupButton iconSpec="icon-arrow-down" labelKey="Sample:test.key" isVisible={true} isEnabled={true} isActive={true} isPressed={true}>
+    const renderedComponent = render(<PopupButton iconSpec="icon-arrow-down" labelKey="Sample:test.key"
+      isVisible={true} isEnabled={true} isActive={true} isPressed={true} badgeType={BadgeType.New}>
       <div style={{ width: "200px", height: "100px" }}>
         hello world!
       </div>
@@ -63,39 +78,19 @@ describe("<PopupButton />", async () => {
     expect(popupButton).to.be.null;
   });
 
-  // Note we can't retrieve info about panel in portal when testing button - I think this is because the portal is managed by the parent toolbar
-  let expectedValue = true;
-
-  it("Fire click event to open popup", async () => {
-    const spyOnPick = sinon.spy();
-    function handleOnExpanded(expand: boolean): void {
-      expect(expand).to.equal(expectedValue);
-      spyOnPick();
-    }
-
-    const renderedComponent = render(<PopupButton iconSpec="icon-arrow-down" label="Popup-Test" onExpanded={handleOnExpanded}>
+  it("should open popup", async () => {
+    const spy = sinon.spy();
+    const sut = mount<PopupButton>(<PopupButton iconSpec="icon-arrow-down" label="Popup-Test" onExpanded={spy}>
       <div style={{ width: "200px", height: "100px" }}>
         hello world!
       </div>
     </PopupButton>);
 
-    expect(renderedComponent).not.to.be.undefined;
-    const popupButton = renderedComponent.getByTitle("Popup-Test");
-    expect(popupButton).not.to.be.undefined;
+    const item = sut.find(Item);
+    item.prop("onClick")!();
 
-    expect(popupButton.tagName).to.be.equal("BUTTON");
-    fireEvent.click(popupButton);
-
-    await TestUtils.flushAsyncOperations();
-    expect(spyOnPick.calledOnce).to.be.true;
-    spyOnPick.resetHistory();
-
-    expectedValue = false;
-    fireEvent.click(popupButton);
-
-    await TestUtils.flushAsyncOperations();
-    expect(spyOnPick.calledOnce).to.be.true;
-    spyOnPick.resetHistory();
+    expect(spy.calledOnce).to.be.true;
+    expect(sut.state().isPressed).to.be.true;
   });
 
   it("sync event should trigger stateFunc", () => {
@@ -117,4 +112,76 @@ describe("<PopupButton />", async () => {
     expect(stateFunctionCalled).to.eq(true);
   });
 
+  it("should invoke children as render prop", () => {
+    const sut = shallow<PopupButton>(<PopupButton>
+      {() => <div />}
+    </PopupButton>);
+    sut.setState({ isPressed: true });
+    sut.dive().should.matchSnapshot();
+  });
+
+  it("should close panel with render prop arg", () => {
+    const sut = mount<PopupButton>(<PopupButton>
+      {({ closePanel }) => <button onClick={closePanel} id="btn" />}
+    </PopupButton>);
+    sut.setState({ isPressed: true });
+
+    const btn = sut.find("#btn");
+    btn.simulate("click");
+
+    (sut.state().isPressed === false).should.true;
+  });
+
+  it("should render with no padding", () => {
+    const sut = shallow<PopupButton>(<PopupButton noPadding>
+      <div />
+    </PopupButton>);
+    sut.setState({ isPressed: true });
+    sut.dive().should.matchSnapshot();
+  });
+
+  it("should minimize on outside click", () => {
+    const sut = mount<PopupButton>(<PopupButton noPadding>
+      <div />
+    </PopupButton>);
+    sut.setState({ isPressed: true });
+    const divWithOnOutsideClick = sut.findWhere((w) => {
+      return w.name() === "WithOnOutsideClick";
+    }) as ReactWrapper<WithOnOutsideClickProps>;
+
+    const event = new MouseEvent("");
+    sinon.stub(event, "target").get(() => document.createElement("div"));
+    divWithOnOutsideClick.prop("onOutsideClick")!(event);
+
+    expect(sut.state().isPressed).to.be.false;
+  });
+
+  it("should not minimize on outside click", () => {
+    const sut = mount<PopupButton>(<PopupButton noPadding>
+      <div />
+    </PopupButton>);
+    sut.setState({ isPressed: true });
+    const spy = sinon.spy(sut.instance(), "minimize");
+    const divWithOnOutsideClick = sut.findWhere((w) => {
+      return w.name() === "WithOnOutsideClick";
+    }) as ReactWrapper<WithOnOutsideClickProps>;
+
+    const event = new MouseEvent("");
+    divWithOnOutsideClick.prop("onOutsideClick")!(event);
+
+    expect(spy.called).to.be.false;
+  });
+
+  it("should minimize on Escape down", () => {
+    const sut = mount<PopupButton>(<PopupButton noPadding>
+      <div />
+    </PopupButton>);
+    sut.setState({ isPressed: true });
+    const spy = sinon.spy(sut.instance(), "minimize");
+    const item = sut.find(Item);
+
+    item.simulate("keyDown", { key: "Escape" });
+
+    expect(spy.called).to.be.true;
+  });
 });

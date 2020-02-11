@@ -1,12 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import {
   TreeDataProviderRaw, TreeDataProviderPromise, TreeDataProviderMethod, ITreeDataProvider,
-  isTreeDataProviderRaw, isTreeDataProviderInterface, isTreeDataProviderMethod, isTreeDataProviderPromise,
+  isTreeDataProviderRaw, isTreeDataProviderInterface, isTreeDataProviderMethod, isTreeDataProviderPromise, getLabelString,
 } from "../../ui-components/tree/TreeDataProvider";
+import TestUtils from "../TestUtils";
 
 describe("TreeDataProvider", () => {
 
@@ -58,6 +59,20 @@ describe("TreeDataProvider", () => {
       expect(isTreeDataProviderInterface(emptyPromiseProvider)).to.be.false;
       expect(isTreeDataProviderInterface(emptyMethodProvider)).to.be.false;
       expect(isTreeDataProviderInterface(emptyInterfaceProvider)).to.be.true;
+    });
+
+  });
+
+  describe("getLabelString", () => {
+
+    it("returns correct string when label is string", () => {
+      const label = "Test Label Value";
+      expect(getLabelString(label)).to.be.eq("Test Label Value");
+    });
+
+    it("returns correct string when label is PropertyRecord", () => {
+      const label = TestUtils.createPrimitiveStringProperty("node_label", "Test Label Value");
+      expect(getLabelString(label)).to.be.eq("Test Label Value");
     });
 
   });

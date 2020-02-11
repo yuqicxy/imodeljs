@@ -1,13 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module StagePanels */
+/** @packageDocumentation
+ * @module StagePanels
+ */
 
 import { StagePanelManagerProps, getDefaultStagePanelManagerProps, StagePanelManager } from "../stage-panels/manager/StagePanel";
 import { StagePanelType } from "../stage-panels/StagePanel";
 import { HorizontalAnchor, VerticalAnchor } from "../widget/Stacked";
-import { WidgetZoneIndex } from "../zones/manager/Zones";
+import { WidgetZoneId } from "../zones/manager/Zones";
 import { NineZoneStagePanelPaneManagerProps, NineZoneStagePanelPaneManager, getDefaultNineZoneStagePanelPaneManagerProps } from "./StagePanelPane";
 
 /** Properties used by [[NineZoneStagePanelManager]].
@@ -51,7 +53,7 @@ export class NineZoneStagePanelManager extends StagePanelManager {
     }
   }
 
-  public addWidget<TProps extends NineZoneStagePanelManagerProps>(widgetId: WidgetZoneIndex, paneIndex: number | undefined, props: TProps): TProps {
+  public addWidget<TProps extends NineZoneStagePanelManagerProps>(widgetId: WidgetZoneId, paneIndex: number | undefined, props: TProps): TProps {
     paneIndex = paneIndex === undefined ? props.panes.length : paneIndex;
     if (paneIndex > props.panes.length || paneIndex < 0)
       return props;
@@ -72,7 +74,7 @@ export class NineZoneStagePanelManager extends StagePanelManager {
     };
   }
 
-  public removeWidget<TProps extends NineZoneStagePanelManagerProps>(widgetId: WidgetZoneIndex, props: TProps): TProps {
+  public removeWidget<TProps extends NineZoneStagePanelManagerProps>(widgetId: WidgetZoneId, props: TProps): TProps {
     const widgetKey = this.findWidget(widgetId, props);
     if (!widgetKey)
       return props;
@@ -93,7 +95,7 @@ export class NineZoneStagePanelManager extends StagePanelManager {
     };
   }
 
-  public findWidget<TProps extends NineZoneStagePanelManagerProps>(widgetId: WidgetZoneIndex, props: TProps) {
+  public findWidget<TProps extends NineZoneStagePanelManagerProps>(widgetId: WidgetZoneId, props: TProps) {
     for (const [paneIndex, pane] of props.panes.entries()) {
       const widgetIndex = pane.widgets.indexOf(widgetId);
       if (widgetIndex > -1)

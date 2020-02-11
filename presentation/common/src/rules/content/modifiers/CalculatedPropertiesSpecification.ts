@@ -1,22 +1,24 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 /**
  * Sub-specification to include additional calculated properties into the content.
  * @public
  */
 export interface CalculatedPropertiesSpecification {
-  /** Label of the calculated property. May be [localized]($docs/learning/Localization.md). */
+  /** Label of the calculated property. May be [localized]($docs/learning/presentation/Localization.md). */
   label: string;
 
   /**
-   * [ECExpression]($docs/learning/ECExpressions.md) used to calculate the value. The
+   * [ECExpression]($docs/learning/presentation/ECExpressions.md) used to calculate the value. The
    * following symbol sets are available:
-   * - [ECInstance ECExpression context]($docs/learning/ECExpressions.md#ecinstance)
-   * - [Ruleset variables]($docs/learning/ECExpressions.md#ruleset-variables-user-settings)
+   * - [ECInstance ECExpression context]($docs/learning/presentation/ECExpressions.md#ecinstance)
+   * - [Ruleset variables]($docs/learning/presentation/ECExpressions.md#ruleset-variables-user-settings)
    */
   value: string;
 

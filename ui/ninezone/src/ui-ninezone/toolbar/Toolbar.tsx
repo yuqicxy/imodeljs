@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Toolbar */
+/** @packageDocumentation
+ * @module Toolbar
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
@@ -45,12 +47,12 @@ export class ToolbarPanelAlignmentHelpers {
 export interface PanelsProviderProps {
   /** Render prop that provides item panels. */
   children?: (items: React.ReactNode) => React.ReactNode;
-  /** Ref to histories container. */
-  histories: React.RefObject<HTMLElement>;
+  /** Histories container. */
+  histories: HTMLElement | null;
   /** Items of the toolbar. */
   items?: React.ReactNode;
-  /** Ref to panels container. */
-  panels: React.RefObject<HTMLElement>;
+  /** Panels container. */
+  panels: HTMLElement | null;
 }
 
 /** Provides panels and histories of toolbar items.
@@ -61,7 +63,7 @@ export class PanelsProvider extends React.PureComponent<PanelsProviderProps> {
   private _refs = new Array<React.RefObject<ToolbarItem>>();
 
   private appendPanels() {
-    const panels = this.props.panels.current;
+    const panels = this.props.panels;
     if (!panels)
       return;
 
@@ -77,7 +79,7 @@ export class PanelsProvider extends React.PureComponent<PanelsProviderProps> {
   }
 
   private appendHistories() {
-    const histories = this.props.histories.current;
+    const histories = this.props.histories;
     if (!histories)
       return;
 
@@ -88,7 +90,7 @@ export class PanelsProvider extends React.PureComponent<PanelsProviderProps> {
     for (const ref of this._refs) {
       if (!ref.current)
         continue;
-      histories.appendChild(ref.current.history);
+      histories.appendChild(ref.current.history); // tslint:disable-line: deprecation
     }
   }
 
@@ -153,28 +155,37 @@ export const getToolbarDirection = (expandsTo: Direction): OrthogonalDirection =
   return OrthogonalDirectionHelpers.inverse(orthogonalDirection);
 };
 
-/** A toolbar that may contain items.
- * @note See [[Scrollable]] for toolbar with scroll overflow strategy.
+interface ToolbarState {
+  histories: HTMLElement | null;
+  panels: HTMLElement | null;
+}
+
+/** A toolbar that contains toolbar items.
  * @beta
  */
-export class Toolbar extends React.PureComponent<ToolbarProps> {
+export class Toolbar extends React.PureComponent<ToolbarProps, ToolbarState> {
   public static readonly defaultProps = {
     expandsTo: Direction.Bottom,
     panelAlignment: ToolbarPanelAlignment.Start,
   };
 
-  private _histories = React.createRef<HTMLDivElement>();
-  private _panels = React.createRef<HTMLDivElement>();
+  /** @internal */
+  public readonly state = {
+    histories: null,
+    panels: null,
+  };
 
   public render() {
     return (
-      <PanelsProvider
-        histories={this._histories}
-        items={this.props.items}
-        panels={this._panels}
-      >
-        {this._renderItems}
-      </PanelsProvider>
+      <ToolbarDirectionContext.Provider value={this.props.expandsTo!}>
+        <PanelsProvider
+          histories={this.state.histories}
+          items={this.props.items}
+          panels={this.state.panels}
+        >
+          {this._renderItems}
+        </PanelsProvider>
+      </ToolbarDirectionContext.Provider>
     );
   }
 
@@ -194,11 +205,11 @@ export class Toolbar extends React.PureComponent<ToolbarProps> {
       >
         <div
           className="nz-expanded nz-histories"
-          ref={this._histories}
+          ref={this._handleHistoriesRef}
         />
         <div
           className="nz-expanded nz-panels"
-          ref={this._panels}
+          ref={this._handlePanelsRef}
         />
         <Items
           className="nz-items"
@@ -209,6 +220,14 @@ export class Toolbar extends React.PureComponent<ToolbarProps> {
       </div >
     );
   }
+
+  private _handleHistoriesRef = (histories: HTMLElement | null) => {
+    this.setState({ histories });
+  }
+
+  private _handlePanelsRef = (panels: HTMLElement | null) => {
+    this.setState({ panels });
+  }
 }
 
 /** Defines toolbar item component.
@@ -216,6 +235,7 @@ export class Toolbar extends React.PureComponent<ToolbarProps> {
  */
 export interface ToolbarItem {
   readonly panel: HTMLElement;
+  /** @deprecated */
   readonly history: HTMLElement;
 }
 
@@ -238,3 +258,10 @@ export const getToolbarItemProps = <TProps extends {}>(props: TProps): ToolbarIt
     };
   return {};
 };
+
+/**
+ * Context used by Toolbar component to provide Direction to child components.
+ * @internal
+ */
+// tslint:disable-next-line: variable-name
+export const ToolbarDirectionContext = React.createContext<Direction>(Direction.Bottom);

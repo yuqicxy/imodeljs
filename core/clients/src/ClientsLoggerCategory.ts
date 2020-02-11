@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Logging */
+/** @packageDocumentation
+ * @module Logging
+ */
 
 /** Logger categories used by this package
  * @note All logger categories in this package start with the `imodeljs-clients` prefix.
@@ -14,7 +16,7 @@ export enum ClientsLoggerCategory {
   Clients = "imodeljs-clients.Clients",
 
   /** The logger category used when converting to/from ECJson. */
-  ECJson = "ECJson",
+  ECJson = "imodeljs-clients.ECJson",
 
   /** @internal */
   IModelBank = "imodeljs-clients.iModelBank",
@@ -28,5 +30,5 @@ export enum ClientsLoggerCategory {
   Request = "imodeljs-clients.Request",
 
   /** @internal */
-  UlasClient = "ulasclient",
+  UlasClient = "imodeljs-clients.ulasclient",
 }

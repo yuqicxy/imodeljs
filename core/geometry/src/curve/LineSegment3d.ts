@@ -1,16 +1,17 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 
 import { Geometry, BeJSONFunctions, PlaneAltitudeEvaluator } from "../Geometry";
 import { Order2Bezier } from "../numerics/BezierPolynomials";
 import { Point3d } from "../geometry3d/Point3dVector3d";
 import { Range3d } from "../geometry3d/Range";
 import { Transform } from "../geometry3d/Transform";
-import { Plane3dByOriginAndUnitNormal } from "../geometry3d/Plane3dByOriginAndUnitNormal";
 import { Ray3d } from "../geometry3d/Ray3d";
 import { Plane3dByOriginAndVectors } from "../geometry3d/Plane3dByOriginAndVectors";
 import { GeometryHandler, IStrokeHandler } from "../geometry3d/GeometryHandler";
@@ -18,7 +19,7 @@ import { StrokeOptions } from "./StrokeOptions";
 import { CurvePrimitive, AnnounceNumberNumberCurvePrimitive } from "./CurvePrimitive";
 import { CurveExtendOptions, VariantCurveExtendParameter } from "./CurveExtendMode";
 import { GeometryQuery } from "./GeometryQuery";
-import { CurveLocationDetail } from "./CurveLocationDetail";
+import { CurveLocationDetail, CurveIntervalRole} from "./CurveLocationDetail";
 import { LineString3d } from "./LineString3d";
 import { Clipper } from "../clipping/ClipUtils";
 /* tslint:disable:variable-name no-empty*/
@@ -34,6 +35,9 @@ import { Clipper } from "../clipping/ClipUtils";
  * @public
  */
 export class LineSegment3d extends CurvePrimitive implements BeJSONFunctions {
+  /** String name for schema properties */
+  public readonly curvePrimitiveType = "lineSegment";
+
   /** test if `other` is of class `LineSegment3d` */
   public isSameGeometryClass(other: GeometryQuery): boolean { return other instanceof LineSegment3d; }
   private _point0: Point3d;
@@ -102,12 +106,17 @@ export class LineSegment3d extends CurvePrimitive implements BeJSONFunctions {
     return c;
   }
   /** Create with start and end points.  The point contents are cloned into the LineSegment3d. */
-  public static create(point0: Point3d, point1: Point3d, result?: LineSegment3d) {
+  public static create(point0: Point3d, point1: Point3d, result?: LineSegment3d): LineSegment3d {
     if (result) {
       result.set(point0, point1);  // and this will clone them !!
       return result;
     }
     return new LineSegment3d(point0.clone(), point1.clone());
+  }
+
+  /** Create with start and end points.  The point contents are CAPTURED into the result */
+  public static createCapture(point0: Point3d, point1: Point3d): LineSegment3d {
+    return new LineSegment3d(point0, point1);
   }
   /** create a LineSegment3d from xy coordinates of start and end, with common z.
    * @param x0 start point x coordinate.
@@ -184,7 +193,7 @@ export class LineSegment3d extends CurvePrimitive implements BeJSONFunctions {
     return true;
   }
   /** Test if both endpoints are in a plane (within tolerance) */
-  public isInPlane(plane: Plane3dByOriginAndUnitNormal): boolean {
+  public isInPlane(plane: PlaneAltitudeEvaluator): boolean {
     return Geometry.isSmallMetricDistance(plane.altitude(this._point0))
       && Geometry.isSmallMetricDistance(plane.altitude(this._point1));
   }
@@ -198,7 +207,9 @@ export class LineSegment3d extends CurvePrimitive implements BeJSONFunctions {
     let numIntersection = 0;
     if (fraction !== undefined) {
       numIntersection++;
-      result.push(CurveLocationDetail.createCurveFractionPoint(this, fraction, this.fractionToPoint(fraction)));
+      const detail = CurveLocationDetail.createCurveFractionPoint(this, fraction, this.fractionToPoint(fraction));
+      detail.intervalRole = CurveIntervalRole.isolated;
+      result.push(detail);
     }
     return numIntersection;
   }
@@ -308,6 +319,6 @@ export class LineSegment3d extends CurvePrimitive implements BeJSONFunctions {
    * @param fractionB [in] end fraction
    */
   public clonePartialCurve(fractionA: number, fractionB: number): CurvePrimitive | undefined {
-    return LineString3d.create(this.fractionToPoint(fractionA), this.fractionToPoint(fractionB));
+    return LineSegment3d.create(this.fractionToPoint(fractionA), this.fractionToPoint(fractionB));
   }
 }

@@ -1,13 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
 const autoprefixer = require("autoprefixer");
-const path = require("path");
 const webpack = require("webpack");
-const WatchMissingNodeModulesPlugin = require("react-dev-utils/WatchMissingNodeModulesPlugin");
 const paths = require("./paths");
 const helpers = require("./helpers");
 const plugins = require("../scripts/utils/webpackPlugins");

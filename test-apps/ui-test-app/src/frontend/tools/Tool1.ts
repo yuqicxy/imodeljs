@@ -1,24 +1,65 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import {
   IModelApp, PrimitiveTool,
   BeButtonEvent, EventHandled,
+  ToolAssistance, ToolAssistanceImage,
 } from "@bentley/imodeljs-frontend";
 
 import { Point3d } from "@bentley/geometry-core";
 
 export class Tool1 extends PrimitiveTool {
   public static toolId = "Tool1";
+  public static iconSpec = "icon-placeholder";
   public readonly points: Point3d[] = [];
 
   public requireWriteableTarget(): boolean { return false; }
   public onPostInstall() { super.onPostInstall(); this.setupAndPromptForNextAction(); }
+  public onUnsuspend(): void { this.provideToolAssistance(); }
 
-  public setupAndPromptForNextAction(): void {
-    IModelApp.notifications.outputPromptByKey("SampleApp:tools.Tool1.Prompts.GetPoint");
+  /** Establish current tool state and initialize drawing aides following onPostInstall, onDataButtonDown, onUndoPreviousStep, or other events that advance or back up the current tool state.
+   * Enable snapping or auto-locate for AccuSnap.
+   * Setup AccuDraw using AccuDrawHintBuilder.
+   * Set view cursor when default cursor isn't applicable.
+   * Provide tool assistance.
+   */
+  protected setupAndPromptForNextAction(): void {
+    this.provideToolAssistance();
+  }
+
+  /** A tool is responsible for providing tool assistance appropriate to the current tool state following significant events.
+   * After onPostInstall to establish instructions for the initial tool state.
+   * After onUnsuspend to reestablish instructions when no longer suspended by a ViewTool or InputCollector.
+   * After onDataButtonDown (or other tool event) advances or backs up the current tool state.
+   * After onUndoPreviousStep or onRedoPreviousStep modifies the current tool state.
+   */
+  protected provideToolAssistance(): void {
+    const mainInstruction = ToolAssistance.createInstruction(ToolAssistanceImage.CursorClick, IModelApp.i18n.translate("SampleApp:tools.Tool2.Prompts.GetPoint"));
+
+    const instruction1 = ToolAssistance.createInstruction(ToolAssistanceImage.CursorClick, "Click on something", true);
+    const instruction2 = ToolAssistance.createKeyboardInstruction(ToolAssistance.createKeyboardInfo(["A"]), "Press a key");
+    const instruction3 = ToolAssistance.createKeyboardInstruction(ToolAssistance.createKeyboardInfo(["A", "B"]), "Press one of two keys", true);
+    const instruction4 = ToolAssistance.createKeyboardInstruction(ToolAssistance.createKeyboardInfo(["W"], ["A", "S", "D"]), "Press one of four keys");
+    const instruction5 = ToolAssistance.createKeyboardInstruction(ToolAssistance.shiftKeyboardInfo, "Press the Shift key", true);
+    const instruction6 = ToolAssistance.createKeyboardInstruction(ToolAssistance.ctrlKeyboardInfo, "Press the Ctrl key");
+    const instruction7 = ToolAssistance.createKeyboardInstruction(ToolAssistance.altKeyboardInfo, "Press the Alt key");
+
+    const section1 = ToolAssistance.createSection([instruction1, instruction2, instruction3, instruction4, instruction5, instruction6, instruction7], ToolAssistance.inputsLabel);
+
+    const instruction21 = ToolAssistance.createInstruction(ToolAssistanceImage.AcceptPoint, "Accept result");
+    const instruction22 = ToolAssistance.createInstruction(ToolAssistanceImage.MouseWheel, "Use mouse wheel");
+    // cSpell:disable
+    const instruction23 = ToolAssistance.createInstruction(ToolAssistanceImage.LeftClick, "Left click. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt.");
+    const instruction24 = ToolAssistance.createInstruction(ToolAssistanceImage.RightClick, "Right click. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
+    // cSpell:enable
+    const section2 = ToolAssistance.createSection([instruction21, instruction22, instruction23, instruction24], "More Inputs");
+
+    const instructions = ToolAssistance.createInstructions(mainInstruction, [section1, section2]);
+
+    IModelApp.notifications.setToolAssistance(instructions);
   }
 
   public async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
@@ -28,7 +69,8 @@ export class Tool1 extends PrimitiveTool {
   }
 
   public async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
-    IModelApp.toolAdmin.startDefaultTool();
+    /* Common reset behavior for primitive tools is calling onReinitialize to restart or exitTool to terminate. */
+    this.onReinitialize();
     return EventHandled.No;
   }
 

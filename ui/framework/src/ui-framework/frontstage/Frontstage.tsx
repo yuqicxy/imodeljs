@@ -1,28 +1,31 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Frontstage */
+/** @packageDocumentation
+ * @module Frontstage
+ */
 
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 
 import { Logger } from "@bentley/bentleyjs-core";
-import { CommonProps } from "@bentley/ui-core";
-import { Zones as NZ_Zones, NineZone, WidgetZoneIndex, WidgetZone, StagePanels, StagePanelsManager, Rectangle } from "@bentley/ui-ninezone";
+import { CommonProps, Rectangle } from "@bentley/ui-core";
+import { Zones as NZ_Zones, WidgetZoneId, StagePanels, StagePanelsManager, widgetZoneIds, HorizontalAnchor, ToolSettingsWidgetMode, ZoneManagerProps, ZonesManagerProps } from "@bentley/ui-ninezone";
 import { ContentLayoutDef, ContentLayout } from "../content/ContentLayout";
 import { ContentGroup } from "../content/ContentGroup";
-import { FrontstageRuntimeProps } from "./FrontstageComposer";
+import { FrontstageRuntimeProps, ZoneDefProvider } from "./FrontstageComposer";
 import { FrontstageDef } from "./FrontstageDef";
 import { ToolItemDef } from "../shared/ToolItemDef";
 import { ZoneDef } from "../zones/ZoneDef";
-import { Zone, ZoneProps, ZoneRuntimeProps, ZoneLocation } from "../zones/Zone";
+import { Zone, ZoneProps, ZoneRuntimeProps, ZoneLocation, isToolSettingsWidgetManagerProps } from "../zones/Zone";
 import { UiFramework, UiVisibilityEventArgs } from "../UiFramework";
 import { StagePanelProps, StagePanel, StagePanelLocation, StagePanelRuntimeProps, getNestedStagePanelKey } from "../stagepanels/StagePanel";
 import { StagePanelDef } from "../stagepanels/StagePanelDef";
 import { UiShowHideManager } from "../utils/UiShowHideManager";
 import { WidgetDef, WidgetStateChangedEventArgs, WidgetState } from "../widgets/WidgetDef";
-import { FrontstageManager } from "./FrontstageManager";
+import { FrontstageManager, FrontstageActivatedEventArgs } from "./FrontstageManager";
+import { ToolSettingsContent } from "../widgets/ToolSettingsContent";
 
 /** Properties for a [[Frontstage]] component.
  * @public
@@ -79,7 +82,7 @@ export interface FrontstageProps extends CommonProps {
 
 interface FrontstageState {
   isUiVisible: boolean;
-  widgetIdToContent: Partial<{ [id in WidgetZoneIndex]: HTMLDivElement | undefined }>;
+  widgetIdToContent: Partial<{ [id in WidgetZoneId]: HTMLDivElement | undefined }>;
 }
 
 /** Frontstage React component.
@@ -87,8 +90,17 @@ interface FrontstageState {
  * @public
  */
 export class Frontstage extends React.Component<FrontstageProps, FrontstageState> {
-  private _contentRefs = new Map<WidgetZoneIndex, React.Ref<HTMLDivElement>>();
+  private static _zoneIds: ReadonlyArray<WidgetZoneId> = widgetZoneIds.filter((z) => z !== 8);
+  private _contentRefs = new Map<WidgetZoneId, React.Ref<HTMLDivElement>>();
   private _zonesMeasurer = React.createRef<HTMLDivElement>();
+  private _zonesStyle: React.CSSProperties = {
+    pointerEvents: "none",
+  };
+  private _zonesFooterModeStyle: React.CSSProperties = {
+    ...this._zonesStyle,
+    display: "flex",
+    flexFlow: "column",
+  };
 
   /** @internal */
   constructor(props: FrontstageProps) {
@@ -112,8 +124,6 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
     if (!this._zonesMeasurer.current || !this.props.runtimeProps)
       return;
     const bounds = Rectangle.create(this._zonesMeasurer.current.getBoundingClientRect());
-    if (bounds.equals(this.props.runtimeProps.nineZone.zones.bounds))
-      return;
     this.props.runtimeProps.nineZoneChangeHandler.handleZonesBoundsChange(bounds);
   }
 
@@ -185,7 +195,7 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
     return undefined;
   }
 
-  private static getZoneElement(zoneId: WidgetZoneIndex, props: FrontstageProps): React.ReactElement<ZoneProps> | undefined {
+  private static getZoneElement(zoneId: WidgetZoneId, props: FrontstageProps): React.ReactElement<ZoneProps> | undefined {
     let zoneElement: React.ReactElement<ZoneProps> | undefined;
 
     switch (zoneId) {
@@ -271,7 +281,7 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
     return panelElement;
   }
 
-  private _getContentRef = (widget: WidgetZoneIndex) => {
+  private _getContentRef = (widget: WidgetZoneId) => {
     const ref = this._contentRefs.get(widget);
     if (ref)
       return ref;
@@ -295,6 +305,7 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
     if (this.props.runtimeProps && this.props.runtimeProps.frontstageDef) {
       const frontstageDef = this.props.runtimeProps.frontstageDef;
 
+      // istanbul ignore else
       if (frontstageDef.contentLayoutDef && frontstageDef.contentGroup)
         contentLayout = (
           <ContentLayout
@@ -318,18 +329,25 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
       const { location } = panelDef;
       const panelElement = Frontstage.getStagePanelElement(location, this.props);
 
+      // istanbul ignore else
       if (panelElement && React.isValidElement(panelElement)) {
         const panelKey = getNestedStagePanelKey(panelDef.location);
         const panels = runtimeProps.nineZone.nested.panels[panelKey.id];
         const panel = StagePanelsManager.getPanel(panelKey.type, panels);
+        const draggedWidget = runtimeProps.nineZone.zones.draggedWidget;
+
         const panelRuntimeProps: StagePanelRuntimeProps = {
+          draggedWidgetId: draggedWidget ? draggedWidget.id : undefined,
           getWidgetContentRef: this._getContentRef,
+          isInFooterMode: runtimeProps.nineZone.zones.isInFooterMode,
+          isTargeted: !!runtimeProps.nineZone.zones.target,
           panel,
           panelDef,
           stagePanelChangeHandler: runtimeProps.stagePanelChangeHandler,
           widgetChangeHandler: runtimeProps.widgetChangeHandler,
+          widgets: runtimeProps.nineZone.zones.widgets,
+          widgetTabs: runtimeProps.widgetTabs,
           zoneDefProvider: runtimeProps.zoneDefProvider,
-          zones: runtimeProps.nineZone.zones,
         };
 
         return React.cloneElement(panelElement, { runtimeProps: panelRuntimeProps });
@@ -339,8 +357,8 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
     return null;
   }
 
-  private cloneZoneElements(zones: WidgetZoneIndex[], nineZone: NineZone, runtimeProps: FrontstageRuntimeProps): React.ReactNode[] {
-    return zones.map((zoneId: WidgetZoneIndex) => {
+  private cloneZoneElements(zoneIds: ReadonlyArray<WidgetZoneId>, runtimeProps: FrontstageRuntimeProps): React.ReactNode[] {
+    return zoneIds.map((zoneId: WidgetZoneId) => {
       const zoneElement = Frontstage.getZoneElement(zoneId, this.props) as React.ReactElement<ZoneProps>;
       if (!zoneElement || !React.isValidElement(zoneElement))
         return null;
@@ -354,31 +372,44 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
       const nestedPanelsManager = FrontstageManager.NineZoneManager.getNestedPanelsManager();
       const panelsManager = nestedPanelsManager.getPanelsManager("inner");
       const type = panelsManager.findWidget(zoneId, runtimeProps.nineZone.nested.panels.inner);
+      // istanbul ignore if
       if (type !== undefined)
         return null;
 
-      const zone: WidgetZone = nineZone.getWidgetZone(zoneId);
-      const ghostOutline = zone.getGhostOutlineBounds();
-      const dropTarget = zone.getDropTarget();
+      const zonesManager = FrontstageManager.NineZoneManager.getZonesManager();
+      const zones = runtimeProps.nineZone.zones;
+      const ghostOutline = zonesManager.getGhostOutlineBounds(zoneId, zones);
+      const dropTarget = zonesManager.getDropTarget(zoneId, zones);
+      const zone = getExtendedZone(zoneId, zones, runtimeProps.zoneDefProvider);
+      const widget = zone.widgets.length > 0 ? zones.widgets[zone.widgets[0]] : undefined;
+      const openWidgetId = zone.widgets.find((wId) => zones.widgets[wId].tabIndex >= 0);
+      const activeTabIndex = openWidgetId ? zones.widgets[openWidgetId].tabIndex : 0;
+      const draggedWidget = runtimeProps.nineZone.zones.draggedWidget;
+      const disabledResizeHandles = zonesManager.getDisabledResizeHandles(zoneId, zones);
       const zoneRuntimeProps: ZoneRuntimeProps = {
-        draggingWidget: runtimeProps.nineZone.zones.draggingWidget,
-        getWidgetContentRef: this._getContentRef,
-        zoneDef,
-        zoneProps: runtimeProps.nineZone.zones.zones[zoneId],
-        widgetChangeHandler: runtimeProps.widgetChangeHandler,
-        targetChangeHandler: runtimeProps.targetChangeHandler,
-        zoneDefProvider: runtimeProps.zoneDefProvider,
-        ghostOutline,
+        activeTabIndex,
+        disabledResizeHandles,
+        draggedWidget: draggedWidget && draggedWidget.id === zoneId ? draggedWidget : undefined,
         dropTarget,
+        getWidgetContentRef: this._getContentRef,
+        ghostOutline,
         isHidden: (zoneDef.isStatusBar && this.props.isInFooterMode && (this.state.isUiVisible || !UiShowHideManager.showHideFooter)) ? false : !this.state.isUiVisible,
-        widgets: runtimeProps.nineZone.zones.widgets,
+        isInFooterMode: runtimeProps.nineZone.zones.isInFooterMode,
+        openWidgetId,
+        targetChangeHandler: runtimeProps.targetChangeHandler,
+        widgetChangeHandler: runtimeProps.widgetChangeHandler,
+        widgetTabs: runtimeProps.widgetTabs,
+        widget,
+        zoneDef,
+        zoneDefProvider: runtimeProps.zoneDefProvider,
+        zone,
       };
       return React.cloneElement(zoneElement, { key: zoneId, runtimeProps: zoneRuntimeProps });
     });
   }
 
-  private cloneWidgetContentElements(zones: WidgetZoneIndex[], nineZone: NineZone, runtimeProps: FrontstageRuntimeProps): React.ReactNode[] {
-    const widgets = zones.reduce<Array<{ id: WidgetZoneIndex, def: WidgetDef, tabId: number }>>((prev, zoneId) => {
+  private cloneWidgetContentElements(zones: ReadonlyArray<WidgetZoneId>, runtimeProps: FrontstageRuntimeProps): React.ReactNode[] {
+    const widgets = zones.reduce<Array<{ id: WidgetZoneId, def: WidgetDef, tabIndex: number }>>((prev, zoneId) => {
       const zoneDef = runtimeProps.zoneDefProvider.getZoneDef(zoneId);
 
       // istanbul ignore if
@@ -386,6 +417,8 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
         return prev;
 
       const widgetDefs = zoneDef.widgetDefs.filter((widgetDef: WidgetDef) => {
+        if (zoneId === 2)
+          return widgetDef.isVisible;
         return widgetDef.isVisible && !widgetDef.isFloating;
       });
 
@@ -393,19 +426,21 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
         prev.push({
           id: zoneId,
           def: widgetDefs[i],
-          tabId: i,
+          tabIndex: i,
         });
       }
 
       return prev;
     }, []);
     return widgets.map((widget) => {
-      const nzWidget = nineZone.getWidget(widget.id);
+      const nzWidget = runtimeProps.nineZone.zones.widgets[widget.id];
       return (
         <WidgetContentRenderer
-          isHidden={nzWidget.props.tabIndex !== widget.tabId}
-          key={`${widget.id}_${widget.tabId}`}
+          anchor={nzWidget.horizontalAnchor}
+          isHidden={nzWidget.tabIndex !== widget.tabIndex}
+          key={`${widget.id}_${widget.tabIndex}`}
           renderTo={this.state.widgetIdToContent[widget.id]}
+          toolSettingsMode={isToolSettingsWidgetManagerProps(nzWidget) ? nzWidget.mode : undefined}
           widget={widget.def}
         />
       );
@@ -427,25 +462,11 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
       height: "100%",
     };
 
-    /** For Zones area within the Nine-zone area; excludes */
-    const zonesStyle: React.CSSProperties = {
-      position: "absolute",
-      pointerEvents: "none",
-      display: "flex",
-      flexFlow: "column",
-    };
-
-    const zones = Object.keys(runtimeProps.nineZone.zones.zones)
-      .map((key) => Number(key) as WidgetZoneIndex).filter((z) => z !== 8);
-
-    const nineZone = new NineZone(runtimeProps.nineZone.zones);
     const frontstageDef = runtimeProps.frontstageDef;
 
     return (
       <div style={ninezoneStyle} id="uifw-ninezone-area" className={this.props.className}>
-        {this.doContentLayoutRender()}
-
-        <NZ_Zones style={zonesStyle} >
+        <NZ_Zones style={runtimeProps.nineZone.zones.isInFooterMode ? this._zonesFooterModeStyle : this._zonesStyle} >
           <StagePanels
             bottomPanel={this.cloneStagePanelElement(frontstageDef.bottomMostPanel, runtimeProps)}
             topPanel={this.cloneStagePanelElement(frontstageDef.topMostPanel, runtimeProps)}
@@ -464,21 +485,24 @@ export class Frontstage extends React.Component<FrontstageProps, FrontstageState
                   position: "relative",
                 }}
               >
-                {this.cloneZoneElements(zones, nineZone, runtimeProps)}
+                {this.doContentLayoutRender()}
+                {this.cloneZoneElements(Frontstage._zoneIds, runtimeProps)}
               </div>
             </StagePanels>
           </StagePanels>
-          {this.cloneZoneElements([8], nineZone, runtimeProps)}
+          {this.cloneZoneElements([8], runtimeProps)}
         </NZ_Zones>
-        {this.cloneWidgetContentElements(zones, nineZone, runtimeProps)}
+        {this.cloneWidgetContentElements(Frontstage._zoneIds, runtimeProps)}
       </div>
     );
   }
 }
 
 interface WidgetContentRendererProps {
+  anchor: HorizontalAnchor;
   isHidden: boolean;
   renderTo: HTMLDivElement | undefined;
+  toolSettingsMode: ToolSettingsWidgetMode | undefined;
   widget: WidgetDef;
 }
 
@@ -499,17 +523,19 @@ class WidgetContentRenderer extends React.PureComponent<WidgetContentRendererPro
 
   public componentDidMount() {
     FrontstageManager.onWidgetStateChangedEvent.addListener(this._handleWidgetStateChangedEvent);
+    FrontstageManager.onToolActivatedEvent.addListener(this._handleToolActivatedEvent);
 
+    this._content.style.display = this.props.isHidden ? "none" : "flex";
+    this._content.style.flexDirection = "column";
+    this._content.style.height = "100%";
     if (!this.props.renderTo)
       return;
-    this._content.style.display = this.props.isHidden ? "none" : null;
-
     this.props.renderTo.appendChild(this._content);
   }
 
   public componentDidUpdate(prevProps: WidgetContentRendererProps) {
     if (this.props.isHidden !== prevProps.isHidden) {
-      this._content.style.display = this.props.isHidden ? "none" : null;
+      this._content.style.display = this.props.isHidden ? "none" : "flex";
     }
 
     if (!this.props.renderTo || prevProps.renderTo === this.props.renderTo)
@@ -523,19 +549,33 @@ class WidgetContentRenderer extends React.PureComponent<WidgetContentRendererPro
   }
 
   public componentWillUnmount() {
+    this._content.parentNode && this._content.parentNode.removeChild(this._content);
     FrontstageManager.onWidgetStateChangedEvent.removeListener(this._handleWidgetStateChangedEvent);
+    FrontstageManager.onToolActivatedEvent.removeListener(this._handleToolActivatedEvent);
   }
 
   public render() {
+    if (this.props.toolSettingsMode !== undefined) {
+      return ReactDOM.createPortal((
+        <ToolSettingsContent
+          anchor={this.props.anchor}
+          key={this.state.widgetKey}
+          mode={this.props.toolSettingsMode}
+        >
+          {FrontstageManager.activeToolSettingsNode}
+        </ToolSettingsContent>
+      ), this._content);
+    }
+
     if (this.props.widget.state === WidgetState.Unloaded)
       return null;
-    return ReactDOM.createPortal(
+    return ReactDOM.createPortal((
       <React.Fragment
         key={this.state.widgetKey}
       >
         {this.props.widget.reactElement}
-      </React.Fragment>, this._content,
-    );
+      </React.Fragment>
+    ), this._content);
   }
 
   private _handleWidgetStateChangedEvent = (args: WidgetStateChangedEventArgs) => {
@@ -543,4 +583,57 @@ class WidgetContentRenderer extends React.PureComponent<WidgetContentRendererPro
       return;
     this.forceUpdate();
   }
+
+  private _handleToolActivatedEvent = () => {
+    if (this.props.toolSettingsMode === undefined)
+      return;
+    this.forceUpdate();
+  }
 }
+
+/** @internal */
+export const getExtendedZone = (zoneId: WidgetZoneId, zones: ZonesManagerProps, defProvider: ZoneDefProvider): ZoneManagerProps => {
+  const zone = zones.zones[zoneId];
+  if (zoneId === 1 || zoneId === 3) {
+    let extendOverId: WidgetZoneId = zoneId;
+    const zonesManager = FrontstageManager.NineZoneManager.getZonesManager();
+    let bottomZoneId = zonesManager.bottomZones.getInitial(extendOverId);
+    while (bottomZoneId !== undefined) {
+      const bottomZoneDef = defProvider.getZoneDef(bottomZoneId);
+      if (bottomZoneDef && bottomZoneDef.widgetDefs.length !== 0)
+        break;
+
+      extendOverId = bottomZoneId;
+      bottomZoneId = zonesManager.bottomZones.getInitial(bottomZoneId);
+    }
+
+    const bottom = zones.zones[extendOverId].bounds.bottom;
+    if (bottom === zone.bounds.bottom)
+      return zone;
+    return {
+      ...zone,
+      bounds: {
+        ...zone.bounds,
+        bottom,
+      },
+    };
+  }
+  return zone;
+};
+
+/** Hook that returns active frontstage id.
+ * @beta
+ */
+export const useActiveFrontstageId = () => {
+  const [id, setId] = React.useState(FrontstageManager.activeFrontstageId);
+  React.useEffect(() => {
+    const handleActivated = (args: FrontstageActivatedEventArgs) => {
+      setId(args.activatedFrontstageDef.id);
+    };
+    FrontstageManager.onFrontstageActivatedEvent.addListener(handleActivated);
+    return () => {
+      FrontstageManager.onFrontstageActivatedEvent.removeListener(handleActivated);
+    };
+  }, []);
+  return id;
+};

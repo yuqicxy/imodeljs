@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Numerics */
+/** @packageDocumentation
+ * @module Numerics
+ */
 import { BeJSONFunctions, Geometry } from "../Geometry";
 import { Angle } from "../geometry3d/Angle";
 /**
@@ -11,16 +13,14 @@ import { Angle } from "../geometry3d/Angle";
  */
 export class Complex implements BeJSONFunctions {
   private _x: number;
-  /** (propety set) Real part */
-  set x(value: number) { this._x = value; }
-  /** (propety get) Real part */
+  /** Real part */
   get x(): number { return this._x; }
+  set x(value: number) { this._x = value; }
 
   private _y: number;
-  /** (propety set) Imaginary part */
-  set y(value: number) { this._y = value; }
-  /** (propety get) Imaginary part */
+  /** Imaginary part */
   get y(): number { return this._y; }
+  set y(value: number) { this._y = value; }
 
   public constructor(x: number = 0, y: number = 0) { this._x = x; this._y = y; }
   /** set x and y parts from args. */
@@ -59,12 +59,12 @@ export class Complex implements BeJSONFunctions {
       result);
   }
   /** Return the mangitude of the complex number */
-  public magnitude(): number { return Math.hypot(this.x, this.y); }
+  public magnitude(): number { return Geometry.hypotenuseXY(this.x, this.y); }
   /** Return the angle from x axis to the vector (x,y) */
   public angle(): Angle { return Angle.createAtan2(this.y, this.x); }
   /** Return the xy plane distance between this and other */
   public distance(other: Complex) {
-    return Math.hypot(this.x - other.x, this.y - other.y);
+    return Geometry.hypotenuseXY(this.x - other.x, this.y - other.y);
   }
   /** Return the squared xy plane distance between this and other. */
   public magnitudeSquared(): number { return this.x * this.x + this.y * this.y; }

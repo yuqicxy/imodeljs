@@ -1,12 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+import { Logger } from "@bentley/bentleyjs-core";
 import { AngleSweep, Arc3d, Point2d, Point3d, XAndY, XYAndZ } from "@bentley/geometry-core";
 import { AxisAlignedBox3d, ColorByName, ColorDef } from "@bentley/imodeljs-common";
 import {
   BeButton, BeButtonEvent, Cluster, DecorateContext, GraphicType, imageElementFromUrl,
-  IModelApp, Marker, MarkerImage, MarkerSet, MessageBoxIconType, MessageBoxType,
+  IModelApp, Marker, MarkerImage, MarkerSet, MessageBoxIconType, MessageBoxType, Tool,
 } from "@bentley/imodeljs-frontend";
 
 /** Example Marker to show an *incident*. Each incident has an *id*, a *severity*, and an *icon*. */
@@ -18,7 +19,7 @@ class IncidentMarker extends Marker {
   private static _sweep360 = AngleSweep.create360();
   private _color: ColorDef;
 
-  /** This makes the icon only show when the cursor is over an incident marker. */
+  /** uncomment the next line to make the icon only show when the cursor is over an incident marker. */
   // public get wantImage() { return this._isHilited; }
 
   /** Get a color based on severity by interpolating Green(0) -> Amber(15) -> Red(30)  */
@@ -27,35 +28,44 @@ class IncidentMarker extends Marker {
       this._amber.lerp(ColorDef.red, (severity - 16) / 14.));
   }
 
+  // when someone clicks on our marker, open a message box with the severity of the incident.
   public onMouseButton(ev: BeButtonEvent): boolean {
-    if (ev.button === BeButton.Data) {
-      if (ev.isDown) {
-        IModelApp.notifications.openMessageBox(MessageBoxType.LargeOk, "severity = " + this.severity, MessageBoxIconType.Information); // tslint:disable-line:no-floating-promises
-      }
-    }
+    if (ev.button === BeButton.Data && ev.isDown)
+      IModelApp.notifications.openMessageBox(MessageBoxType.LargeOk, "severity = " + this.severity, MessageBoxIconType.Information); // tslint:disable-line:no-floating-promises
     return true;
   }
 
   /** Create a new IncidentMarker */
-  constructor(location: XYAndZ, public severity: number, public id: number, icon: Promise<HTMLImageElement>) {
+  constructor(location: XYAndZ, public severity: number, public id: number, icon: HTMLImageElement) {
     super(location, IncidentMarker._size);
     this._color = IncidentMarker.makeColor(severity); // color interpolated from severity
     this.setImage(icon); // save icon
-    this.imageOffset = IncidentMarker._imageOffset; // move icon up by 30 pixels
+    this.imageOffset = IncidentMarker._imageOffset; // move icon up by 30 pixels so the bottom of the flag is at the incident location in the view.
     this.imageSize = IncidentMarker._imageSize; // 40x40
-    this.labelFont = "italic 14px san-serif"; // use italic so incidents look different than Clusters
-    // this.label = severity.toLocaleString(); // label with severity
     this.title = "Severity: " + severity + "<br>Id: " + id; // tooltip
     this.setScaleFactor({ low: .2, high: 1.4 }); // make size 20% at back of frustum and 140% at front of frustum (if camera is on)
+    this.label = id.toString();
   }
 
+  /**
+   * For this demo, add a WorldDecoration that draws a circle with a radius of 200cm centered at the incident location.
+   * WorldDecorations are in world coordinates, so the circle will change size as you zoom in/out. Also, they are drawn with the z-buffer enabled, so
+   * the circle may be obscured by other geometry in front of in the view. This can help the user understand the point that the marker relates to,
+   * but that effect isn't always desireable.
+   *
+   * World decorations for markers are completely optional. If you don't want anything drawn with WorldDecorations, don't follow this example.
+   *
+   */
   public addMarker(context: DecorateContext) {
     super.addMarker(context);
     const builder = context.createGraphicBuilder(GraphicType.WorldDecoration);
     const ellipse = Arc3d.createScaledXYColumns(this.worldLocation, context.viewport.rotation.transpose(), .2, .2, IncidentMarker._sweep360);
-    builder.setSymbology(ColorDef.white, this._color, 1);
+    // draw the circle the color of the marker, but with some transparency.
+    const color = this._color.clone();
+    builder.setSymbology(ColorDef.white, color, 1);
+    color.setTransparency(200);
     builder.addArc(ellipse, false, false);
-    builder.setBlankingFill(this._color);
+    builder.setBlankingFill(color);
     builder.addArc(ellipse, true, true);
     context.addDecorationFromBuilder(builder);
   }
@@ -111,7 +121,9 @@ class IncidentClusterMarker extends Marker {
     if (cluster.markers.length > maxLen)
       title += "<br>...";
 
-    this.title = title;
+    const div = document.createElement("div"); // Use HTML as markup isn't supported for string.
+    div.innerHTML = title;
+    this.title = div;
     this._clusterColor = IncidentMarker.makeColor(sorted[0].severity).toHexString();
     this.setImage(image);
   }
@@ -120,7 +132,7 @@ class IncidentClusterMarker extends Marker {
 /** A MarkerSet to hold incidents. This class supplies to `getClusterMarker` method to create IncidentClusterMarkers. */
 class IncidentMarkerSet extends MarkerSet<IncidentMarker> {
   protected getClusterMarker(cluster: Cluster<IncidentMarker>): Marker {
-    return IncidentClusterMarker.makeFrom(cluster.markers[0], cluster, IncidentMarkerDemo.warningSign);
+    return IncidentClusterMarker.makeFrom(cluster.markers[0], cluster, IncidentMarkerDemo.decorator!.warningSign);
   }
 }
 
@@ -129,47 +141,112 @@ class IncidentMarkerSet extends MarkerSet<IncidentMarker> {
  * with a random value between 1-30 for "severity", and one of 5 possible icons.
  */
 export class IncidentMarkerDemo {
-  public static warningSign?: HTMLImageElement;
-  private _incidents = new IncidentMarkerSet();
-  private static _decorator?: IncidentMarkerDemo; // static variable just so we can tell if the demo is active.
+  private _awaiting = false;
+  private _loading?: Promise<any>;
+  private _images: Array<HTMLImageElement | undefined> = [];
+  public readonly incidents = new IncidentMarkerSet();
+  private static _numMarkers = 500;
+  public static decorator?: IncidentMarkerDemo; // static variable so we can tell if the demo is active.
 
-  private constructor(extents: AxisAlignedBox3d) {
-    const markerIcons = [
-      imageElementFromUrl("Hazard_biological.svg"),
-      imageElementFromUrl("Hazard_electric.svg"),
-      imageElementFromUrl("Hazard_flammable.svg"),
-      imageElementFromUrl("Hazard_toxic.svg"),
-      imageElementFromUrl("Hazard_tripping.svg"),
+  public get warningSign() { return this._images[0]; }
+
+  // Load one image, logging if there was an error
+  private async loadOne(src: string) {
+    try {
+      return await imageElementFromUrl(src); // note: "return await" is necessary inside try/catch
+    } catch (err) {
+      const msg = "Could not load image " + src;
+      Logger.logError("IncidentDemo", msg);
+      console.log(msg); // tslint:disable-line: no-console
+    }
+    return undefined;
+  }
+
+  // load all images. After they're loaded, make the incident markers.
+  // If there will be a lot of markers displayed, it's best to draw images without scaling.
+  // The Warning_sign.svg used in this example is quite large and is always being scaled down.
+  private async loadAll(extents: AxisAlignedBox3d) {
+    const loads = [
+      this.loadOne("Warning_sign.svg"), // must be first, see "get warningSign()" above
+      this.loadOne("Hazard_biological.svg"),
+      this.loadOne("Hazard_electric.svg"),
+      this.loadOne("Hazard_flammable.svg"),
+      this.loadOne("Hazard_toxic.svg"),
+      this.loadOne("Hazard_tripping.svg"),
     ];
+    await (this._loading = Promise.all(loads)); // this is a member so we can tell if we're still loading
+    for (const img of loads)
+      this._images.push(await img);
 
-    if (undefined === IncidentMarkerDemo.warningSign)
-      imageElementFromUrl("Warning_sign.svg").then((image) => IncidentMarkerDemo.warningSign = image); // tslint:disable-line:no-floating-promises
-
+    const len = this._images.length;
     const pos = new Point3d();
-    for (let i = 0; i < 500; ++i) {
+    for (let i = 0; i < IncidentMarkerDemo._numMarkers; ++i) {
       pos.x = extents.low.x + (Math.random() * extents.xLength());
       pos.y = extents.low.y + (Math.random() * extents.yLength());
       pos.z = extents.low.z + (Math.random() * extents.zLength());
-      this._incidents.markers.add(new IncidentMarker(pos, 1 + Math.round(Math.random() * 29), i, markerIcons[i % markerIcons.length]));
+      const img = this._images[(i % len) + 1];
+      if (undefined !== img)
+        this.incidents.markers.add(new IncidentMarker(pos, 1 + Math.round(Math.random() * 29), i, img));
     }
+    this._loading = undefined;
+  }
+
+  public constructor(extents: AxisAlignedBox3d) {
+    this.loadAll(extents); // tslint:disable-line: no-floating-promises
   }
 
   /** We added this class as a ViewManager.decorator below. This method is called to ask for our decorations. We add the MarkerSet. */
   public decorate(context: DecorateContext) {
-    if (context.viewport.view.isSpatialView())
-      this._incidents.addDecoration(context);
+    if (!context.viewport.view.isSpatialView())
+      return;
+
+    if (undefined === this._loading) {
+      this.incidents.addDecoration(context);
+      return;
+    }
+
+    // if we're still loading, just mark this viewport as needing decorations when all loads are complete
+    if (!this._awaiting) {
+      this._awaiting = true;
+      this._loading.then(() => {
+        context.viewport.invalidateDecorations();
+        this._awaiting = false;
+      }).catch(() => undefined);
+    }
+  }
+
+  /** start the demo by creating the IncidentMarkerDemo object and adding it as a ViewManager decorator. */
+  private static start(extents: AxisAlignedBox3d) {
+    IncidentMarkerDemo.decorator = new IncidentMarkerDemo(extents);
+    IModelApp.viewManager.addDecorator(IncidentMarkerDemo.decorator);
+
+    // hook the event for viewport changing and stop the demo. This is called when the view is closed too. */
+    IncidentMarkerDemo.decorator.incidents.viewport!.onChangeView.addOnce(() => this.stop());
+  }
+
+  /** stop the demo */
+  private static stop() {
+    if (IncidentMarkerDemo.decorator)
+      IModelApp.viewManager.dropDecorator(IncidentMarkerDemo.decorator);
+    IncidentMarkerDemo.decorator = undefined;
   }
 
   /** Turn the markers on and off. Each time it runs it creates a new random set of incidents. */
   public static toggle(extents: AxisAlignedBox3d) {
-    if (undefined === IncidentMarkerDemo._decorator) {
-      // start the demo by creating the IncidentMarkerDemo object and adding it as a ViewManager decorator.
-      IncidentMarkerDemo._decorator = new IncidentMarkerDemo(extents);
-      IModelApp.viewManager.addDecorator(IncidentMarkerDemo._decorator);
-    } else {
-      // stop the demo
-      IModelApp.viewManager.dropDecorator(IncidentMarkerDemo._decorator);
-      IncidentMarkerDemo._decorator = undefined;
-    }
+    if (undefined === IncidentMarkerDemo.decorator)
+      this.start(extents);
+    else
+      this.stop();
+  }
+}
+
+export class IncidentMarkerDemoTool extends Tool {
+  public static toolId = "ToggleIncidentMarkers";
+  public run(_args: any[]): boolean {
+    const vp = IModelApp.viewManager.selectedView;
+    if (undefined !== vp && vp.view.isSpatialView())
+      IncidentMarkerDemo.toggle(vp.view.iModel.projectExtents);
+
+    return true;
   }
 }

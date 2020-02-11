@@ -1,7 +1,8 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+import * as enzyme from "enzyme";
 import { I18N } from "@bentley/imodeljs-i18n";
 import {
   UiFramework,
@@ -13,10 +14,11 @@ import {
   ConfigurableUiManager,
   ContentLayoutProps,
   ContentGroupProps,
+  combineReducers,
 } from "../ui-framework";
 import { UiComponents } from "@bentley/ui-components";
 import { UiCore } from "@bentley/ui-core";
-import { Store, createStore, combineReducers } from "redux";
+import { Store, createStore } from "redux";
 import { TestContentControl } from "./frontstage/FrontstageTestUtils";
 import { ToolUiManager } from "../ui-framework/zones/toolsettings/ToolUiManager";
 import { SyncUiEventDispatcher } from "../ui-framework/syncui/SyncUiEventDispatcher";
@@ -76,17 +78,17 @@ export class TestUtils {
 
       if (testAlternateKey) {
         // this is the rootReducer for the test application.
-        this._rootReducer = combineReducers<RootState>({
+        this._rootReducer = combineReducers({
           sampleAppState: SampleAppReducer,
           testDifferentFrameworkKey: FrameworkReducer,
-        } as any);
+        });
 
       } else {
         // this is the rootReducer for the test application.
-        this._rootReducer = combineReducers<RootState>({
+        this._rootReducer = combineReducers({
           sampleAppState: SampleAppReducer,
           frameworkState: FrameworkReducer,
-        } as any);
+        });
       }
 
       this.store = createStore(this._rootReducer,
@@ -199,6 +201,12 @@ export class TestUtils {
     await TestUtils.flushAsyncOperations();
   }
 
+  public static createBubbledEvent(type: string, props = {}) {
+    const event = new Event(type, { bubbles: true });
+    Object.assign(event, props);
+    return event;
+  }
+
 }
 
 // cSpell:ignore testuser mailinator saml
@@ -215,6 +223,37 @@ export class MockAccessToken extends AccessToken {
   }
 
   public toTokenString() { return ""; }
+}
+
+export const storageMock = () => {
+  const storage: { [key: string]: any } = {};
+  return {
+    setItem: (key: string, value: string) => {
+      storage[key] = value || "";
+    },
+    getItem: (key: string) => {
+      return key in storage ? storage[key] : null;
+    },
+    removeItem: (key: string) => {
+      delete storage[key];
+    },
+    get length() {
+      return Object.keys(storage).length;
+    },
+    key: (i: number) => {
+      const keys = Object.keys(storage);
+      return keys[i] || null;
+    },
+  };
+};
+
+export type ReactWrapper<C extends React.Component, P = C["props"], S = C["state"]> = enzyme.ReactWrapper<P, S, C>;
+
+declare module "sinon" {
+  interface SinonStubStatic {
+    // tslint:disable-next-line: callable-types
+    <T extends (...args: any) => any>(): sinon.SinonStub<Parameters<T>, ReturnType<T>>;
+  }
 }
 
 export default TestUtils;   // tslint:disable-line: no-default-export

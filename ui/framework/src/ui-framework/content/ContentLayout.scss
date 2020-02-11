@@ -1,21 +1,21 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/index";
-@import "@bentley/ui-ninezone/lib/ui-ninezone/footer/_variables";
+
+$resizer-size: 6px;
+$resizer-size-large: 14px;
 
 #uifw-contentlayout-div {
-  position: relative;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
+  height: 100%;
+  pointer-events: auto;
 
-  &.uifw-contentlayout-footer-mode {
-    height: calc(100% - #{$footer-height});
-  }
-
-  &.uifw-contentlayout-open-mode {
+  .Pane2 {
     height: 100%;
   }
 
@@ -23,28 +23,33 @@
     background: rgb(180, 180, 180);
     box-sizing: border-box;
     background-clip: padding-box;
+    margin: 0;
 
     &:hover {
       transition: all 2s ease;
     }
 
     &.horizontal {
-      height: 11px;
-      min-height: 11px;
-      margin: -3px 0;
-      border-top: 3px solid rgba(255, 255, 255, 0);
-      border-bottom: 3px solid rgba(255, 255, 255, 0);
+      height: $resizer-size;
+      min-height: $resizer-size;
       cursor: ns-resize;
       width: 100%;
+
+      @include for-tablet-landscape-down {
+        height: $resizer-size-large;
+        min-height: $resizer-size-large;
+      }
     }
 
     &.vertical {
-      width: 11px;
-      min-width: 11px;
-      margin: 0 -3px;
-      border-left: 3px solid rgba(255, 255, 255, 0);
-      border-right: 3px solid rgba(255, 255, 255, 0);
+      width: $resizer-size;
+      min-width: $resizer-size;
       cursor: ew-resize;
+
+      @include for-tablet-landscape-down {
+        width: $resizer-size-large;
+        min-width: $resizer-size-large;
+      }
     }
 
     &.disabled {

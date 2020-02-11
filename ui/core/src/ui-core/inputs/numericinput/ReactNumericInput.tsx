@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Inputs */
+/** @packageDocumentation
+ * @module Inputs
+ */
 
 import * as React from "react";
 import { CommonProps } from "../../utils/Props";
@@ -129,6 +131,7 @@ export class ReactNumericInput extends React.Component<ReactNumericInputProps, R
    * The default behavior is to start from 0, use step of 1 and display
    * integers
    */
+  // istanbul ignore next
   public static defaultProps = {
     step: 1,
     min: Number.MIN_SAFE_INTEGER || -9007199254740991,
@@ -398,7 +401,9 @@ export class ReactNumericInput extends React.Component<ReactNumericInputProps, R
    *     2. Then trim it.
    *     3. Then parse it to number (delegating to this.props.parse if any)
    */
-  public componentWillReceiveProps(props: ReactNumericInputProps): void {
+  // TODO - Fix this
+  /** @internal */
+  public UNSAFE_componentWillReceiveProps(props: ReactNumericInputProps): void {  // tslint:disable-line: naming-convention
     this._isStrict = !!props.strict;
     const nextState = this._propsToState(props);
     if (Object.keys(nextState).length) {
@@ -414,7 +419,9 @@ export class ReactNumericInput extends React.Component<ReactNumericInputProps, R
   /**
    * Save the input selection right before rendering
    */
-  public componentWillUpdate(): void {
+  // TODO - Fix this
+  /** @internal */
+  public UNSAFE_componentWillUpdate(): void {  // tslint:disable-line: naming-convention
     this.saveSelection();
   }
 
@@ -871,12 +878,12 @@ export class ReactNumericInput extends React.Component<ReactNumericInputProps, R
       wrap: {
         style: noStyle ? null : css.wrap,
         className: "react-numeric-input",
-        ref: (e: HTMLSpanElement) => { if (e != null && e !== undefined) { this._refsWrapper = e; } },
+        ref: (e: HTMLSpanElement) => { this._refsWrapper = e; },
         onMouseUp: undefined,
         onMouseLeave: undefined,
       },
       input: {
-        ref: (e: HTMLInputElement) => { if (e != null && e !== undefined) { this.refsInput = e; } },
+        ref: (e: HTMLInputElement) => { this.refsInput = e; },
         type: "text",
         style: noStyle ? null : Object.assign(
           {},

@@ -1,17 +1,26 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 /**
  * Sub-specification to specify custom property editor
  * @public
+ * @deprecated Use `PropertySpecification` instead
  */
-export interface PropertyEditorsSpecification {
+export interface PropertyEditorsSpecification extends PropertyEditorSpecification {
   /** Name of the property which custom editor should be used for */
   propertyName: string;
+}
 
+/**
+ * Specification for custom property editor
+ * @public
+ */
+export interface PropertyEditorSpecification {
   /** Name of the custom editor */
   editorName: string;
 

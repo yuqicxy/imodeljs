@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Breadcrumb */
+/** @packageDocumentation
+ * @module Breadcrumb
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -11,10 +13,12 @@ import "./Breadcrumb.scss";
 import * as _ from "lodash";
 import { using } from "@bentley/bentleyjs-core";
 import { SplitButton, withOnOutsideClick, MessageSeverity, DialogButtonType, MessageBox, ContextMenu, ContextMenuItem, CommonProps } from "@bentley/ui-core";
-import { TreeDataProvider, TreeNodeItem, isTreeDataProviderInterface, DelayLoadedTreeNodeItem, ImmediatelyLoadedTreeNodeItem } from "../tree/TreeDataProvider";
+import { TreeDataProvider, TreeNodeItem, isTreeDataProviderInterface, DelayLoadedTreeNodeItem, ImmediatelyLoadedTreeNodeItem, getLabelString } from "../tree/TreeDataProvider";
 import { BreadcrumbPath, BreadcrumbUpdateEventArgs } from "./BreadcrumbPath";
 import { BeInspireTree, BeInspireTreeNode, BeInspireTreeNodeConfig, MapPayloadToInspireNodeCallback, BeInspireTreeEvent, BeInspireTreeNodes, toNodes } from "../tree/component/BeInspireTree";
 import { UiComponents } from "../UiComponents";
+
+// cspell:ignore itree autocompleting
 
 /** @internal */
 export type BreadcrumbNodeRenderer = (props: BreadcrumbNodeProps, node?: TreeNodeItem, parent?: TreeNodeItem) => React.ReactNode;
@@ -282,7 +286,7 @@ export class Breadcrumb extends React.Component<BreadcrumbProps, BreadcrumbState
     // istanbul ignore else
     if (this._mounted) {
       const current = this.state.current ? this.state.model.node(this.state.current.id) : undefined;
-      this.setState({ modelReady: true, pathString: current ? current.getTextualHierarchy().join(this.props.delimiter) : "" });
+      this.setState((_prevState, props) => ({ modelReady: true, pathString: current ? current.getTextualHierarchy().join(props.delimiter) : "" }));
     }
   }
 
@@ -295,7 +299,7 @@ export class Breadcrumb extends React.Component<BreadcrumbProps, BreadcrumbState
   private static inspireNodeFromTreeNodeItem(item: TreeNodeItem, remapper: MapPayloadToInspireNodeCallback<TreeNodeItem>): BeInspireTreeNodeConfig {
     const node: BeInspireTreeNodeConfig = {
       id: item.id,
-      text: item.label,
+      text: getLabelString(item.label),
       itree: {
         state: { collapsed: false },
       },
@@ -552,7 +556,7 @@ export class BreadcrumbInput extends React.Component<BreadcrumbInputProps, Bread
 
   private _findChildUserInput = async (p: string): Promise<BeInspireTreeNode<TreeNodeItem> | undefined> => {
     const delimiter = this.props.delimiter!;
-    if (p.lastIndexOf(delimiter) === p.length - delimiter.length) // strip last delimiter if at end
+    if (p.endsWith(delimiter)) // strip last delimiter if at end
       p = p.substr(0, p.length - delimiter.length);
     const root = this.props.tree.nodes();
     for (const node of root) {
@@ -809,7 +813,7 @@ class BreadcrumbDropdownNode extends React.Component<BreadcrumbDropdownNodeProps
       if (p)
         parent = p.payload;
     }
-    const label = n && n.label ? n.label : " ";
+    const label = n && n.label ? getLabelString(n.label) : " ";
     const icon = n && n.icon ? n.icon : "icon-browse";
     const renderNode = this.props.renderNode ? this.props.renderNode : this.renderNode;
     if (this.props.parentsOnly)

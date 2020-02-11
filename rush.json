@@ -1,7 +1,7 @@
 {
-  "rushVersion": "5.7.1",
-  "pnpmVersion": "2.25.7",
-  "nodeSupportedVersionRange": ">=10.6.0 <11.0.0",
+  "rushVersion": "5.14.0",
+  "pnpmVersion": "3.5.3",
+  "nodeSupportedVersionRange": ">=10.6.0 <13.0.0",
   "projectFolderMinDepth": 2,
   "ensureConsistentVersions": true,
   "approvedPackagesPolicy": {
@@ -10,7 +10,8 @@
       "backend",
       "common",
       "tools",
-      "internal"
+      "internal",
+      "plugins"
     ],
     "ignoredNpmScopes": [
       "@types"
@@ -151,6 +152,13 @@
       "versionPolicyName": "prerelease-monorepo-lockStep"
     },
     {
+      "packageName": "@bentley/ui-abstract",
+      "projectFolder": "ui/abstract",
+      "reviewCategory": "frontend",
+      "shouldPublish": true,
+      "versionPolicyName": "prerelease-monorepo-lockStep"
+    },
+    {
       "packageName": "@bentley/ui-core",
       "projectFolder": "ui/core",
       "reviewCategory": "frontend",
@@ -182,6 +190,20 @@
       "packageName": "@bentley/ecschema-metadata",
       "projectFolder": "core/ecschema-metadata",
       "reviewCategory": "common",
+      "shouldPublish": true,
+      "versionPolicyName": "prerelease-monorepo-lockStep"
+    },
+    {
+      "packageName": "@bentley/ecschema-locaters",
+      "projectFolder": "core/ecschema-locaters",
+      "reviewCategory": "backend",
+      "shouldPublish": true,
+      "versionPolicyName": "prerelease-monorepo-lockStep"
+    },
+    {
+      "packageName": "@bentley/ecschema2ts",
+      "projectFolder": "tools/ecschema2ts",
+      "reviewCategory": "tools",
       "shouldPublish": true,
       "versionPolicyName": "prerelease-monorepo-lockStep"
     },
@@ -228,6 +250,27 @@
       "versionPolicyName": "prerelease-monorepo-lockStep"
     },
     {
+      "packageName": "@bentley/oidc-signin-tool",
+      "projectFolder": "tools/oidc-signin-tool",
+      "reviewCategory": "tools",
+      "shouldPublish": true,
+      "versionPolicyName": "prerelease-monorepo-lockStep"
+    },
+    {
+      "packageName": "@bentley/geo-photo-plugin",
+      "projectFolder": "plugins/geo-photo",
+      "reviewCategory": "plugins",
+      "shouldPublish": true,
+      "versionPolicyName": "prerelease-monorepo-lockStep"
+    },
+    {
+      "packageName": "@bentley/hypermodeling-plugin",
+      "projectFolder": "plugins/hypermodeling",
+      "reviewCategory": "plugins",
+      "shouldPublish": true,
+      "versionPolicyName": "prerelease-monorepo-lockStep"
+    },
+    {
       "packageName": "example-code-snippets",
       "projectFolder": "example-code/snippets",
       "reviewCategory": "internal",
@@ -252,6 +295,12 @@
       "shouldPublish": false
     },
     {
+      "packageName": "export-gltf",
+      "projectFolder": "test-apps/export-gltf",
+      "reviewCategory": "internal",
+      "shouldPublish": false
+    },
+    {
       "packageName": "export-obj",
       "projectFolder": "test-apps/export-obj",
       "reviewCategory": "internal",
@@ -260,6 +309,24 @@
     {
       "packageName": "imodel-from-geojson",
       "projectFolder": "test-apps/imodel-from-geojson",
+      "reviewCategory": "internal",
+      "shouldPublish": false
+    },
+    {
+      "packageName": "wms-plugin-example",
+      "projectFolder": "plugins/wms",
+      "reviewCategory": "internal",
+      "shouldPublish": false
+    },
+    {
+      "packageName": "iot-demo",
+      "projectFolder": "plugins/iot-demo",
+      "reviewCategory": "internal",
+      "shouldPublish": false
+    },
+    {
+      "packageName": "test-tools",
+      "projectFolder": "plugins/test-tools",
       "reviewCategory": "internal",
       "shouldPublish": false
     },
@@ -318,10 +385,11 @@
       "shouldPublish": false
     },
     {
-      "packageName": "perf-test-app",
-      "projectFolder": "test-apps/perf-test-app",
-      "reviewCategory": "internal",
-      "shouldPublish": false
+      "packageName": "@bentley/rpcinterface-integration-test",
+      "projectFolder": "integration-tests/rpc-interface",
+      "reviewCategory": "tools",
+      "shouldPublish": true,
+      "versionPolicyName": "prerelease-monorepo-lockStep"
     }
   ]
 }

@@ -1,12 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Frontstage */
+/** @packageDocumentation
+ * @module Frontstage
+ */
 
+import * as React from "react";
 import { UiEvent } from "@bentley/ui-core";
 import { NineZoneManager } from "@bentley/ui-ninezone";
-import { IModelConnection, IModelApp, Tool, StartOrResume, InteractiveTool } from "@bentley/imodeljs-frontend";
+import { IModelConnection, IModelApp, Tool, StartOrResume, InteractiveTool, SelectedViewportChangedArgs } from "@bentley/imodeljs-frontend";
 import { Logger } from "@bentley/bentleyjs-core";
 import { FrontstageDef } from "./FrontstageDef";
 import { ContentControlActivatedEvent } from "../content/ContentControl";
@@ -19,6 +22,7 @@ import { NavigationAidActivatedEvent } from "../navigationaids/NavigationAidCont
 import { UiShowHideManager } from "../utils/UiShowHideManager";
 import { UiFramework } from "../UiFramework";
 import { ContentGroup } from "../content/ContentGroup";
+import { PanelStateChangedEvent } from "../stagepanels/StagePanelDef";
 
 // -----------------------------------------------------------------------------
 // Frontstage Events
@@ -86,6 +90,18 @@ export interface ToolActivatedEventArgs {
  */
 export class ToolActivatedEvent extends UiEvent<ToolActivatedEventArgs> { }
 
+/** Tool Icon Changed Event Args interface.
+ * @public
+ */
+export interface ToolIconChangedEventArgs {
+  iconSpec: string;
+}
+
+/** Tool Icon Changed Event class.
+ * @public
+ */
+export class ToolIconChangedEvent extends UiEvent<ToolIconChangedEventArgs> { }
+
 /** Modal Frontstage information interface.
  * @public
  */
@@ -103,18 +119,19 @@ export interface ModalFrontstageInfo {
  * @public
  */
 export class FrontstageManager {
+  private static _initialized = false;
   private static _isLoading = true;
   private static _activeToolId = "";
   private static _activeFrontstageDef: FrontstageDef | undefined;
   private static _frontstageDefs = new Map<string, FrontstageDef>();
   private static _modalFrontstages: ModalFrontstageInfo[] = new Array<ModalFrontstageInfo>();
-  private static _nineZoneManager = new NineZoneManager();
+  private static _nineZoneManagers = new Map<string, NineZoneManager>();
 
   private static _nestedFrontstages: FrontstageDef[] = new Array<FrontstageDef>();
   private static _activePrimaryFrontstageDef: FrontstageDef | undefined;
   private static _toolInformationMap: Map<string, ToolInformation> = new Map<string, ToolInformation>();
 
-  /** This should only be caused within FrontstageManager and its tests.
+  /** This should only be called within FrontstageManager and its tests.
    *  @internal
    */
   public static ensureToolInformationIsSet(toolId: string): void {
@@ -125,6 +142,9 @@ export class FrontstageManager {
 
   /** Initializes the FrontstageManager */
   public static initialize() {
+    if (this._initialized)
+      return;
+
     // istanbul ignore else
     if (IModelApp && IModelApp.toolAdmin) {
       IModelApp.toolAdmin.activeToolChanged.addListener((tool: Tool, _start: StartOrResume) => {
@@ -136,10 +156,30 @@ export class FrontstageManager {
 
         // if the tool data is not already cached then see if there is data to cache
         FrontstageManager.ensureToolInformationIsSet(tool.toolId);
-        FrontstageManager.setActiveToolId(tool.toolId);
+        FrontstageManager.setActiveTool(tool);
       });
     }
+
+    // istanbul ignore else
+    if (IModelApp && IModelApp.viewManager) {
+      IModelApp.viewManager.onSelectedViewportChanged.addListener(FrontstageManager._handleSelectedViewportChanged);
+    }
+
+    this._initialized = true;
   }
+
+  /** Handles a Viewport change & sets the active view accordingly */
+  private static _handleSelectedViewportChanged = (args: SelectedViewportChangedArgs) => {
+    // istanbul ignore else
+    if (args.current && FrontstageManager.activeFrontstageDef) {
+      const activeFrontstageDef = FrontstageManager.activeFrontstageDef;
+      activeFrontstageDef.setActiveViewFromViewport(args.current);
+    }
+  }
+
+  /** @internal */
+  public static get isInitialized(): boolean { return FrontstageManager._initialized; }
+  public static set isInitialized(v: boolean) { FrontstageManager._initialized = v; }
 
   /** Returns true if Frontstage is loading its controls. If false the Frontstage content and controls have been created. */
   public static get isLoading(): boolean { return FrontstageManager._isLoading; }
@@ -159,6 +199,14 @@ export class FrontstageManager {
   /** Get Tool Activated event. */
   public static readonly onToolActivatedEvent = new ToolActivatedEvent();
 
+  /** Get Tool Panel Opened event.
+   * @internal
+   */
+  public static readonly onToolPanelOpenedEvent = new UiEvent<void>();
+
+  /** Get Tool Icon Changed event. */
+  public static readonly onToolIconChangedEvent = new ToolIconChangedEvent();
+
   /** Get Content Layout Activated event. */
   public static readonly onContentLayoutActivatedEvent = new ContentLayoutActivatedEvent();
 
@@ -171,8 +219,21 @@ export class FrontstageManager {
   /** Get Widget State Changed event. */
   public static readonly onWidgetStateChangedEvent = new WidgetStateChangedEvent();
 
-  /** Get  Nine-zone State Manager. */
-  public static get NineZoneManager() { return this._nineZoneManager; }
+  /** Get Nine-zone State Manager. */
+  public static get NineZoneManager() {
+    const id = FrontstageManager.activeFrontstageId;
+    let manager = FrontstageManager._nineZoneManagers.get(id);
+    if (!manager) {
+      manager = new NineZoneManager();
+      FrontstageManager._nineZoneManagers.set(id, manager);
+    }
+    return manager;
+  }
+
+  /** Get Widget State Changed event.
+   * @alpha
+   */
+  public static readonly onPanelStateChangedEvent = new PanelStateChangedEvent();
 
   /** Clears the Frontstage map.
    */
@@ -282,6 +343,12 @@ export class FrontstageManager {
     FrontstageManager.onToolActivatedEvent.emit({ toolId });
   }
 
+  /** Sets the active tool */
+  public static setActiveTool(tool: Tool): void {
+    FrontstageManager.setActiveToolId(tool.toolId);
+    FrontstageManager.onToolIconChangedEvent.emit({ iconSpec: tool.iconSpec });
+  }
+
   /** Gets the active tool's [[ToolInformation]] */
   public static get activeToolInformation(): ToolInformation | undefined {
     return FrontstageManager._toolInformationMap.get(FrontstageManager.activeToolId);
@@ -300,25 +367,13 @@ export class FrontstageManager {
     return undefined;
   }
 
-  /** Gets the Tool Assistance React node of the active tool.
-   * @return  Tool Assistance React node of the active tool, or undefined if there is no active tool or Tool Assistance for the active tool.
-   */
-  public static get activeToolAssistanceNode(): React.ReactNode | undefined {
-    const activeToolInformation = FrontstageManager.activeToolInformation;
-    const toolUiProvider = (activeToolInformation) ? activeToolInformation.toolUiProvider : /* istanbul ignore next */ undefined;
-
-    if (toolUiProvider && toolUiProvider.toolAssistanceNode)
-      return toolUiProvider.toolAssistanceNode;
-
-    return undefined;
-  }
-
   /** Sets the active layout, content group and active content.
    * @param contentLayoutDef  Content layout to make active
    * @param contentGroup  Content Group to make active
    */
   public static async setActiveLayout(contentLayoutDef: ContentLayoutDef, contentGroup: ContentGroup): Promise<void> {
     const activeFrontstageDef = FrontstageManager.activeFrontstageDef;
+    // istanbul ignore else
     if (activeFrontstageDef) {
       FrontstageManager._isLoading = false;
 

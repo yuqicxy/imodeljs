@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/index";
 
@@ -20,6 +20,10 @@
   grid-row-gap: 6px;
   user-select: none;
   color: $buic-foreground-body;
+
+  > div {
+    min-width: 100%;
+  }
 }
 
 .components-property-grid-wrapper {
@@ -36,6 +40,7 @@
 
   .components--selected {
     background-color: $buic-row-selection;
+    outline: 1px solid $buic-foreground-primary;
   }
 
   .components--clickable {
@@ -48,12 +53,6 @@
 
   .components--hoverable:hover {
     background-color: $buic-row-hover;
-  }
-
-  .components-cell-editor {
-    border: $buic-foreground-primary solid 1px;
-    border-radius: 3px;
-    box-sizing: border-box;
   }
 }
 

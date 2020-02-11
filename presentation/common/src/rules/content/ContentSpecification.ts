@@ -1,17 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 import { ContentInstancesOfSpecificClassesSpecification } from "./ContentInstancesOfSpecificClassesSpecification";
 import { ContentRelatedInstancesSpecification } from "./ContentRelatedInstancesSpecification";
 import { SelectedNodeInstancesSpecification } from "./SelectedNodeInstancesSpecification";
-import { PropertiesDisplaySpecification } from "./modifiers/PropertiesDisplaySpecification";
-import { PropertyEditorsSpecification } from "./modifiers/PropertyEditorsSpecification";
-import { RelatedPropertiesSpecification } from "./modifiers/RelatedPropertiesSpecification";
-import { CalculatedPropertiesSpecification } from "./modifiers/CalculatedPropertiesSpecification";
 import { RelatedInstanceSpecification } from "../RelatedInstanceSpecification";
+import { ContentModifiersList } from "./modifiers/ContentModifier";
 
 /**
  * Used for serializing array of [[ContentSpecification]]
@@ -29,7 +28,7 @@ export enum ContentSpecificationTypes {
  *
  * @public
  */
-export interface ContentSpecificationBase {
+export interface ContentSpecificationBase extends ContentModifiersList {
   /** Used for serializing to JSON. */
   specType: ContentSpecificationTypes;
 
@@ -42,18 +41,6 @@ export interface ContentSpecificationBase {
 
   /** Should each content record be assigned an image id */
   showImages?: boolean;
-
-  /** Specifications for including properties of related instances */
-  relatedProperties?: RelatedPropertiesSpecification[];
-
-  /** Specifications for including calculated properties */
-  calculatedProperties?: CalculatedPropertiesSpecification[];
-
-  /** Specifications for customizing property display by hiding / showing them */
-  propertiesDisplay?: PropertiesDisplaySpecification[];
-
-  /** Specifications for assigning property editors */
-  propertyEditors?: PropertyEditorsSpecification[];
 
   /** Specifications for joining related instances */
   relatedInstances?: RelatedInstanceSpecification[];

@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Numerics
+ */
 
-/** @module Numerics */
 import { Geometry, BeJSONFunctions } from "../Geometry";
 import { XYAndZ } from "../geometry3d/XYZProps";
 import { Point3d, Vector3d, XYZ } from "../geometry3d/Point3dVector3d";
@@ -101,6 +103,14 @@ export class Matrix4d implements BeJSONFunctions {
     result._coffs[14] = cwz;
     result._coffs[15] = cww;
     return result;
+  }
+  /** Create a `Matrix4d` from 16 values appearing as `Point4d` for each row. */
+  public static createRows(rowX: Point4d, rowY: Point4d, rowZ: Point4d, rowW: Point4d, result?: Matrix4d): Matrix4d {
+    return this.createRowValues(
+      rowX.x, rowX.y, rowX.z, rowX.w,
+      rowY.x, rowY.y, rowY.z, rowY.w,
+      rowZ.x, rowZ.y, rowZ.z, rowZ.w,
+      rowW.x, rowW.y, rowW.z, rowW.w, result);
   }
   /** directly set columns from typical 3d data:
    *
@@ -233,6 +243,8 @@ export class Matrix4d implements BeJSONFunctions {
   public isAlmostEqual(other: Matrix4d): boolean {
     return Geometry.isSmallMetricDistance(this.maxDiff(other));
   }
+  /** Test for exact (bitwise) equality with other. */
+  public isExactEqual(other: Matrix4d): boolean { return this.maxDiff(other) === 0.0; }
   /**
    * Convert an Matrix4d to a Matrix4dProps.
    */
@@ -447,11 +459,13 @@ export class Matrix4d implements BeJSONFunctions {
     result = result ? result : Point3d.createZero();
     result.set(this._coffs[0] * x + this._coffs[1] * y + this._coffs[2] * z + this._coffs[3] * w, this._coffs[4] * x + this._coffs[5] * y + this._coffs[6] * z + this._coffs[7] * w, this._coffs[8] * x + this._coffs[9] * y + this._coffs[10] * z + this._coffs[11] * w);
     const w1 = this._coffs[12] * x + this._coffs[13] * y + this._coffs[14] * z + this._coffs[15] * w;
-    if (!Geometry.isSmallMetricDistance(w1)) {
-      const a = 1.0 / w1;
-      result.x *= a;
-      result.y *= a;
-      result.z *= a;
+    const qx = Geometry.conditionalDivideCoordinate(result.x, w1);
+    const qy = Geometry.conditionalDivideCoordinate(result.y, w1);
+    const qz = Geometry.conditionalDivideCoordinate(result.z, w1);
+    if (qx !== undefined && qy !== undefined && qz !== undefined) {
+      result.x = qx;
+      result.y = qy;
+      result.z = qz;
     }
     return result;
   }
@@ -526,59 +540,64 @@ export class Matrix4d implements BeJSONFunctions {
     for (let i = firstColumnIndex; i < 4; i++ , iA++ , iB++)
       this._coffs[iB] += scale * this._coffs[iA];
   }
+  /** Return the determinant of the matrix. */
+  public determinant(): number {
+    const c = this._coffs;
+    return Geometry.determinant4x4(
+      c[0], c[1], c[2], c[3],
+      c[4], c[5], c[6], c[7],
+      c[8], c[9], c[10], c[11],
+      c[12], c[13], c[14], c[15]);
+  }
   /** Compute an inverse matrix.
-   * * This uses simple Gauss-Jordan elimination -- no pivot.
-   * @returns undefined if 1/pivot becomes too large. (i.e. apparent 0 pivot)
+   * * This uses direct formulas with various determinants.
+   * * If result is given, it is ALWAYS filled with values "prior to dividing by the determinant".
+   * *
+   * @returns undefined if dividing by the determinant looks unsafe.
    */
-  public createInverse(): Matrix4d | undefined {
-    const work = this.clone();
-    const inverse = Matrix4d.createIdentity();
-    // console.log(work.rowArrays());
-    // console.log(inverse.rowArrays());
-    let pivotIndex;
-    let pivotRow;
-    let pivotValue;
-    let divPivot;
-    // Downward gaussian elimination, no pivoting:
-    for (pivotRow = 0; pivotRow < 3; pivotRow++) {
-      pivotIndex = pivotRow * 5;
-      pivotValue = work._coffs[pivotIndex];
-      // console.log("** pivot row " + pivotRow + " pivotValue " + pivotValue);
-      divPivot = Geometry.conditionalDivideFraction(1.0, pivotValue);
-      if (divPivot === undefined)
-        return undefined;
-      let indexB = pivotIndex + 4;
-      for (let rowB = pivotRow + 1; rowB < 4; rowB++ , indexB += 4) {
-        const scale = -work._coffs[indexB] * divPivot;
-        work.rowOperation(pivotRow, rowB, pivotRow, scale);
-        inverse.rowOperation(pivotRow, rowB, 0, scale);
-        // console.log(work.rowArrays());
-        // console.log(inverse.rowArrays());
+  public createInverse(result?: Matrix4d): Matrix4d | undefined {
+    const maxAbs0 = this.maxAbs();
+    if (maxAbs0 === 0.0)
+      return undefined;
+    const divMaxAbs = 1.0 / maxAbs0;
+    const columnA = this.columnX();
+    const columnB = this.columnY();
+    const columnC = this.columnZ();
+    const columnD = this.columnW();
+    columnA.scale(divMaxAbs, columnA);
+    columnB.scale(divMaxAbs, columnB);
+    columnC.scale(divMaxAbs, columnC);
+    columnD.scale(divMaxAbs, columnD);
+    const rowBCD = Point4d.perpendicularPoint4dPlane(columnB, columnC, columnD);
+    const rowCDA = Point4d.perpendicularPoint4dPlane(columnA, columnD, columnC);  // order for negation !
+    const rowDAB = Point4d.perpendicularPoint4dPlane(columnD, columnA, columnB);
+    const rowABC = Point4d.perpendicularPoint4dPlane(columnC, columnB, columnA); // order for negation !
+    // The matrix is singular if the determinant is zero.
+    // But what is the proper tolerance for zero?
+    // The row values are generally cubes of entries. And the typical perspective matrix
+    //    has very different magnitudes in various parts.  So a typical cube size is really hard.
+    // Compute 4 different determinants.  They should match.
+    // If they are near zero, maybe a sign change is a red flag for singular case.
+    // (And there's a lot less work to do that than was done to make the rows)
+    result = Matrix4d.createRows(rowBCD, rowCDA, rowDAB, rowABC, result);
+    const determinantA = rowBCD.dotProduct(columnA);
+    const determinantB = rowCDA.dotProduct(columnB);
+    const determinantC = rowDAB.dotProduct(columnC);
+    const determinantD = rowABC.dotProduct(columnD);
+    const maxAbs1 = result.maxAbs();
+    if (determinantA * determinantB > 0.0
+      && determinantA * determinantC > 0.0
+      && determinantA * determinantD > 0.0) {
+      const divisionTest = Geometry.conditionalDivideCoordinate(maxAbs1, determinantA);
+      if (divisionTest !== undefined) {
+        const b = divMaxAbs / determinantA;
+        result.scaleRowsInPlace(b, b, b, b);
+        return result;
       }
+    } else {
+      return undefined; // this is a useful spot to break to see if the 4 determinant test is effective.
     }
-    // console.log("\n**********************BackSub\n");
-    // upward gaussian elimination ...
-    for (pivotRow = 1; pivotRow < 4; pivotRow++) {
-      pivotIndex = pivotRow * 5;
-      pivotValue = work._coffs[pivotIndex];
-      // console.log("** pivot row " + pivotRow + " pivotValue " + pivotValue);
-      divPivot = Geometry.conditionalDivideFraction(1.0, pivotValue);
-      if (divPivot === undefined)
-        return undefined;
-      let indexB = pivotRow;
-      for (let rowB = 0; rowB < pivotRow; rowB++ , indexB += 4) {
-        const scale = -work._coffs[indexB] * divPivot;
-        work.rowOperation(pivotRow, rowB, pivotRow, scale);
-        inverse.rowOperation(pivotRow, rowB, 0, scale);
-        // console.log("Eliminate Row " + rowB + " from pivot " + pivotRow);
-        // console.log(work.rowArrays());
-        // console.log(inverse.rowArrays());
-      }
-    }
-    // divide through by pivots (all have been confirmed nonzero)
-    inverse.scaleRowsInPlace(1.0 / work._coffs[0], 1.0 / work._coffs[5], 1.0 / work._coffs[10], 1.0 / work._coffs[15]);
-    // console.log("descaled", inverse.rowArrays());
-    return inverse;
+    return undefined;
   }
   /** Returns an array-of-arrays of the matrix rows, optionally passing each value through a function.
    * @param f optional function to provide alternate values for each entry (e.g. force fuzz to zero.)

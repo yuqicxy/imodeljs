@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/index";
 
@@ -27,7 +27,7 @@ $components-enumbuttongroup-editor-space-between-toolbar-items: 1px;
   font-family: $uicore-font-family;
   font-size: $uicore-font-size;
   background: $buic-background-control;
-  width: 100%;
+  width: fit-content;
 
   $divider-color: $buic-background-toolbutton-stroke;
   $border-color: $buic-background-toolbutton-stroke;
@@ -38,7 +38,7 @@ $components-enumbuttongroup-editor-space-between-toolbar-items: 1px;
   border-radius: $border-radius;
   border-style: solid;
   overflow: hidden;
-  display: inline-block;
+  display: flex;
   vertical-align: bottom;
   box-sizing: border-box;
 
@@ -88,6 +88,7 @@ $components-enumbuttongroup-editor-space-between-toolbar-items: 1px;
     display: grid;
     align-content: center;
     justify-content: center;
+    margin: 0;
     color: $icon-color;
     filter: $icon-shadow;
     transition: all 500ms ease;

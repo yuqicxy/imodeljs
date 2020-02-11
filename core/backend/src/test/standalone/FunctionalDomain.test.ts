@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+import { DbResult, Guid, Id64, Id64String, Logger } from "@bentley/bentleyjs-core";
+import { Code, CodeScopeSpec, CodeSpec, FunctionalElementProps, IModel } from "@bentley/imodeljs-common";
 import { assert } from "chai";
 import * as path from "path";
-import { DbResult, Guid, Id64String, Id64, Logger } from "@bentley/bentleyjs-core";
-import { Code, CodeSpec, CodeScopeSpec, FunctionalElementProps, IModel } from "@bentley/imodeljs-common";
-import { BriefcaseManager, ECSqlStatement, FunctionalSchema, FunctionalModel, IModelDb, SqliteStatement, BackendRequestContext } from "../../imodeljs-backend";
+import { BackendRequestContext, BriefcaseManager, ECSqlStatement, FunctionalModel, FunctionalSchema, IModelDb, SqliteStatement } from "../../imodeljs-backend";
 import { IModelTestUtils } from "../IModelTestUtils";
 
 describe("Functional Domain", () => {
@@ -22,8 +22,8 @@ describe("Functional Domain", () => {
     });
 
     // Import the Functional schema
-    await FunctionalSchema.importSchema(requestContext, iModelDb);
     FunctionalSchema.registerSchema();
+    await FunctionalSchema.importSchema(requestContext, iModelDb);
 
     let commits = 0;
     let committed = 0;
@@ -38,13 +38,13 @@ describe("Functional Domain", () => {
 
     BriefcaseManager.createStandaloneChangeSet(iModelDb.briefcase); // importSchema below will fail if this is not called to flush local changes
 
-    await iModelDb.importSchema(requestContext, path.join(__dirname, "../assets/TestFunctional.ecschema.xml"));
+    await iModelDb.importSchemas(requestContext, [path.join(__dirname, "../assets/TestFunctional.ecschema.xml")]);
 
     iModelDb.saveChanges("Import TestFunctional schema");
     assert.equal(commits, 1);
     assert.equal(committed, 1);
 
-    const codeSpec = new CodeSpec(iModelDb, Id64.invalid, "Test Functional Elements", CodeScopeSpec.Type.Model);
+    const codeSpec = CodeSpec.create(iModelDb, "Test Functional Elements", CodeScopeSpec.Type.Model);
     iModelDb.codeSpecs.insert(codeSpec);
     assert.isTrue(Id64.isValidId64(codeSpec.id));
 

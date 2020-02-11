@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tile */
+/** @packageDocumentation
+ * @module Tile
+ */
 
 import { AbandonedError, assert, base64StringToUint8Array, IModelStatus } from "@bentley/bentleyjs-core";
 import { ImageSource } from "@bentley/imodeljs-common";
@@ -23,6 +25,7 @@ export class TileRequest {
   /** The set of [[Viewport]]s that are awaiting the result of this request. When this becomes empty, the request is canceled because no viewport cares about it. */
   public viewports: TileAdmin.ViewportSet;
   private _state: TileRequest.State;
+  public priority = 0;
 
   public constructor(tile: Tile, vp: Viewport) {
     this._state = TileRequest.State.Queued;
@@ -32,7 +35,18 @@ export class TileRequest {
 
   public get state(): TileRequest.State { return this._state; }
   public get isQueued() { return TileRequest.State.Queued === this._state; }
-  public get isCanceled(): boolean { return this.viewports.isEmpty; } // ###TODO: check if IModelConnection closed etc.
+  public get isCanceled(): boolean {
+    // If iModel was closed, cancel immediately
+    if (this.tile.iModel.tiles.isDisposed)
+      return true;
+
+    // After we've received the raw tile data, always finish processing it - otherwise tile may end up in limbo (and producing tile content should be faster than re-requesting raw data).
+    if (TileRequest.State.Loading === this._state)
+      return false;
+
+    // If no viewport cares about this tile any more, we're canceled.
+    return this.viewports.isEmpty;
+  }
 
   public get tree(): TileTree { return this.tile.root; }
   public get loader(): TileLoader { return this.tree.loader; }
@@ -55,6 +69,9 @@ export class TileRequest {
     try {
       response = await this.loader.requestTileContent(this.tile, () => this.isCanceled);
       gotResponse = true;
+
+      // Set this now, so our `isCanceled` check can see it.
+      this._state = TileRequest.State.Loading;
     } catch (err) {
       if (err instanceof AbandonedError) {
         // Content not found in cache and we were cancelled while awaiting that response, so not forwarded to backend.
@@ -83,6 +100,9 @@ export class TileRequest {
   /** Cancels this request. This leaves the associated Tile's state untouched. */
   public cancel(): void {
     this.notifyAndClear();
+    if (TileRequest.State.Dispatched === this._state)
+      this.loader.onActiveRequestCanceled(this.tile);
+
     this._state = TileRequest.State.Failed;
   }
 
@@ -122,10 +142,8 @@ export class TileRequest {
       return Promise.resolve();
     }
 
-    this._state = TileRequest.State.Loading;
-
     try {
-      const content = await this.loader.loadTileContent(this.tile, data);
+      const content = await this.loader.loadTileContent(this.tile, data, () => this.isCanceled);
       if (this.isCanceled)
         return Promise.resolve();
 

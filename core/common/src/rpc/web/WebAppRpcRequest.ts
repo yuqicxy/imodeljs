@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module RpcInterface */
+/** @packageDocumentation
+ * @module RpcInterface
+ */
 
 import { BentleyStatus, SerializedClientRequestContext } from "@bentley/bentleyjs-core";
 import { IModelError, ServerError, ServerTimeoutError } from "../../IModelError";
@@ -14,7 +16,7 @@ import { RpcRequest } from "../core/RpcRequest";
 import { RpcMultipartParser } from "./multipart/RpcMultipartParser";
 import { RpcMultipart } from "./RpcMultipart";
 import { HttpServerRequest, HttpServerResponse, WebAppRpcProtocol } from "./WebAppRpcProtocol";
-import URLSearchParams = require("url-search-params");
+import "@ungap/url-search-params/index";
 
 /** @public */
 export type HttpMethod_T = "get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "trace";
@@ -74,6 +76,8 @@ export class WebAppRpcRequest extends RpcRequest {
       parameters: operation.encodedRequest ? WebAppRpcRequest.parseFromPath(operation) : await WebAppRpcRequest.parseFromBody(req),
       caching: operation.encodedRequest ? RpcResponseCacheControl.Immutable : RpcResponseCacheControl.None,
     };
+
+    request.ip = req.ip;
 
     if (!request.id) {
       throw new IModelError(BentleyStatus.ERROR, `Invalid request.`);

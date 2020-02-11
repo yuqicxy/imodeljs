@@ -1,20 +1,18 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { expect, assert } from "chai";
-import * as os from "os";
-import { Id64String, DbOpcode, DbResult, Id64 } from "@bentley/bentleyjs-core";
-import { IModelVersion, SubCategoryAppearance, IModel, CodeSpec, CodeScopeSpec } from "@bentley/imodeljs-common";
-import { IModelJsFs } from "../../IModelJsFs";
-import {
-  KeepBriefcase, IModelDb, OpenParams, Element, DictionaryModel, BriefcaseManager,
-  SpatialCategory, SqliteStatement, SqliteValue, SqliteValueType, BriefcaseEntry,
-  AuthorizedBackendRequestContext,
-} from "../../imodeljs-backend";
+import { DbOpcode, DbResult, Id64String, IModelHubStatus } from "@bentley/bentleyjs-core";
+import { CodeState, HubCode, HubIModel, IModelQuery, Lock, LockLevel, LockType, MultiCode, IModelHubError } from "@bentley/imodeljs-clients";
+import { CodeScopeSpec, CodeSpec, IModel, IModelVersion, SubCategoryAppearance } from "@bentley/imodeljs-common";
+import { assert, expect } from "chai";
 import { ConcurrencyControl } from "../../ConcurrencyControl";
-import { CodeState, HubIModel, HubCode, IModelQuery, MultiCode, Lock, LockType, LockLevel } from "@bentley/imodeljs-clients";
-import { IModelTestUtils, Timer, TestIModelInfo } from "../IModelTestUtils";
+import {
+  AuthorizedBackendRequestContext, BriefcaseEntry, BriefcaseManager, DictionaryModel, Element, IModelDb, KeepBriefcase,
+  OpenParams, SpatialCategory, SqliteStatement, SqliteValue, SqliteValueType,
+} from "../../imodeljs-backend";
+import { IModelJsFs } from "../../IModelJsFs";
+import { IModelTestUtils, TestIModelInfo, Timer } from "../IModelTestUtils";
 import { TestUsers } from "../TestUsers";
 import { HubUtility } from "./HubUtility";
 
@@ -65,19 +63,13 @@ describe("IModelWriteTest (#integration)", () => {
     superRequestContext = await IModelTestUtils.getTestUserRequestContext(TestUsers.super);
     testProjectId = await HubUtility.queryProjectIdByName(managerRequestContext, "iModelJsIntegrationTest");
     readOnlyTestIModel = await IModelTestUtils.getTestModelInfo(managerRequestContext, testProjectId, "ReadOnlyTest");
-
-    let username = "";
-    try {
-      username = os.userInfo().username;
-    } catch (err) {
-    }
-    readWriteTestIModelName = "ReadWriteTest".concat("_", username, "_", os.hostname() || "");
+    readWriteTestIModelName = HubUtility.generateUniqueName("ReadWriteTest");
 
     try {
       await HubUtility.deleteIModel(managerRequestContext, "iModelJsIntegrationTest", readWriteTestIModelName);
     } catch (err) {
     }
-    await BriefcaseManager.imodelClient.iModels.create(managerRequestContext, testProjectId, readWriteTestIModelName, undefined, "TestSubject", undefined, 2 * 60 * 1000);
+    await BriefcaseManager.imodelClient.iModels.create(managerRequestContext, testProjectId, readWriteTestIModelName, { description: "TestSubject" });
     readWriteTestIModel = await IModelTestUtils.getTestModelInfo(managerRequestContext, testProjectId, readWriteTestIModelName);
 
     writeTestProjectId = await HubUtility.queryProjectIdByName(managerRequestContext, "iModelJsTest");
@@ -99,17 +91,19 @@ describe("IModelWriteTest (#integration)", () => {
 
   it("acquire codespec lock", async () => {
     const iModel: IModelDb = await IModelDb.open(superRequestContext, testProjectId, readWriteTestIModel.id, OpenParams.pullAndPush());
-    const code1 = new CodeSpec(iModel, Id64.invalid, "MyCode", CodeScopeSpec.Type.Model);
+    const codeSpec1 = CodeSpec.create(iModel, "MyCodeSpec", CodeScopeSpec.Type.Model);
     iModel.concurrencyControl.setPolicy(new ConcurrencyControl.OptimisticPolicy());
     const locks = await iModel.concurrencyControl.lockCodeSpecs(superRequestContext);
     assert.equal(locks.length, 1);
-    iModel.insertCodeSpec(code1);
+    const locksRedundant = await iModel.concurrencyControl.lockCodeSpecs(superRequestContext);
+    assert.equal(locksRedundant.length, 1);
+    iModel.insertCodeSpec(codeSpec1);
     await iModel.close(superRequestContext, KeepBriefcase.No);
   });
 
   it("acquire codespec lock - example", async () => {
     const model: IModelDb = await IModelDb.open(superRequestContext, testProjectId, readWriteTestIModel.id, OpenParams.pullAndPush());
-    const code1 = new CodeSpec(model, Id64.invalid, "MyCode", CodeScopeSpec.Type.Model);
+    const codeSpec1 = CodeSpec.create(model, "MyCodeSpec", CodeScopeSpec.Type.Model);
 
     model.concurrencyControl.setPolicy(new ConcurrencyControl.OptimisticPolicy());  // needed for writing to iModels
 
@@ -122,7 +116,7 @@ describe("IModelWriteTest (#integration)", () => {
 
     const locks = await BriefcaseManager.imodelClient.locks.update(superRequestContext, model.briefcase.iModelId, [codeSpecsLock]);
     assert.equal(locks.length, 1);
-    model.insertCodeSpec(code1);
+    model.insertCodeSpec(codeSpec1);
     await model.close(superRequestContext, KeepBriefcase.No);
   });
 
@@ -135,11 +129,25 @@ describe("IModelWriteTest (#integration)", () => {
     const secondIModel: IModelDb = await IModelDb.open(secondUserRequestContext, testProjectId, readWriteTestIModel.id, OpenParams.pullAndPush());
     const neutralObserverIModel: IModelDb = await IModelDb.open(neutralObserverUserRequestContext, testProjectId, readWriteTestIModel.id, OpenParams.pullAndPush());
     assert.notEqual(firstIModel, secondIModel);
+    assert.equal(firstIModel.briefcase.nativeDb.getBriefcaseId(), firstIModel.briefcase.briefcaseId);
+    assert.isAbove(firstIModel.briefcase.briefcaseId, 0);
+    assert.equal(secondIModel.briefcase.nativeDb.getBriefcaseId(), secondIModel.briefcase.briefcaseId);
+    assert.isAbove(secondIModel.briefcase.briefcaseId, 0);
+    assert.equal(neutralObserverIModel.briefcase.nativeDb.getBriefcaseId(), neutralObserverIModel.briefcase.briefcaseId);
+    assert.isAbove(neutralObserverIModel.briefcase.briefcaseId, 0);
 
     // Set up optimistic concurrency. Note the defaults are:
     firstIModel.concurrencyControl.setPolicy(new ConcurrencyControl.OptimisticPolicy());
     secondIModel.concurrencyControl.setPolicy(new ConcurrencyControl.OptimisticPolicy());
     // Note: neutralObserver's IModel does not need to be configured for optimistic concurrency. He just pulls changes.
+
+    // Check that the policy has been setup correctly
+    let secondPolicy = secondIModel.concurrencyControl.getPolicy();
+    assert.isDefined(secondPolicy);
+    assert.isTrue(secondPolicy instanceof ConcurrencyControl.OptimisticPolicy);
+    assert.equal((secondPolicy as ConcurrencyControl.OptimisticPolicy).conflictResolution.updateVsUpdate, ConcurrencyControl.OnConflict.RejectIncomingChange);
+    assert.equal((secondPolicy as ConcurrencyControl.OptimisticPolicy).conflictResolution.updateVsDelete, ConcurrencyControl.OnConflict.AcceptIncomingChange);
+    assert.equal((secondPolicy as ConcurrencyControl.OptimisticPolicy).conflictResolution.deleteVsUpdate, ConcurrencyControl.OnConflict.RejectIncomingChange);
 
     // firstUser: create model, category, and element el1
     const r: { modelId: Id64String, spatialCategoryId: Id64String } = await createNewModelAndCategory(firstUserRequestContext, firstIModel);
@@ -150,6 +158,14 @@ describe("IModelWriteTest (#integration)", () => {
 
     // secondUser: pull and merge
     await secondIModel.pullAndMergeChanges(secondUserRequestContext);
+
+    // Validate that the policy has been setup correctly after pullAndMerge (that causes the briefcase to reopen)
+    secondPolicy = secondIModel.concurrencyControl.getPolicy();
+    assert.isDefined(secondPolicy);
+    assert.isTrue(secondPolicy instanceof ConcurrencyControl.OptimisticPolicy);
+    assert.equal((secondPolicy as ConcurrencyControl.OptimisticPolicy).conflictResolution.updateVsUpdate, ConcurrencyControl.OnConflict.RejectIncomingChange);
+    assert.equal((secondPolicy as ConcurrencyControl.OptimisticPolicy).conflictResolution.updateVsDelete, ConcurrencyControl.OnConflict.AcceptIncomingChange);
+    assert.equal((secondPolicy as ConcurrencyControl.OptimisticPolicy).conflictResolution.deleteVsUpdate, ConcurrencyControl.OnConflict.RejectIncomingChange);
 
     // --- Test 1: Overlapping changes that really are conflicts => conflict-resolution policy is applied ---
 
@@ -299,6 +315,7 @@ describe("IModelWriteTest (#integration)", () => {
     const code = IModelTestUtils.getUniqueModelCode(rwIModel, "newPhysicalModel");
     IModelTestUtils.createAndInsertPhysicalPartitionAndModel(rwIModel, code, true);
 
+    await rwIModel.concurrencyControl.request(adminRequestContext);
     rwIModel.saveChanges("inserted generic objects");
     timer.end();
 
@@ -319,7 +336,78 @@ describe("IModelWriteTest (#integration)", () => {
     expect(codes.length > initialCodes.length);
   });
 
-  it("should push changes with code conflicts (#integration)", async () => {
+  it("should handle undo/redo (#integration)", async () => {
+    const adminRequestContext: AuthorizedBackendRequestContext = await IModelTestUtils.getTestUserRequestContext(TestUsers.superManager);
+    let timer = new Timer("delete iModels");
+    // Delete any existing iModels with the same name as the read-write test iModel
+    const iModelName = "CodesUndoRedoPushTest";
+    const iModels: HubIModel[] = await BriefcaseManager.imodelClient.iModels.get(adminRequestContext, writeTestProjectId, new IModelQuery().byName(iModelName));
+    for (const iModelTemp of iModels) {
+      await BriefcaseManager.imodelClient.iModels.delete(adminRequestContext, writeTestProjectId, iModelTemp.id!);
+    }
+    timer.end();
+
+    // Create a new empty iModel on the Hub & obtain a briefcase
+    timer = new Timer("create iModel");
+    const rwIModel: IModelDb = await IModelDb.create(adminRequestContext, writeTestProjectId, iModelName, { rootSubject: { name: "TestSubject" } });
+    const rwIModelId = rwIModel.iModelToken.iModelId;
+    assert.isNotEmpty(rwIModelId);
+    timer.end();
+
+    // create and insert a new model with code1
+    const code1 = IModelTestUtils.getUniqueModelCode(rwIModel, "newPhysicalModel1");
+    IModelTestUtils.createAndInsertPhysicalPartitionAndModel(rwIModel, code1, true);
+
+    assert.isTrue(rwIModel.elements.getElement(code1) !== undefined); // throws if element is not found
+
+    //    ... create a local txn with that change
+    assert.isTrue(rwIModel.concurrencyControl.hasPendingRequests);
+    await rwIModel.concurrencyControl.request(adminRequestContext);
+    rwIModel.saveChanges("inserted newPhysicalModel");
+
+    // Reverse that local txn
+    rwIModel.txns.reverseSingleTxn();
+
+    try {
+      //  The model that I just created with code1 should no longer be there.
+      const theNewModel = rwIModel.elements.getElement(code1); // throws if element is not found
+      assert.isTrue(theNewModel === undefined); // really should not be here.
+      assert.fail(); // should not be here.
+    } catch (_err) {
+      // this is what I expect
+    }
+
+    // Create and insert a model with code2
+    const code2 = IModelTestUtils.getUniqueModelCode(rwIModel, "newPhysicalModel2");
+    IModelTestUtils.createAndInsertPhysicalPartitionAndModel(rwIModel, code2, true);
+
+    assert.isTrue(rwIModel.concurrencyControl.hasPendingRequests);
+    await rwIModel.concurrencyControl.request(adminRequestContext);
+    rwIModel.saveChanges("inserted generic objects");
+
+    // The iModel should have a model with code1 and not code2
+    assert.isTrue(rwIModel.elements.getElement(code2) !== undefined); // throws if element is not found
+
+    timer = new Timer("push changes");
+
+    // Push the changes to the hub
+    const prePushChangeSetId = rwIModel.iModelToken.changeSetId;
+    await rwIModel.pushChanges(adminRequestContext);
+    const postPushChangeSetId = rwIModel.iModelToken.changeSetId;
+    assert(!!postPushChangeSetId);
+    expect(prePushChangeSetId !== postPushChangeSetId);
+
+    timer.end();
+
+    // The iModel should have code1 marked as used and not code2
+    timer = new Timer("querying codes");
+    const codes = await BriefcaseManager.imodelClient.codes.get(adminRequestContext, rwIModelId!);
+    timer.end();
+    assert.isTrue(codes.find((code) => (code.value === "newPhysicalModel2" && code.state === CodeState.Used)) !== undefined);
+    assert.isFalse(codes.find((code) => (code.value === "newPhysicalModel" && code.state === CodeState.Used)) !== undefined);
+  });
+
+  it("should not push changes with code conflicts (#integration)", async () => {
     const adminRequestContext: AuthorizedBackendRequestContext = await IModelTestUtils.getTestUserRequestContext(TestUsers.superManager);
     let timer = new Timer("delete iModels");
     // Delete any existing iModels with the same name as the read-write test iModel
@@ -348,31 +436,39 @@ describe("IModelWriteTest (#integration)", () => {
     await BriefcaseManager.imodelClient.codes.update(adminRequestContext, rwIModelId!, [hubCode]);
 
     timer = new Timer("querying codes");
-    const initialCodes = await BriefcaseManager.imodelClient.codes.get(adminRequestContext, rwIModelId!);
+    /* const initialCodes =*/
+    await BriefcaseManager.imodelClient.codes.get(adminRequestContext, rwIModelId!);
     timer.end();
 
     timer = new Timer("make local changes");
     IModelTestUtils.createAndInsertPhysicalPartitionAndModel(rwIModel, code, true);
 
-    rwIModel.saveChanges("inserted generic objects");
-    timer.end();
+    try {
+      await rwIModel.concurrencyControl.request(adminRequestContext);
+      assert.fail("I should not get here. The Code that I am trying to use was reserved by the other briefcase.");
+    } catch (err) {
+      assert.isTrue(err instanceof IModelHubError);
+      assert.equal((err as IModelHubError).errorNumber, IModelHubStatus.CodeReservedByAnotherBriefcase);
+    }
+    // rwIModel.saveChanges("inserted generic objects");
+    // timer.end();
 
-    timer = new Timer("push changes");
+    // timer = new Timer("push changes");
 
-    // Push the changes to the hub
-    const prePushChangeSetId = rwIModel.iModelToken.changeSetId;
-    await rwIModel.pushChanges(adminRequestContext);
-    const postPushChangeSetId = rwIModel.iModelToken.changeSetId;
-    assert(!!postPushChangeSetId);
-    expect(prePushChangeSetId !== postPushChangeSetId);
+    // // Push the changes to the hub
+    // const prePushChangeSetId = rwIModel.iModelToken.changeSetId;
+    // await rwIModel.pushChanges(adminRequestContext);
+    // const postPushChangeSetId = rwIModel.iModelToken.changeSetId;
+    // assert(!!postPushChangeSetId);
+    // expect(prePushChangeSetId !== postPushChangeSetId);
 
-    timer.end();
+    // timer.end();
 
-    timer = new Timer("querying codes");
-    const codes = await BriefcaseManager.imodelClient.codes.get(managerRequestContext, rwIModelId!);
-    timer.end();
-    expect(codes.length === initialCodes.length);
-    expect(codes[0].state === CodeState.Reserved);
+    // timer = new Timer("querying codes");
+    // const codes = await BriefcaseManager.imodelClient.codes.get(managerRequestContext, rwIModelId!);
+    // timer.end();
+    // expect(codes.length === initialCodes.length);
+    // expect(codes[0].state === CodeState.Reserved);
   });
 
   it("should write to briefcase with optimistic concurrency (#integration)", async () => {

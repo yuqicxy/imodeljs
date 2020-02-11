@@ -1,11 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Item */
+/** @packageDocumentation
+ * @module Item
+ */
 
-import { CommandItemProps } from "./ItemProps";
+import { OnItemExecutedFunc } from "@bentley/ui-abstract";
+
 import { ActionButtonItemDef } from "./ActionButtonItemDef";
+import { CommandItemProps } from "./ItemProps";
 
 /** An Item that executes a Command.
  * @public
@@ -15,8 +19,8 @@ export class CommandItemDef extends ActionButtonItemDef {
   public static commandIdPrefix = "Command-";
   public commandId: string = "";
 
-  constructor(commandItemProps: CommandItemProps) {
-    super(commandItemProps);
+  constructor(commandItemProps: CommandItemProps, onItemExecuted?: OnItemExecutedFunc) {
+    super(commandItemProps, onItemExecuted);
 
     if (commandItemProps.execute) {
       this._commandHandler = { execute: commandItemProps.execute, parameters: commandItemProps.parameters, getCommandArgs: commandItemProps.getCommandArgs };

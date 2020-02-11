@@ -2,6 +2,582 @@
   "name": "@bentley/ui-framework",
   "entries": [
     {
+      "version": "1.11.0",
+      "tag": "@bentley/ui-framework_v1.11.0",
+      "date": "Wed, 22 Jan 2020 19:24:12 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Upgrade to TypeScript 3.7.2."
+          },
+          {
+            "comment": "Made 'show/hide all categories' action be limited by the filter"
+          },
+          {
+            "comment": "Cube navigation aid touch events fix."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.10.0",
+      "tag": "@bentley/ui-framework_v1.10.0",
+      "date": "Tue, 07 Jan 2020 19:44:01 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Fixed lgtm issues in UI folders"
+          },
+          {
+            "comment": "Ui doc & release tag cleanup"
+          },
+          {
+            "comment": "Update to use new BackstageItemManager and PluginStatusBarManager from ui-abstract package. Update StatusbarComposer to show items from plugins."
+          },
+          {
+            "comment": "Remove duplicate StatusBarItemManager from ui-framework and only leave the one in ui-abstract."
+          },
+          {
+            "comment": "Fix for nine-zone sample app not displaying backstage items."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.9.0",
+      "tag": "@bentley/ui-framework_v1.9.0",
+      "date": "Tue, 10 Dec 2019 18:08:56 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add useActiveIModelConnection hook."
+          },
+          {
+            "comment": "Allow setting App Iconspec."
+          },
+          {
+            "comment": "Setup OidcDesktopClient for Electron use cases. "
+          },
+          {
+            "comment": "Fix styling of footer Indicator to work with Themes."
+          },
+          {
+            "comment": "Disallow plugins from adding tools anywhere but the end of a toolbar."
+          },
+          {
+            "comment": "[ModelsTree] Merge same-label Subject nodes to avoid duplication"
+          },
+          {
+            "comment": "No longer accessing this.state or this.props in setState updater - flagged by lgtm report"
+          },
+          {
+            "comment": "Changed SignIn & SignOut buttons to large. Fixed Dialog component resizing. Reduced default minimum size of Dialog component."
+          },
+          {
+            "comment": "Update sinon version."
+          },
+          {
+            "comment": "Added support for NotifyMessageDetails.displayTime for Toast messages"
+          },
+          {
+            "comment": "Reduce active tab index when tab is removed."
+          },
+          {
+            "comment": "Ability to determine available tool settings width."
+          },
+          {
+            "comment": "Fix code analysis report issues."
+          },
+          {
+            "comment": "Adjusted Categories and Models trees according changes to ControlledTree events"
+          },
+          {
+            "comment": "Added VisibilityWigdet implementation using ControlledTree and ability to switch to it"
+          },
+          {
+            "comment": "Remove content node when WidgetContentRenderer unmounts."
+          },
+          {
+            "comment": "Update overflow GroupItem click action to open the panel."
+          },
+          {
+            "comment": "Prevent frontstage composer rerender on pointer events."
+          },
+          {
+            "comment": "Use exhaustive-deps linter rule."
+          },
+          {
+            "comment": "Ability to opt-in to toolbar drag interaction."
+          },
+          {
+            "comment": "Prevent unnecessary resubscribe in useActiveViewport hook."
+          },
+          {
+            "comment": "Visibility Widget: Treat dictionary model as never private in Categories tree. "
+          },
+          {
+            "comment": "Ability to specify initialWidth for Zone component."
+          },
+          {
+            "comment": "Removed unused React state variables. Removed unsupported setState calls from render() methods."
+          },
+          {
+            "comment": "Code cleanup based on code analysis report from lgtm. Updated status field fade-in/out animation."
+          },
+          {
+            "comment": "Update to allow Sections statusfield to hide/show depending on active view clip."
+          },
+          {
+            "comment": "Added ConditionalField and FooterModeField components. StatusBar responsive changes."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.8.0",
+      "tag": "@bentley/ui-framework_v1.8.0",
+      "date": "Fri, 22 Nov 2019 14:03:34 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add support for Hide, Isolate, emphasize tools and status bar item to UiFramework."
+          },
+          {
+            "comment": "Fix bug where ToolSettings title was not reset after view undo/redo tool usage."
+          },
+          {
+            "comment": "Initializing OidcBrowserClient before setting it in UiFramework"
+          },
+          {
+            "comment": "Responsive logic in Property Grid to switch to Vertical orientation when too narrow"
+          },
+          {
+            "comment": "Tablet responsive UI"
+          },
+          {
+            "comment": "Added StatusBarComposer, StatusBarItem, StatusBarManager and StatusBarItemsManager"
+          },
+          {
+            "comment": "Added StatusBarItemsManager.setIsVisible & StatusBarItem.isVisible"
+          },
+          {
+            "comment": "Support multiple status bars in the StatusBarManager"
+          },
+          {
+            "comment": "Added tslint-react-hooks to UI packages"
+          },
+          {
+            "comment": "Ensure item uniqueness in BackstageItemsManager and StatusBarItemsManager."
+          },
+          {
+            "comment": "Remove unsupported fit-content CSS value."
+          },
+          {
+            "comment": "Expose stage panel minSize and maxSize props."
+          },
+          {
+            "comment": "Do not show widget resize indicator when widget can not be resized."
+          },
+          {
+            "comment": "Remove history trays."
+          },
+          {
+            "comment": "Open tool panel via drag interaction."
+          },
+          {
+            "comment": "Update TileRendering StatusField width."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.7.0",
+      "tag": "@bentley/ui-framework_v1.7.0",
+      "date": "Fri, 01 Nov 2019 13:28:37 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Addressed AccessToken, OidcClient and Backstage issues in ui-framework"
+          },
+          {
+            "comment": "UiAdmin methods for AccuDraw Ui: MenuButton, Calculator, Angle, Length, Height"
+          },
+          {
+            "comment": "Provide a DefaultNavigationWidget that can be used by Apps and Plugins and can be extended by Plugins."
+          },
+          {
+            "comment": "Fixed issues with use of OIDC AuthCode workflow in Electron and Single Page Applications."
+          },
+          {
+            "comment": "Minor Backstage cleanup & unit tests"
+          },
+          {
+            "comment": "Update DefaultToolSettingsProvide to create responsive UI."
+          },
+          {
+            "comment": "Added badge support to context menu items. Moved some Plugin Ui definitions to ui-abstract."
+          },
+          {
+            "comment": "Added support for English key-ins in addition to translated key-ins"
+          },
+          {
+            "comment": "Flatten group in DefaultNavigationWidget"
+          },
+          {
+            "comment": "Update order of string enums to try to avoid extract-api issues"
+          },
+          {
+            "comment": "Added New badge for UI items"
+          },
+          {
+            "comment": "Add basic support for redux connected components."
+          },
+          {
+            "comment": "Made the Status Bar & Backstage more responsive on smaller screens"
+          },
+          {
+            "comment": "Added initial ui-abstract package setup"
+          },
+          {
+            "comment": "Added UiAdmin with support for displaying Menus and Toolbars at a location"
+          },
+          {
+            "comment": "Refactored BackstageComposer."
+          },
+          {
+            "comment": "Expand tool zone bounds over unused bottom zones."
+          },
+          {
+            "comment": "Correctly fill merged zones."
+          },
+          {
+            "comment": "Update presentation rules of imodel components' hierarchies to hide private models and their content"
+          },
+          {
+            "comment": "Fix defaultState of StagePanel."
+          },
+          {
+            "comment": "Raise BackstageEvent from BackstageManager."
+          },
+          {
+            "comment": "Remove CSS class that was adding extra padding to the bottom of editor fields in narrow layout."
+          },
+          {
+            "comment": "Removed unused package"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.6.0",
+      "tag": "@bentley/ui-framework_v1.6.0",
+      "date": "Wed, 09 Oct 2019 20:28:43 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add support for CursorMenu"
+          },
+          {
+            "comment": "Clear internal row/column selection data when number or rows change in Table. Add definitions for platform MeasureTools."
+          },
+          {
+            "comment": "Fix Tool Settings label to ensure it stays in sync with active tool."
+          },
+          {
+            "comment": "Added AutoSuggest component and improved KeyinBrowser component"
+          },
+          {
+            "comment": "Close tool group panel on toolbar item click."
+          },
+          {
+            "comment": "Ability to drag and resize tool settings widget."
+          },
+          {
+            "comment": "Ignore widgetDef state in WidgetContentRenderer of tool settings."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.5.0",
+      "tag": "@bentley/ui-framework_v1.5.0",
+      "date": "Mon, 30 Sep 2019 22:28:48 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "AccuDraw Popup Editors. Improved editor sizes. Editor Params improvements."
+          },
+          {
+            "comment": "Initial Accudraw Ui components - Buttons, ContextMenus, Calculator, Editors. IconInput in ui-core."
+          },
+          {
+            "comment": "Backport Sections and ViewAttributes Status Fields from Design Review for use with plugins."
+          },
+          {
+            "comment": "Cursor Prompt no longer displays as small blank popup when Tool Assistance instruction is blank"
+          },
+          {
+            "comment": "Fixed Frontstage resizing problem exposed by Chrome update"
+          },
+          {
+            "comment": "#168241 Don't try to correct clip plane handle location when plane has been moved outside project extents. Updated image for two finger drag svg."
+          },
+          {
+            "comment": "Changed ToolWidget, NavigatonWidget, and Toolbar render method to only render items in state and to not generate them during render."
+          },
+          {
+            "comment": "Add support for panelLabel property for a GoupButton. This is the title that is shown when the group is opened."
+          },
+          {
+            "comment": "Added FrontstageProvider.initializeDef param for FrontstageDef"
+          },
+          {
+            "comment": "Correct ViewClipByPlaneTool icon."
+          },
+          {
+            "comment": "UiDataProvider class, work on PluginUiProvider"
+          },
+          {
+            "comment": "Change BackstageItemSpec to use localized strings not keys to be localized due to the way Plugins provide localization."
+          },
+          {
+            "comment": "Create a common IModelViewPort control that supports Design Review and ui-test-app."
+          },
+          {
+            "comment": "Add ability to pre-load hierarchies in Visibility Widget"
+          },
+          {
+            "comment": "Tool Assistance changes per UX Design"
+          },
+          {
+            "comment": "Support for Modifier key + wide SVG"
+          },
+          {
+            "comment": "Tool Assistance for Ctrl+Z and other chars"
+          },
+          {
+            "comment": "Fixed ToolAssistanceField pin problem"
+          },
+          {
+            "comment": "#168481 Tool assistance: Measure tools, view clip tools, and touch cursor inputs."
+          },
+          {
+            "comment": "Added touch entries to ToolAssistanceImage"
+          },
+          {
+            "comment": "Joe G required the tree (empty data) be more descriptive and generic."
+          },
+          {
+            "comment": "In the Model/Category/Spatial trees, center the error message"
+          },
+          {
+            "comment": "upgrade to TypeScript 3.6.2"
+          },
+          {
+            "comment": "Ability to collapse stage panel using StagePanelDef."
+          },
+          {
+            "comment": "Stage panel header."
+          },
+          {
+            "comment": "Make components aware of safe area insets."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.4.0",
+      "tag": "@bentley/ui-framework_v1.4.0",
+      "date": "Tue, 10 Sep 2019 12:09:49 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Using Checkbox component in BooleanEditor. Cleaned up cell editor positioning."
+          },
+          {
+            "comment": "Updated inputs and button padding for iModel.js. Fixed Popup colors & z-index."
+          },
+          {
+            "comment": "Added support for content view minSize properties"
+          },
+          {
+            "comment": "Fixed SplitPane pane 2 size. Upgraded react-split-pane to 0.1.87."
+          },
+          {
+            "comment": "Addressed some warnings introduced with React 16.9"
+          },
+          {
+            "comment": "Listening for onSelectedViewportChanged to set active content view for viewports"
+          },
+          {
+            "comment": "Had to back up to react-split-pane 0.1.77"
+          },
+          {
+            "comment": "#165662. Allow an app to specify touch-specific instructions in tool assistance."
+          },
+          {
+            "comment": "Visibility Component: Preserve active tree state by saving and restoring scroll position"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.3.0",
+      "tag": "@bentley/ui-framework_v1.3.0",
+      "date": "Tue, 13 Aug 2019 20:25:53 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add markupTool definitions. Update to use latest icon library"
+          },
+          {
+            "comment": "Add support for BackstageComposer so Plugins can add backstage items."
+          },
+          {
+            "comment": "Fix dragged widget offset."
+          },
+          {
+            "comment": "Widget with isToolSettings honors defaultState"
+          },
+          {
+            "comment": "Move MarkupTool definitions to their own class."
+          },
+          {
+            "comment": "Fixed location of ContentLayout within 9-zone area and Stage Panels"
+          },
+          {
+            "comment": "Added CursorPopupRenderer to render multiple CursorPopups per RelativePosition."
+          },
+          {
+            "comment": "Added CursorPrompt, improved Pointer messages"
+          },
+          {
+            "comment": "Added @bentley/icons-generic to dependencies which was wrongly set in devDependencies."
+          },
+          {
+            "comment": "#159907. Fixed Group Button history is overlapping a Popup Button panel when hovering over the Group button"
+          },
+          {
+            "comment": "Allow enter key in arguments field of keyin browser to trigger command execution. Select text on focus in to allow easy argument replacement"
+          },
+          {
+            "comment": "Added icons to markup/redline"
+          },
+          {
+            "comment": "Fixed Zone mergeWithZone processing"
+          },
+          {
+            "comment": "Port RealityData widget from Design Review."
+          },
+          {
+            "comment": "Added icon for redline text tool"
+          },
+          {
+            "comment": "Update FilteringInput to use updated search box design from UX. Also updated ModelSelectorTree to work with changes and marked ModelSelector as deprecated."
+          },
+          {
+            "comment": "Add tool assistance for SelectTool."
+          },
+          {
+            "comment": "Update SelectTool to display tool setting by default."
+          },
+          {
+            "comment": "Moved Point, PointProps, Rectangle, RectangleProps, Size and SizeProps to ui-core from ui-ninezone"
+          },
+          {
+            "comment": "Improved ToolAssistance item spacing. ViewSelector shows current view."
+          },
+          {
+            "comment": "Made Tool Settings tab tooltip more concise & clearer"
+          },
+          {
+            "comment": "Close ListPicker popup when clicking the button."
+          },
+          {
+            "comment": "Initialize stage panel size from size prop."
+          },
+          {
+            "comment": "VisibilityTree: Fix not all models' visibility being changed when changing visibility of parent subject"
+          },
+          {
+            "comment": "Visibility Tree: Handle `Viewport.isAlwaysDrawnExclusive` flag when determining and handling Element display states"
+          },
+          {
+            "comment": "Backport Visibility Widget from Design Review"
+          },
+          {
+            "comment": "Update to latest icon package version."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.2.0",
+      "tag": "@bentley/ui-framework_v1.2.0",
+      "date": "Wed, 24 Jul 2019 11:47:26 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Update so both Tool and Navigation wigets refresh when PluginUiProvider is loaded."
+          },
+          {
+            "comment": "Support ToolbarItemInsertSpecs with conditional visibility. Update toolbar processing to better handle situations where number of visible items change."
+          },
+          {
+            "comment": "Add support for GroupItemInsertSpec, badges, and svg symbolId in ToolbarItemInsertSpecs"
+          },
+          {
+            "comment": "Bug 148507: Removed redundant call to OidcClient.initialize in UiFramework."
+          },
+          {
+            "comment": "Add PluginUiManager class and PluginUiProvider interface that will be used by Plugins to specify UI components to add to an iModeljs application."
+          },
+          {
+            "comment": "Added CursorInformation and CursorPopup"
+          },
+          {
+            "comment": "Upgraded to Redux 4.0.3 that fixed combineReducers"
+          },
+          {
+            "comment": "Add basic support to display an svg file for an toolbar item image."
+          },
+          {
+            "comment": "Added ToolAssistance support and Tool.iconSpec"
+          },
+          {
+            "comment": "Fixed Toolbar resizing, ContextMenu className and $buic-row-hover & $buic-row-selection"
+          },
+          {
+            "comment": "Rerender widget tabs when WidgetDef changes."
+          },
+          {
+            "comment": "Close ListPicker on outside click."
+          },
+          {
+            "comment": "Ability to close Panel of PopupButton."
+          },
+          {
+            "comment": "remove node selection logic from model Tree"
+          },
+          {
+            "comment": "Convert Widget, Zone and StagePanel components to PureComponents."
+          },
+          {
+            "comment": "Model Picker: Fix presentation ruleset"
+          },
+          {
+            "comment": "VisibilityTree: Update visual styles."
+          },
+          {
+            "comment": "Visibility Tree: Only show Subject nodes which have child Subjects, PhysicalPartitions or SpatialLocationPartitions."
+          },
+          {
+            "comment": "React to ui-ninezone changes."
+          }
+        ]
+      }
+    },
+    {
       "version": "1.1.0",
       "tag": "@bentley/ui-framework_v1.1.0",
       "date": "Mon, 01 Jul 2019 19:04:29 GMT",

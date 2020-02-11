@@ -1,12 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Backstage */
+/** @packageDocumentation
+ * @module Backstage
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
 import { CommonProps } from "@bentley/ui-core";
+import { SafeAreaInsets, SafeAreaInsetsHelpers } from "../utilities/SafeAreaInsets";
 import "./Backstage.scss";
 
 /** Properties of [[Backstage]] component.
@@ -23,6 +26,8 @@ export interface BackstageProps extends CommonProps {
   isOpen?: boolean;
   /** Function called when backstage is closed. */
   onClose?: () => void;
+  /** Describes respected safe area insets. */
+  safeAreaInsets?: SafeAreaInsets;
   /** Describes if a ghosting overlay is shown. */
   showOverlay: boolean;
 }
@@ -56,6 +61,7 @@ export class Backstage extends React.PureComponent<BackstageProps> {
     const backstageClassName = classnames(
       "nz-backstage-backstage",
       this.props.isOpen && "nz-open",
+      this.props.safeAreaInsets && SafeAreaInsetsHelpers.getCssClassNames(this.props.safeAreaInsets),
       this.props.className);
     return (
       <>

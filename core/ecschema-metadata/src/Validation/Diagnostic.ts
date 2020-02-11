@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { AnyClass, AnyECType } from "../Interfaces";
@@ -9,6 +9,14 @@ import { AnyProperty } from "../Metadata/Property";
 import { RelationshipConstraint } from "../Metadata/RelationshipClass";
 import { Schema } from "../Metadata/Schema";
 import { SchemaItem } from "../Metadata/SchemaItem";
+
+const formatString = (format: string, ...args: string[]) => {
+  return format.replace(/{(\d+)}/g, (match, theNumber) => {
+    return typeof args[theNumber] !== "undefined"
+      ? args[theNumber]
+      : match;
+  });
+};
 
 /**
  * Defines the possible diagnostic types.
@@ -48,7 +56,7 @@ export interface IDiagnostic<TYPE extends AnyECType, ARGS extends any[]> {
   /** The unformatted message text associated with the diagnostic. Value is static across all instances. */
   messageText: string;
   /** The arguments used when formatted the diagnostic instance's message. */
-  messageArgs: ARGS;
+  messageArgs?: ARGS;
   /** The EC object associated with the diagnostic instance. */
   ecDefinition: TYPE;
   /** The schema where the diagnostic originated. */
@@ -70,14 +78,14 @@ export abstract class BaseDiagnostic<TYPE extends AnyECType, ARGS extends any[]>
    * Initializes a new BaseDiagnostic.
    * @param ecDefinition The EC object to associate with the diagnostic.
    * @param messageArgs The arguments used when formatting the diagnostic message.
+   * @param category The [[DiagnosticCategory]] to associate with the diagnostic, Error by default.
    */
-  constructor(ecDefinition: TYPE, messageArgs: ARGS) {
+  constructor(ecDefinition: TYPE, messageArgs?: ARGS, category: DiagnosticCategory = DiagnosticCategory.Error) {
     this.ecDefinition = ecDefinition;
     this.messageArgs = messageArgs;
+    this.category = category;
   }
 
-  /** Gets the category of the diagnostic. */
-  public abstract get category(): DiagnosticCategory;
   /** Gets the unique string identifier for the diagnostic in the format '<ruleSetName>:<number>'. */
   public abstract get code(): string;
   /** Gets the context type of the diagnostic (schema, schema item, property, etc...) */
@@ -90,7 +98,9 @@ export abstract class BaseDiagnostic<TYPE extends AnyECType, ARGS extends any[]>
   /** The EC object to associate with the diagnostic. */
   public ecDefinition: TYPE;
   /** The arguments used when formatting the diagnostic message.  */
-  public messageArgs: ARGS;
+  public messageArgs?: ARGS;
+  /** The diagnostic category is of the type DiagnosticCategory; which is defined as an enumeration above.  */
+  public category: DiagnosticCategory;
 }
 
 /**
@@ -100,8 +110,14 @@ export abstract class BaseDiagnostic<TYPE extends AnyECType, ARGS extends any[]>
 export abstract class SchemaDiagnostic<ARGS extends any[]> extends BaseDiagnostic<Schema, ARGS> {
   public static diagnosticType = DiagnosticType.SchemaItem;
 
-  constructor(schema: Schema, messageArgs: ARGS) {
-    super(schema, messageArgs);
+  /**
+   * Initializes a new SchemaDiagnostic.
+   * @param ecDefinition The EC object to associate with the diagnostic.
+   * @param messageArgs The arguments used when formatting the diagnostic message.
+   * @param category The [[DiagnosticCategory]] to associate with the diagnostic, Error by default.
+   */
+  constructor(schema: Schema, messageArgs: ARGS, category: DiagnosticCategory = DiagnosticCategory.Error) {
+    super(schema, messageArgs, category);
   }
 
   /** Gets the schema where the diagnostic originated. */
@@ -117,9 +133,14 @@ export abstract class SchemaDiagnostic<ARGS extends any[]> extends BaseDiagnosti
  */
 export abstract class SchemaItemDiagnostic<TYPE extends SchemaItem, ARGS extends any[]> extends BaseDiagnostic<TYPE, ARGS> {
   public static diagnosticType = DiagnosticType.SchemaItem;
-
-  constructor(ecDefinition: SchemaItem, messageArgs: ARGS) {
-    super(ecDefinition as TYPE, messageArgs);
+  /**
+   * Initializes a new SchemaItemDiagnostic.
+   * @param ecDefinition The EC object to associate with the diagnostic.
+   * @param messageArgs The arguments used when formatting the diagnostic message.
+   * @param category The [[DiagnosticCategory]] to associate with the diagnostic, Error by default.
+   */
+  constructor(ecDefinition: SchemaItem, messageArgs: ARGS, category: DiagnosticCategory = DiagnosticCategory.Error) {
+    super(ecDefinition as TYPE, messageArgs, category);
   }
 
   /** Gets the schema where the diagnostic originated. */
@@ -134,8 +155,14 @@ export abstract class SchemaItemDiagnostic<TYPE extends SchemaItem, ARGS extends
  * @beta
  */
 export abstract class ClassDiagnostic<ARGS extends any[]> extends SchemaItemDiagnostic<AnyClass, ARGS> {
-  constructor(ecClass: AnyClass, messageArgs: ARGS) {
-    super(ecClass, messageArgs);
+  /**
+   * Initializes a new ClassDiagnostic.
+   * @param ecClass The class to associate with the diagnostic.
+   * @param messageArgs The arguments used when formatting the diagnostic message.
+   * @param category The [[DiagnosticCategory]] to associate with the diagnostic, Error by default.
+   */
+  constructor(ecClass: AnyClass, messageArgs: ARGS, category: DiagnosticCategory = DiagnosticCategory.Error) {
+    super(ecClass, messageArgs, category);
   }
 
   /** Gets the schema where the diagnostic originated. */
@@ -147,8 +174,14 @@ export abstract class ClassDiagnostic<ARGS extends any[]> extends SchemaItemDiag
  * @beta
  */
 export abstract class PropertyDiagnostic<ARGS extends any[]> extends BaseDiagnostic<AnyProperty, ARGS> {
-  constructor(property: AnyProperty, messageArgs: ARGS) {
-    super(property, messageArgs);
+  /**
+   * Initializes a new PropertyDiagnostic.
+   * @param property The property to associate with the diagnostic.
+   * @param messageArgs The arguments used when formatting the diagnostic message.
+   * @param category The [[DiagnosticCategory]] to associate with the diagnostic, Error by default.
+   */
+  constructor(property: AnyProperty, messageArgs?: ARGS, category: DiagnosticCategory = DiagnosticCategory.Error) {
+    super(property, messageArgs, category);
   }
 
   /** Gets the schema where the diagnostic originated. */
@@ -163,8 +196,14 @@ export abstract class PropertyDiagnostic<ARGS extends any[]> extends BaseDiagnos
  * @beta
  */
 export abstract class RelationshipConstraintDiagnostic<ARGS extends any[]> extends BaseDiagnostic<RelationshipConstraint, ARGS> {
-  constructor(constraint: RelationshipConstraint, messageArgs: ARGS) {
-    super(constraint, messageArgs);
+  /**
+   * Initializes a new RelationshipConstraintDiagnostic.
+   * @param constraint The Relationship Constraint to associate with the diagnostic.
+   * @param messageArgs The arguments used when formatting the diagnostic message.
+   * @param category The [[DiagnosticCategory]] to associate with the diagnostic, Error by default.
+   */
+  constructor(constraint: RelationshipConstraint, messageArgs: ARGS, category: DiagnosticCategory = DiagnosticCategory.Error) {
+    super(constraint, messageArgs, category);
   }
 
   /** Gets the schema where the diagnostic originated. */
@@ -179,8 +218,14 @@ export abstract class RelationshipConstraintDiagnostic<ARGS extends any[]> exten
  * @beta
  */
 export abstract class CustomAttributeContainerDiagnostic<ARGS extends any[]> extends BaseDiagnostic<CustomAttributeContainerProps, ARGS> {
-  constructor(container: CustomAttributeContainerProps, messageArgs: ARGS) {
-    super(container, messageArgs);
+  /**
+   * Initializes a new CustomAttributeContainerDiagnostic.
+   * @param constraint The Custom Attribute Container to associate with the diagnostic.
+   * @param messageArgs The arguments used when formatting the diagnostic message.
+   * @param category The [[DiagnosticCategory]] to associate with the diagnostic, Error by default.
+   */
+  constructor(container: CustomAttributeContainerProps, messageArgs: ARGS, category: DiagnosticCategory = DiagnosticCategory.Error) {
+    super(container, messageArgs, category);
   }
 
   /** Gets the schema where the diagnostic originated. */
@@ -194,15 +239,13 @@ export abstract class CustomAttributeContainerDiagnostic<ARGS extends any[]> ext
  * Helper method for creating [[SchemaDiagnostic]] child classes.
  * @param code The string that uniquely identifies the diagnostic in the format '<ruleSetName>:<number>'.
  * @param messageText The message to associate with the diagnostic class.
- * @param category The [[DiagnosticCategory]] to associate with the diagnostic class.
  * @beta
  */
-export function createSchemaDiagnosticClass<ARGS extends any[]>(code: string, messageText: string, category: DiagnosticCategory = DiagnosticCategory.Error) {
+export function createSchemaDiagnosticClass<ARGS extends any[]>(code: string, messageText: string) {
   validateCode(code);
   return class extends SchemaDiagnostic<ARGS> {
     public get code(): string { return code; }
-    public get category(): DiagnosticCategory { return category; }
-    public get messageText(): string { return messageText; }
+    public get messageText(): string { return undefined === this.messageArgs ? messageText : formatString(messageText, ...this.messageArgs); }
   };
 }
 
@@ -210,15 +253,13 @@ export function createSchemaDiagnosticClass<ARGS extends any[]>(code: string, me
  * Helper method for creating [[SchemaItemDiagnostic]] child classes.
  * @param code The string that uniquely identifies the diagnostic in the format '<ruleSetName>:<number>'.
  * @param messageText The message to associate with the diagnostic class.
- * @param category The [[DiagnosticCategory]] to associate with the diagnostic class.
  * @beta
  */
-export function createSchemaItemDiagnosticClass<ITEM extends SchemaItem, ARGS extends any[]>(code: string, messageText: string, category: DiagnosticCategory = DiagnosticCategory.Error) {
+export function createSchemaItemDiagnosticClass<ITEM extends SchemaItem, ARGS extends any[]>(code: string, messageText: string) {
   validateCode(code);
   return class extends SchemaItemDiagnostic<ITEM, ARGS> {
     public get code(): string { return code; }
-    public get category(): DiagnosticCategory { return category; }
-    public get messageText(): string { return messageText; }
+    public get messageText(): string { return undefined === this.messageArgs ? messageText : formatString(messageText, ...this.messageArgs); }
   };
 }
 
@@ -226,15 +267,13 @@ export function createSchemaItemDiagnosticClass<ITEM extends SchemaItem, ARGS ex
  * Helper method for creating [[ClassDiagnostic]] child classes.
  * @param code The string that uniquely identifies the diagnostic in the format '<ruleSetName>:<number>'.
  * @param messageText The message to associate with the diagnostic class.
- * @param category The [[DiagnosticCategory]] to associate with the diagnostic class.
  * @beta
  */
-export function createClassDiagnosticClass<ARGS extends any[]>(code: string, messageText: string, category: DiagnosticCategory = DiagnosticCategory.Error) {
+export function createClassDiagnosticClass<ARGS extends any[]>(code: string, messageText: string) {
   validateCode(code);
   return class extends ClassDiagnostic<ARGS> {
     public get code(): string { return code; }
-    public get category(): DiagnosticCategory { return category; }
-    public get messageText(): string { return messageText; }
+    public get messageText(): string { return undefined === this.messageArgs ? messageText : formatString(messageText, ...this.messageArgs); }
   };
 }
 
@@ -242,15 +281,13 @@ export function createClassDiagnosticClass<ARGS extends any[]>(code: string, mes
  * Helper method for creating [[PropertyDiagnostic]] child classes.
  * @param code The string that uniquely identifies the diagnostic in the format '<ruleSetName>:<number>'.
  * @param messageText The message to associate with the diagnostic class.
- * @param category The [[DiagnosticCategory]] to associate with the diagnostic class.
  * @beta
  */
-export function createPropertyDiagnosticClass<ARGS extends any[]>(code: string, messageText: string, category: DiagnosticCategory = DiagnosticCategory.Error) {
+export function createPropertyDiagnosticClass<ARGS extends any[]>(code: string, messageText: string) {
   validateCode(code);
   return class extends PropertyDiagnostic<ARGS> {
     public get code(): string { return code; }
-    public get category(): DiagnosticCategory { return category; }
-    public get messageText(): string { return messageText; }
+    public get messageText(): string { return undefined === this.messageArgs ? messageText : formatString(messageText, ...this.messageArgs); }
   };
 }
 
@@ -258,15 +295,13 @@ export function createPropertyDiagnosticClass<ARGS extends any[]>(code: string, 
  * Helper method for creating [[RelationshipConstraintDiagnostic]] child classes.
  * @param code The string that uniquely identifies the type of diagnostic in the format '<ruleSetName>:<number>'.
  * @param messageText The message to associate with the diagnostic class.
- * @param category The [[DiagnosticCategory]] to associate with the diagnostic class.
  * @beta
  */
-export function createRelationshipConstraintDiagnosticClass<ARGS extends any[]>(code: string, messageText: string, category: DiagnosticCategory = DiagnosticCategory.Error) {
+export function createRelationshipConstraintDiagnosticClass<ARGS extends any[]>(code: string, messageText: string) {
   validateCode(code);
   return class extends RelationshipConstraintDiagnostic<ARGS> {
     public get code(): string { return code; }
-    public get category(): DiagnosticCategory { return category; }
-    public get messageText(): string { return messageText; }
+    public get messageText(): string { return undefined === this.messageArgs ? messageText : formatString(messageText, ...this.messageArgs); }
   };
 }
 
@@ -274,15 +309,13 @@ export function createRelationshipConstraintDiagnosticClass<ARGS extends any[]>(
  * Helper method for creating [[CustomAttributeContainerDiagnostic]] child classes.
  * @param code The that uniquely identifies the type of diagnostic in the format '<ruleSetName>:<number>'.
  * @param messageText The message to associate with the diagnostic class.
- * @param category The [[DiagnosticCategory]] to associate with the diagnostic class.
  * @beta
  */
-export function createCustomAttributeContainerDiagnosticClass<ARGS extends any[]>(code: string, messageText: string, category: DiagnosticCategory = DiagnosticCategory.Error) {
+export function createCustomAttributeContainerDiagnosticClass<ARGS extends any[]>(code: string, messageText: string) {
   validateCode(code);
   return class extends CustomAttributeContainerDiagnostic<ARGS> {
     public get code(): string { return code; }
-    public get category(): DiagnosticCategory { return category; }
-    public get messageText(): string { return messageText; }
+    public get messageText(): string { return undefined === this.messageArgs ? messageText : formatString(messageText, ...this.messageArgs); }
   };
 }
 

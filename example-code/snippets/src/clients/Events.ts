@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import {
@@ -39,7 +39,8 @@ function processEvent(event: IModelHubEvent): void {
 }
 // __PUBLISH_EXTRACT_END__
 
-async () => {
+// enclosing function avoids compile errors and code analysis report.
+export async function testit() {
   const accessToken = new MockAccessToken();
   const requestContext = new ClientRequestContext("b0f0808d-e76f-4615-acf4-95aa1b78eba5");
   const authorizedRequestContext = new AuthorizedClientRequestContext(accessToken, "b0f0808d-e76f-4615-acf4-95aa1b78eba5");
@@ -64,4 +65,4 @@ async () => {
   // __PUBLISH_EXTRACT_START__ EventHandler.createListener.delete.example-code
   deleteCallback();
   // __PUBLISH_EXTRACT_END__
-};
+}

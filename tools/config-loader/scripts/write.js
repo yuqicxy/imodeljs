@@ -1,13 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
 const fs = require("fs");
 const IModelJsConfig = require("../lib/IModelJsConfig").IModelJsConfig;
 if (process.argv.length < 2) {
-  console.error("Required argument <jsonFile> is missing.")
+  console.error("Required argument <jsonFile> is missing.");
   console.log("write.js <jsonFile> [keyFilter]");
   return;
 }

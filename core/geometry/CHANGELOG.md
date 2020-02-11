@@ -1,6 +1,122 @@
 # Change Log - @bentley/geometry-core
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Detect "end to end" connection of colinear line segments during curve-curve intersection methods.
+- RegionOps planar subdivision support.
+- #1.11.0-dev.5_4384: XY linework and Region cleanup methods
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- `CurveCurve.intersectionPairsXY` returns details of line-line and arc-arc coincident geometry
+- Add method for mesh orientation fixup.
+- Path-on-Ellipsoid support
+- New method RegionOps.sortOuterAndHoleLoopsXY
+- BUG: Fix inverseState management in MatrixMatrix multliplies with preallocated result and/or aliasing
+- Added Matrix4d.isExactEqual()
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- EllipsoidPatch support:  patch.projectPointToSurface, ellipsoid.constantLatitudeArc, ellipsoid.constantLongitudeArc
+- Great Circle extraction on Ellipsoid
+- Correct bug in z part of Vector3d spherical construction.   New method to split mesh by eyevector
+- BUG#220063 linearSystem3d z term
+- Code cleanup from codeQL hits
+- Ellipsoid and EllipsoidPatch classes with range and intersectRay support
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- PolyfaceQuery services: PolyfaceQuery.markAllEdgeVisibility PolyfaceQuery.markPairedEdgesInvisible PolyfaceQuery.setSingleEdgeVisibility PolyfaceQuery.computeFacetUnitNormal 
+- BUG#211602 Correct sectioning of meshes with (a) nonconvex facets and (b) multicomponent plane intersections
+- Feature#211247 Intersect Ray with Sphere
+- Spherical patch range; optional result in range3d.corners()
+- Refactor analysis of range of a+b sin(theta) + c sin(theta)
+- Added missing topic descriptions
+- Added earthRadiusWGS84 constants
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- #193588 bugs in PolygonOffsetContext
+- Mesh support: TVertexFixup and ColinearEdgeFixup
+- Lightweight iterator over Point3ds contained in an IndexedXYZCollection; Transform.multiplyRange() returns a null range if input is a null range.
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+### Updates
+
+- BUG#184729 and BUG#185436
+- (TASK#175760 Triangulate between linestrings) (TASK#184495 consolidateAdjacentPrimitives) (TASK#184489 Test if points are a rectangle)
+- BUG#184729 General matrix4d inverse
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Eliminate use of Math.hypot
+- add copyright headers to recent new files
+- Task#175760 and Task#175773
+- Polyface mesh "split to components"
+- Fast range filtering for cutFill (and other) searches
+- Incremental Edge Flipping, optimize Delauney circle test
+- Explicit undefined initialization for HalfEdge
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Region "in/on/out" tests
+- Triangulation of isolated point array
+- RegionOps methods to split curve sets
+- PolyfaceClip.computeCutFill method
+- New method ray3d.intersectionWithRange3d
+- Added AnyGeometryQuery and AnySolidPrimitive union types; added type discriminator fields to GeometryQuery, SolidPrimitive, CurvePrimitive, and CurveCollection; tightened `any` return types for IModelJson.Reader methods.
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- WireMoment computation; polyline filters for short edge, small triangle, perpendicular projection
+- Triangulate cut faces in polyface clip.  Variant point data parse.  Bilinear Patch ray intersection"
+- Construct offset from path with curves.
+- Mesh principal axis computation.
+- Document unit length rows/cols requirement of Matrix3d.toQuaternion
+- Correct point4d normalization to handle small w values (NPC)
+- #151464 Improved grid display performance.
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- When compressing linestrings, detect first/last segment colinear case.
+- Consistent stroke counts on BezierCurve3d, BezierCurve3dH
+- Full 3d intersection CurveCurve.intersectionXYZ (no bsplines)
+- New method for polyline wire offset.
+- WIP (1) improve duplicated edge handling in polygon booleans (2) improve variant point array handling
+- Polyline simplification by Puecker-Douglas (chord distance)
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

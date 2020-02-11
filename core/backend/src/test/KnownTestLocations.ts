@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as path from "path";
 import { Platform } from "../IModelHost";
@@ -11,7 +11,7 @@ export class KnownTestLocations {
   public static get assetsDir(): string {
     const imodeljsMobile = Platform.imodeljsMobile;
     if (imodeljsMobile !== undefined) {
-      return imodeljsMobile.knownLocations.assetsDir;
+      return path.join(process.execPath!, "Assets", "assets");
     }
 
     // Assume that we are running in nodejs

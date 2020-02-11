@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 import { CustomizationRule } from "./customization/CustomizationRule";
 import { NavigationRule } from "./hierarchy/NavigationRule";
@@ -48,7 +50,7 @@ export declare type Rule = CustomizationRule | NavigationRule | ContentRule | Co
 export interface ConditionContainer {
   /**
    * Defines a condition for the rule, which needs to be met in order to execute it. Condition
-   * is an [ECExpression]($docs/learning/ECExpressions.md), which can use
+   * is an [ECExpression]($docs/learning/presentation/ECExpressions.md), which can use
    * a limited set of symbols (depends on specific `ConditionContainer`).
    */
   condition?: string;
@@ -71,6 +73,7 @@ export enum RuleTypes {
   Grouping = "Grouping",
   PropertySorting = "PropertySorting",
   DisabledSorting = "DisabledSorting",
+  NodeArtifacts = "NodeArtifacts",
   InstanceLabelOverride = "InstanceLabelOverride",
   LabelOverride = "LabelOverride",
   CheckBox = "CheckBox",

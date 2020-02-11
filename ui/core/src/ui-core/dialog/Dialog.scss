@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "../index.scss";
 
@@ -48,22 +48,21 @@
     }
 
     &.core-dialog-left {
-      top: 0;
-      bottom: 0;
       left: 0;
+      top: 50%;
+      transform: translateY(-50%);
     }
 
     &.core-dialog-center {
-      top: 0;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%,-50%);
     }
 
     &.core-dialog-right {
-      top: 0;
-      bottom: 0;
       right: 0;
+      top: 50%;
+      transform: translateY(-50%);
     }
 
     &.core-dialog-bottom-left {
@@ -84,11 +83,12 @@
 
     margin: auto;
     width: 60%;
-    height: fit-content;
     display: flex;
     flex-direction: column;
+    height: fit-content;
 
     .core-dialog-area {
+      position: relative;
       display: flex;
       flex-grow: 1;
       flex-direction: column;
@@ -142,12 +142,12 @@
         @include uicore-text-block;
 
         padding: $uicore-unbordered-padding;
+        margin: 0;
 
         @include uicore-touch-scrolling;
         @include uicore-scrollbar();
 
         &.core-dialog-content-no-inset {
-          margin: 0;
           padding: 0;
         }
       }
@@ -162,8 +162,6 @@
 
           > * {
             min-width: 80px;
-            padding-top: 2px;
-            padding-bottom: 2px;
 
             &:not(:first-child) {
               margin-left: $uicore-inputs-margin;

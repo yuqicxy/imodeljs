@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Collections */
+/** @packageDocumentation
+ * @module Collections
+ */
 
 import { CloneFunction, shallowClone } from "./SortedArray";
 import { OrderedComparator } from "./Compare";
@@ -98,6 +100,17 @@ export class PriorityQueue<T> implements Iterable<T> {
       }
     }
 
+    return clone;
+  }
+
+  /** Pushes a value onto the back of the queue without making any attempt to enforce ordering.
+   * After using this function, you must manually invoke sort() to ensure the queue is sorted again.
+   * @param value The value to append
+   * @returns The appended value, cloned according to the [[CloneFunction]] supplied to this queue's constructor.
+   */
+  public append(value: T): T {
+    const clone = this._clone(value);
+    this._array.push(clone);
     return clone;
   }
 

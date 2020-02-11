@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Core */
+/** @packageDocumentation
+ * @module Core
+ */
 
 import { IDisposable } from "@bentley/bentleyjs-core";
 import { Ruleset, SupplementationInfo } from "./rules/Ruleset";
@@ -40,10 +42,16 @@ export class RegisteredRuleset implements IDisposable, Ruleset {
   public toJSON(): Ruleset { return this._ruleset; }
 }
 
-/** @internal */
+/**
+ * @internal
+ * @deprecated Will be dropped in 2.0.0
+ */
 export type RulesetManagerState = Ruleset[];
 
-/** @internal */
+/**
+ * @internal
+ * @deprecated Will be dropped in 2.0.0
+ */
 export namespace RulesetManagerState {
   export const STATE_ID = "rulesets";
 }

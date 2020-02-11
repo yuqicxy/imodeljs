@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Core */
+/** @packageDocumentation
+ * @module Core
+ */
 
 import { Ruleset } from "@bentley/presentation-common/lib/rules/Ruleset";
 import { IModelDb } from "@bentley/imodeljs-backend/lib/IModelDb";
@@ -201,7 +203,7 @@ export class RulesetEmbedder {
   }
 
   private insertCodeSpec(name: string, scopeType: CodeScopeSpec.Type): Id64String {
-    const codeSpec = new CodeSpec(this._iModelDb, Id64.invalid, name, scopeType);
+    const codeSpec = CodeSpec.create(this._iModelDb, name, scopeType);
     return this._iModelDb.codeSpecs.insert(codeSpec);
   }
 

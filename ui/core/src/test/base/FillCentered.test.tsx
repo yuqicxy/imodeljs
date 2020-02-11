@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { mount, shallow } from "enzyme";
 import * as React from "react";
@@ -20,8 +20,8 @@ describe("<FillCentered />", () => {
   });
 
   it("has correct className", () => {
-    const wrapper = shallow(<FillCentered />);
-    wrapper.find(".uicore-fill-centered").should.exist;
+    const wrapper = mount(<FillCentered />);
+    wrapper.find(".uicore-fill-centered").length.should.eq(1);
   });
 
   it("has correct text", () => {

@@ -1,22 +1,47 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module RpcInterface */
+/** @packageDocumentation
+ * @module RpcInterface
+ */
 
 import { ClientRequestContext, assert, Id64, Id64String, Logger, OpenMode, IModelStatus } from "@bentley/bentleyjs-core";
 import { Range3dProps, Range3d } from "@bentley/geometry-core";
 import { AuthorizedClientRequestContext } from "@bentley/imodeljs-clients";
 import {
-  ElementProps, EntityMetaData, EntityQueryParams, GeoCoordinatesResponseProps, ImageSourceFormat, IModelProps,
-  IModelCoordinatesResponseProps, IModelReadRpcInterface, IModelToken, IModelTokenProps, ModelProps, RpcInterface, RpcManager,
-  SnapRequestProps, SnapResponseProps, ViewStateProps, IModel, IModelVersion, QueryLimit, QueryQuota, QueryResponse, QueryPriority,
+  ElementProps,
+  EntityMetaData,
+  EntityQueryParams,
+  GeoCoordinatesResponseProps,
+  GeometrySummaryRequestProps,
+  IModel,
+  IModelCoordinatesResponseProps,
+  IModelProps,
+  IModelReadRpcInterface,
+  IModelToken,
+  IModelTokenProps,
+  IModelVersion,
+  ImageSourceFormat,
+  MassPropertiesRequestProps,
+  MassPropertiesResponseProps,
+  ModelProps,
+  QueryLimit,
+  QueryPriority,
+  QueryQuota,
+  QueryResponse,
+  RpcInterface,
+  RpcManager,
+  SnapRequestProps,
+  SnapResponseProps,
+  ViewStateProps,
 } from "@bentley/imodeljs-common";
 import { KeepBriefcase } from "../BriefcaseManager";
 import { SpatialCategory } from "../Category";
 import { IModelDb, OpenParams } from "../IModelDb";
 import { BackendLoggerCategory } from "../BackendLoggerCategory";
 import { DictionaryModel } from "../Model";
+import { generateGeometrySummaries } from "../GeometrySummary";
 
 const loggerCategory: string = BackendLoggerCategory.IModelDb;
 
@@ -40,7 +65,10 @@ export class IModelReadRpcImpl extends RpcInterface implements IModelReadRpcInte
   public async close(tokenProps: IModelTokenProps): Promise<boolean> {
     const requestContext = ClientRequestContext.current as AuthorizedClientRequestContext;
     const iModelToken = IModelToken.fromJSON(tokenProps);
-    await IModelDb.find(iModelToken).close(requestContext, iModelToken.openMode === OpenMode.Readonly ? KeepBriefcase.Yes : KeepBriefcase.No);
+    if (iModelToken.openMode === OpenMode.Readonly)
+      return Promise.resolve(true); // Close is a no-op for ReadOnly connections.
+
+    await IModelDb.find(iModelToken).close(requestContext, KeepBriefcase.No);
     return Promise.resolve(true);
   }
 
@@ -114,6 +142,12 @@ export class IModelReadRpcImpl extends RpcInterface implements IModelReadRpcInte
     return elementProps;
   }
 
+  public async getGeometrySummary(tokenProps: IModelTokenProps, request: GeometrySummaryRequestProps): Promise<string> {
+    const iModelToken = IModelToken.fromJSON(tokenProps);
+    const iModel = IModelDb.find(iModelToken);
+    return generateGeometrySummaries(request, iModel);
+  }
+
   public async queryElementProps(tokenProps: IModelTokenProps, params: EntityQueryParams): Promise<ElementProps[]> {
     const ids = await this.queryEntityIds(tokenProps, params);
     const res = this.getElementProps(tokenProps, [...ids]);
@@ -171,6 +205,12 @@ export class IModelReadRpcImpl extends RpcInterface implements IModelReadRpcInte
   public async cancelSnap(tokenProps: IModelTokenProps, sessionId: string): Promise<void> {
     const iModelToken = IModelToken.fromJSON(tokenProps);
     return IModelDb.find(iModelToken).cancelSnap(sessionId);
+  }
+
+  public async getMassProperties(tokenProps: IModelTokenProps, props: MassPropertiesRequestProps): Promise<MassPropertiesResponseProps> {
+    const iModelToken = IModelToken.fromJSON(tokenProps);
+    const requestContext = ClientRequestContext.current;
+    return IModelDb.find(iModelToken).getMassProperties(requestContext, props);
   }
 
   public async getToolTipMessage(tokenProps: IModelTokenProps, id: string): Promise<string[]> {

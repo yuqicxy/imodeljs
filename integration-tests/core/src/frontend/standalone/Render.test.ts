@@ -1,24 +1,168 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import * as path from "path";
-import { testViewports, comparePixelData, Color } from "../TestViewport";
+import { TestViewport, testViewports, comparePixelData, Color, testOnScreenViewport, createOnScreenTestViewport } from "../TestViewport";
 import { RenderMode, ColorDef, Hilite, RgbColor } from "@bentley/imodeljs-common";
-import { RenderMemory, Pixel } from "@bentley/imodeljs-frontend/lib/rendering";
+import { RenderMemory, Pixel, RenderSystem, GraphicType } from "@bentley/imodeljs-frontend/lib/rendering";
 import {
   IModelApp,
   IModelConnection,
   FeatureOverrideProvider,
   FeatureSymbology,
-  GeoConverter,
   OffScreenViewport,
   SpatialViewState,
   Viewport,
   ViewRect,
+  Decorator,
+  DecorateContext,
 } from "@bentley/imodeljs-frontend";
-import { Point2d } from "@bentley/geometry-core";
+import { Point2d, Point3d } from "@bentley/geometry-core";
+import { BuffersContainer, VAOContainer, VBOContainer } from "@bentley/imodeljs-frontend/lib/webgl";
+
+describe("Test VAO creation", () => {
+  before(async () => {
+    const renderSysOpts: RenderSystem.Options = {};
+    IModelApp.startup({ renderSys: renderSysOpts });
+  });
+
+  after(async () => {
+    IModelApp.shutdown();
+  });
+
+  it("should create VAO BuffersContainer object", async () => {
+    const buffers = BuffersContainer.create();
+    expect(buffers instanceof VAOContainer).to.be.true;
+  });
+});
+
+describe("Test VBO creation", () => {
+  before(async () => {
+    const renderSysOpts: RenderSystem.Options = {};
+    renderSysOpts.disabledExtensions = ["OES_vertex_array_object"];
+    IModelApp.startup({ renderSys: renderSysOpts });
+  });
+
+  after(async () => {
+    IModelApp.shutdown();
+  });
+
+  it("should create VBO BuffersContainer object", async () => {
+    const buffers = BuffersContainer.create();
+    expect(buffers instanceof VBOContainer).to.be.true;
+  });
+});
+
+async function testViewportsWithDpr(imodel: IModelConnection, rect: ViewRect, test: (vp: TestViewport) => Promise<void>): Promise<void> {
+  const devicePixelRatios = [1.0, 1.25, 1.5, 2.0];
+  for (const dpr of devicePixelRatios)
+    await testViewports("0x24", imodel, rect.width, rect.height, test, dpr);
+}
+
+describe("Render mirukuru with VAOs disabled", () => {
+  let imodel: IModelConnection;
+
+  before(async () => {
+    const renderSysOpts: RenderSystem.Options = {};
+    renderSysOpts.disabledExtensions = ["OES_vertex_array_object"];
+
+    IModelApp.startup({ renderSys: renderSysOpts });
+    const imodelLocation = path.join(process.env.IMODELJS_CORE_DIRNAME!, "core/backend/lib/test/assets/mirukuru.ibim");
+    imodel = await IModelConnection.openSnapshot(imodelLocation);
+  });
+
+  after(async () => {
+    if (imodel) await imodel.closeSnapshot();
+    IModelApp.shutdown();
+  });
+
+  it("should properly render the model (smooth shaded with visible edges)", async () => {
+    const rect = new ViewRect(0, 0, 100, 100);
+    await testViewportsWithDpr(imodel, rect, async (vp) => {
+      const vf = vp.view.viewFlags;
+      vf.visibleEdges = true;
+
+      await vp.waitForAllTilesToRender();
+      expect(vp.numRequestedTiles).to.equal(0);
+      expect(vp.numSelectedTiles).to.equal(1);
+
+      // White rectangle is centered in view with black background surrounding. Lighting is on so rectangle will not be pure white.
+      const colors = vp.readUniqueColors();
+      const bgColor = Color.fromRgba(0, 0, 0, 0xff);
+      expect(colors.length).least(2);
+      expect(colors.contains(bgColor)).to.be.true; // black background
+
+      const expectWhitish = (c: Color) => {
+        expect(c.r).least(0x7f);
+        expect(c.g).least(0x7f);
+        expect(c.b).least(0x7f);
+        expect(c.a).to.equal(0xff);
+      };
+
+      for (const c of colors.array) {
+        if (0 !== c.compare(bgColor))
+          expectWhitish(c);
+      }
+
+      let color = vp.readColor(rect.left, rect.top);
+      expect(color.compare(bgColor)).to.equal(0);
+      color = vp.readColor(rect.right - 1, rect.top);
+      expect(color.compare(bgColor)).to.equal(0);
+      color = vp.readColor(rect.right - 1, rect.bottom - 1);
+      expect(color.compare(bgColor)).to.equal(0);
+      color = vp.readColor(rect.left, rect.bottom - 1);
+      expect(color.compare(bgColor)).to.equal(0);
+
+      color = vp.readColor(rect.width / 2, rect.height / 2);
+      expectWhitish(color);
+
+      // Confirm we drew the rectangular element as a planar surface and its edges.
+      const elemId = "0x29";
+      const subcatId = "0x18";
+      const pixels = vp.readUniquePixelData();
+      expect(pixels.length).to.equal(3);
+      expect(pixels.containsFeature(elemId, subcatId));
+      expect(pixels.containsGeometry(Pixel.GeometryType.Surface, Pixel.Planarity.Planar));
+      expect(pixels.containsGeometry(Pixel.GeometryType.Edge, Pixel.Planarity.Planar));
+    });
+  });
+});
+
+describe("Properly create on-screen viewport with directScreenRendering enabled", () => {
+  let imodel: IModelConnection;
+
+  before(async () => {
+    const renderSysOpts: RenderSystem.Options = {};
+    renderSysOpts.directScreenRendering = true;
+
+    IModelApp.startup({ renderSys: renderSysOpts });
+    const imodelLocation = path.join(process.env.IMODELJS_CORE_DIRNAME!, "core/backend/lib/test/assets/mirukuru.ibim");
+    imodel = await IModelConnection.openSnapshot(imodelLocation);
+  });
+
+  after(async () => {
+    if (imodel) await imodel.closeSnapshot();
+    IModelApp.shutdown();
+  });
+
+  it("single viewport should render using system canvas", async () => {
+    const rect = new ViewRect(0, 0, 100, 100);
+    await testOnScreenViewport("0x24", imodel, rect.width, rect.height, async (vp) => {
+      expect(vp.rendersToScreen).to.be.true;
+    });
+  });
+
+  it("neither of dual viewports should render using system canvas", async () => {
+    const rect = new ViewRect(0, 0, 100, 100);
+    const vp0 = await createOnScreenTestViewport("0x24", imodel, rect.width, rect.height);
+    expect(vp0.rendersToScreen).to.be.true; // when only one viewport is on the view manager, it should render using system canvas.
+    const vp1 = await createOnScreenTestViewport("0x24", imodel, rect.width, rect.height);
+    expect(vp0.rendersToScreen).to.be.false;
+    expect(vp1.rendersToScreen).to.be.false;
+  });
+});
 
 // Mirukuru contains a single view, looking at a single design model containing a single white rectangle (element ID 41 (0x29), subcategory ID = 24 (0x18)).
 // (It also is supposed to contain a reality model but the URL is presumably wrong).
@@ -69,23 +213,24 @@ describe("Render mirukuru", () => {
       const backgroundPixel = new Pixel.Data(undefined, 0, Pixel.GeometryType.None, Pixel.Planarity.None);
       expect(comparePixelData(backgroundPixel, pixels.array[0])).to.equal(0);
 
-      // Can read a single pixel
-      const pixel = vp.readPixel(rect.width / 2, rect.height / 2);
-      expect(comparePixelData(backgroundPixel, pixel)).to.equal(0);
-
-      // Out-of-bounds pixels are in "unknown" state
-      const unknownPixel = new Pixel.Data();
-      const coords = [[-1, -1], [0, -1], [rect.width, 0], [rect.width - 1, rect.height * 2]];
+      // Ensure reading out-of-bounds rects returns empty pixel array
+      const coords = [[-1, -1, -2, -2], [rect.width + 1, rect.height + 1, rect.width + 2, rect.height + 2]];
       for (const coord of coords) {
-        const oob = vp.readPixel(coord[0], coord[1]);
-        expect(comparePixelData(unknownPixel, oob)).to.equal(0);
+        const readRect = new ViewRect(coord[0], coord[1], coord[2], coord[3]);
+        const oob = vp.readUniquePixelData(readRect);
+        expect(oob).to.not.be.undefined;
+        expect(oob.array.length).to.equal(0);
       }
-    });
+
+      // We run this test twice. The second time, the tiles will already be available so the view will NOT be empty. Purge them now.
+      await imodel.tiles.purgeTileTrees(undefined);
+      vp.refreshForModifiedModels(undefined);
+    }, 1.0);
   });
 
   it("should render the model", async () => {
     const rect = new ViewRect(0, 0, 100, 100);
-    await testViewports("0x24", imodel, rect.width, rect.height, async (vp) => {
+    await testViewportsWithDpr(imodel, rect, async (vp) => {
       await vp.waitForAllTilesToRender();
       expect(vp.numRequestedTiles).to.equal(0);
       expect(vp.numSelectedTiles).to.equal(1);
@@ -163,47 +308,48 @@ describe("Render mirukuru", () => {
   });
 
   it("should read image at expected sizes", async () => {
-    const rect = new ViewRect(0, 0, 100, 100);
-    await testViewports("0x24", imodel, rect.width, rect.height, async (vp) => {
+    // NOTE: rect is in CSS pixels. ImageBuffer returned by readImage is in device pixels. vp.target.viewRect is in device pixels.
+    const cssRect = new ViewRect(0, 0, 100, 100);
+    await testViewportsWithDpr(imodel, cssRect, async (vp) => {
       await vp.waitForAllTilesToRender();
 
-      let imgBuffer = vp.readImage();
-      expect(imgBuffer).to.not.be.undefined;
-      expect(imgBuffer!.width).to.equal(vp.target.viewRect.width);
+      const expectImageDimensions = (readRect: ViewRect | undefined, targetSize: Point2d | undefined, expectedWidth: number, expectedHeight: number) => {
+        const img = vp.readImage(readRect, targetSize)!;
+        expect(img).not.to.be.undefined;
+        expect(img.width).to.equal(Math.floor(expectedWidth));
+        expect(img.height).to.equal(Math.floor(expectedHeight));
+      };
 
-      imgBuffer = vp.readImage(undefined, new Point2d(vp.target.viewRect.width / 2, vp.target.viewRect.height / 2), true);
-      expect(imgBuffer).to.not.be.undefined;
-      expect(imgBuffer!.width).to.not.equal(vp.target.viewRect.width);
-      expect(imgBuffer!.height).to.not.equal(vp.target.viewRect.height);
-      expect(imgBuffer!.width).to.equal(vp.target.viewRect.width / 2);
-      expect(imgBuffer!.height).to.equal(vp.target.viewRect.height / 2);
+      const devRect = vp.target.viewRect;
 
-      imgBuffer = vp.readImage(undefined, new Point2d(vp.target.viewRect.width / 4, vp.target.viewRect.height / 4), true);
-      expect(imgBuffer).to.not.be.undefined;
-      expect(imgBuffer!.width).to.not.equal(vp.target.viewRect.width);
-      expect(imgBuffer!.height).to.not.equal(vp.target.viewRect.height);
-      expect(imgBuffer!.width).to.equal(vp.target.viewRect.width / 4);
-      expect(imgBuffer!.height).to.equal(vp.target.viewRect.height / 4);
+      // Read full image, no resize
+      expectImageDimensions(undefined, undefined, devRect.width, devRect.height);
+      expectImageDimensions(new ViewRect(0, 0, -1, -1), undefined, devRect.width, devRect.height);
+      expectImageDimensions(undefined, new Point2d(devRect.width, devRect.height), devRect.width, devRect.height);
 
-      imgBuffer = vp.readImage(undefined, new Point2d(vp.target.viewRect.width / 4, vp.target.viewRect.height / 2), true);
-      expect(imgBuffer).to.not.be.undefined;
-      expect(imgBuffer!.width).to.not.equal(vp.target.viewRect.width);
-      expect(imgBuffer!.height).to.not.equal(vp.target.viewRect.height);
-      expect(imgBuffer!.width).to.equal(vp.target.viewRect.width / 4);
-      expect(imgBuffer!.height).to.equal(vp.target.viewRect.height / 2);
+      // Read sub-image, no resize
+      const cssHalfWidth = cssRect.width / 2;
+      const cssQuarterHeight = cssRect.height / 4;
+      const devHalfWidth = Math.floor(devRect.width / 2);
+      const devQuarterHeight = Math.floor(devRect.height / 4);
+      expectImageDimensions(new ViewRect(0, 0, cssHalfWidth, cssQuarterHeight), undefined, devHalfWidth, devQuarterHeight);
+      expectImageDimensions(new ViewRect(cssHalfWidth, cssQuarterHeight, cssRect.right, cssRect.bottom), undefined, devRect.width - devHalfWidth, devRect.height - devQuarterHeight);
+      expectImageDimensions(new ViewRect(0, 0, cssHalfWidth, cssRect.bottom), undefined, devHalfWidth, devRect.height);
 
-      imgBuffer = vp.readImage(undefined, new Point2d(vp.target.viewRect.width / 2, vp.target.viewRect.height / 4), true);
-      expect(imgBuffer).to.not.be.undefined;
-      expect(imgBuffer!.width).to.not.equal(vp.target.viewRect.width);
-      expect(imgBuffer!.height).to.not.equal(vp.target.viewRect.height);
-      expect(imgBuffer!.width).to.equal(vp.target.viewRect.width / 2);
-      expect(imgBuffer!.height).to.equal(vp.target.viewRect.height / 4);
+      // Read full image and resize
+      expectImageDimensions(undefined, new Point2d(256, 128), 256, 128);
+      expectImageDimensions(new ViewRect(0, 0, -1, -1), new Point2d(50, 200), 50, 200);
+      expectImageDimensions(cssRect, new Point2d(10, 10), 10, 10);
+      expectImageDimensions(undefined, new Point2d(devRect.width, devRect.height), devRect.width, devRect.height);
+
+      // Read sub-image and resize
+      expectImageDimensions(new ViewRect(0, 0, cssHalfWidth, cssQuarterHeight), new Point2d(512, 768), 512, 768);
     });
   });
 
   it("should override symbology", async () => {
     const rect = new ViewRect(0, 0, 200, 150);
-    await testViewports("0x24", imodel, rect.width, rect.height, async (vp) => {
+    await testViewportsWithDpr(imodel, rect, async (vp) => {
       const elemId = "0x29";
       const subcatId = "0x18";
       const vf = vp.view.viewFlags;
@@ -329,9 +475,41 @@ describe("Render mirukuru", () => {
     });
   });
 
+  it("should show transparency for polylines", async () => {
+    const rect = new ViewRect(0, 0, 200, 150);
+    await testOnScreenViewport("0x24", imodel, rect.width, rect.height, async (vp) => {
+
+      class TestPolylineDecorator implements Decorator {
+        public decorate(context: DecorateContext) {
+          expect(context.viewport === vp);
+          // draw semi-transparent polyline from top left to bottom right of vp
+          const overlayBuilder = context.createGraphicBuilder(GraphicType.ViewOverlay);
+          const polylineColor = ColorDef.from(0, 255, 0, 128);
+          overlayBuilder.setSymbology(polylineColor, polylineColor, 4);
+          overlayBuilder.addLineString([
+            new Point3d(0, 0, 0),
+            new Point3d(rect.width - 1, rect.height - 1, 0),
+          ]);
+          context.addDecorationFromBuilder(overlayBuilder);
+        }
+      }
+
+      const decorator = new TestPolylineDecorator();
+      IModelApp.viewManager.addDecorator(decorator);
+      await vp.drawFrame();
+      IModelApp.viewManager.dropDecorator(decorator);
+
+      // expect green blended with black background
+      const testColor = vp.readColor(0, 149); // top left pixel, test vp coords are flipped
+      expect(testColor.r).equals(0);
+      expect(testColor.g).approximately(128, 3);
+      expect(testColor.b).equals(0);
+    });
+  });
+
   it("should render hilite", async () => {
     const rect = new ViewRect(0, 0, 200, 150);
-    await testViewports("0x24", imodel, rect.width, rect.height, async (vp) => {
+    await testViewportsWithDpr(imodel, rect, async (vp) => {
       const vf = vp.view.viewFlags;
       vf.visibleEdges = vf.hiddenEdges = vf.lighting = false;
       vp.hilite = new Hilite.Settings(ColorDef.red.clone(), 1.0, 0.0, Hilite.Silhouette.Thin);
@@ -384,7 +562,7 @@ describe("Render mirukuru", () => {
 
   it("should determine visible depth range", async () => {
     const fullRect = new ViewRect(0, 0, 100, 100);
-    await testViewports("0x24", imodel, fullRect.width, fullRect.height, async (vp) => {
+    await testViewportsWithDpr(imodel, fullRect, async (vp) => {
       await vp.waitForAllTilesToRender();
 
       // Depth range for entire view should correspond to the face of the slab in the center of the view which is parallel to the camera's near+far planes.
@@ -442,11 +620,6 @@ describe("Render mirukuru", () => {
       const mapTreeRef = vp.displayStyle.backgroundMap;
       const mapTree = mapTreeRef.treeOwner.tileTree!;
       expect(mapTree).not.to.be.undefined;
-
-      const loader = mapTree.loader; // instance of non-exported class WebMapTileLoader;
-      const childCreator = (loader as any)._childTileCreator; // instance of non-exported class GeoTransformChildCreator
-      const converter = childCreator._converter;
-      expect(converter).instanceof(GeoConverter);
     });
   });
 });

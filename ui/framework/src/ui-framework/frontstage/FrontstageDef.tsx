@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Frontstage */
+/** @packageDocumentation
+ * @module Frontstage
+ */
 
 import * as React from "react";
-import { UiError } from "@bentley/ui-core";
-import { IModelApp } from "@bentley/imodeljs-frontend";
+import { UiError } from "@bentley/ui-abstract";
+import { IModelApp, ScreenViewport } from "@bentley/imodeljs-frontend";
 import { NineZoneManagerProps } from "@bentley/ui-ninezone";
 import { FrontstageManager } from "./FrontstageManager";
 import { ZoneDef } from "../zones/ZoneDef";
@@ -74,6 +76,9 @@ export class FrontstageDef {
   constructor() { }
 
   /** Handles when the Frontstage becomes activated */
+  protected _onActivated(): void { }
+
+  /** Handles when the Frontstage becomes activated */
   public onActivated(): void {
     this.contentLayoutDef = this.defaultLayout;
 
@@ -89,7 +94,12 @@ export class FrontstageDef {
     }
 
     FrontstageManager.onContentLayoutActivatedEvent.emit({ contentLayout: this.contentLayoutDef, contentGroup: this.contentGroup });
+
+    this._onActivated();
   }
+
+  /** Handles when the Frontstage becomes inactive */
+  protected _onDeactivated(): void { }
 
   /** Handles when the Frontstage becomes inactive */
   public onDeactivated(): void {
@@ -103,6 +113,8 @@ export class FrontstageDef {
 
     if (this.contentGroup)
       this.contentGroup.onFrontstageDeactivated();
+
+    this._onDeactivated();
   }
 
   /** Returns once the contained widgets and content controls are ready to use */
@@ -130,6 +142,9 @@ export class FrontstageDef {
   }
 
   /** Handles when the Frontstage becomes active */
+  protected _onFrontstageReady(): void { }
+
+  /** Handles when the Frontstage becomes active */
   public onFrontstageReady(): void {
     for (const control of this._widgetControls) {
       control.onFrontstageReady();
@@ -142,6 +157,8 @@ export class FrontstageDef {
     // istanbul ignore else
     if (this.contentGroup)
       this.contentGroup.onFrontstageReady();
+
+    this._onFrontstageReady();
   }
 
   /** Starts the default tool for the Frontstage */
@@ -153,11 +170,13 @@ export class FrontstageDef {
     }
   }
 
+  /** Sets the Content Layout and Content Group */
   public setContentLayoutAndGroup(contentLayoutDef: ContentLayoutDef, contentGroup: ContentGroup): void {
     this.contentLayoutDef = contentLayoutDef;
     this.contentGroup = contentGroup;
   }
 
+  /** Sets the active view content control to the default or first */
   public setActiveContent(): boolean {
     let contentControl: ContentControl | undefined;
     let activated = false;
@@ -173,6 +192,8 @@ export class FrontstageDef {
 
     if (contentControl) {
       ContentViewManager.setActiveContent(contentControl.reactElement, true);
+      if (contentControl.viewport)
+        IModelApp.viewManager.setSelectedView(contentControl.viewport);
       activated = true;
     }
 
@@ -185,6 +206,18 @@ export class FrontstageDef {
       oldContent.onDeactivated();
     newContent.onActivated();
     FrontstageManager.onContentControlActivatedEvent.emit({ activeContentControl: newContent, oldContentControl: oldContent });
+  }
+
+  /** Sets the active view content control based on the selected viewport. */
+  public setActiveViewFromViewport(viewport: ScreenViewport): boolean {
+    let activated = false;
+    const contentControl = this.contentControls.find((control: ContentControl) => control.viewport === viewport);
+    if (contentControl) {
+      ContentViewManager.setActiveContent(contentControl.reactElement, true);
+      activated = true;
+    }
+
+    return activated;
   }
 
   /** Gets a [[ZoneDef]] based on a given zone id */

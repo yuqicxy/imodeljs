@@ -1,23 +1,24 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-@import "../../_geometry";
-@import "../_variables";
+@import "@bentley/ui-core/lib/ui-core/style/breakpoints";
+@import "../../geometry";
+@import "../variables";
 
 .nz-footer-toolAssistance-indicator {
   $triangle-width: 5px;
   $padding: 2px;
+  $top-bottom-padding: 1px;
 
   > .nz-indicator {
-    height: 30px;
-    border: 2px solid $buic-foreground-body;
+    height: 32px;
     min-width: 20px;
     position: relative;
     padding: {
-      top: $padding;
+      top: $top-bottom-padding;
       right: $padding * 2 + $triangle-width;
-      bottom: $padding;
+      bottom: $top-bottom-padding;
       left: $padding;
     };
     box-sizing: border-box;
@@ -26,7 +27,6 @@
     cursor: pointer;
 
     > .nz-icons {
-      color: $icon-color;
       font-size: $icon-size;
       filter: $icon-shadow;
       display: flex;
@@ -34,8 +34,19 @@
     }
 
     > .nz-content {
-      margin-left: 10px;
+      margin-left: 8px;
       font-size: $text-font-size;
+      line-height: 1;
+
+      /* Medium devices */
+      @include for-tablet-portrait-down {
+        font-size: $text-font-size-medium;
+      }
+
+      /* Small devices */
+      @include for-phone-only {
+        font-size: $text-font-size-small;
+      }
     }
 
     > .nz-triangle {
@@ -46,5 +57,14 @@
 
       @include triangle-bottom-right($width: $triangle-width, $color: $buic-foreground-body);
     }
+
+    &:hover {
+      color: $buic-foreground-primary;
+
+      > .nz-triangle {
+        @include triangle-bottom-right($width: $triangle-width, $color: $buic-foreground-primary);
+      }
+    }
+
   }
 }

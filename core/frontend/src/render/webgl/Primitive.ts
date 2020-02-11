@@ -1,20 +1,22 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
-import { FeatureIndexType } from "@bentley/imodeljs-common";
-import { Target, PrimitiveVisibility } from "./Target";
-import { Graphic, Batch } from "./Graphic";
-import { CachedGeometry, LUTGeometry } from "./CachedGeometry";
+import { Target } from "./Target";
+import { Graphic } from "./Graphic";
+import { CachedGeometry, LUTGeometry, SkySphereViewportQuadGeometry } from "./CachedGeometry";
 import { RenderPass, RenderOrder } from "./RenderFlags";
 import { ShaderProgramExecutor } from "./ShaderProgram";
-import { DrawParams, RenderCommands, DrawCommand } from "./DrawCommand";
+import { DrawParams, PrimitiveCommand } from "./DrawCommand";
+import { RenderCommands } from "./RenderCommands";
 import { TechniqueId } from "./TechniqueId";
 import { assert, dispose } from "@bentley/bentleyjs-core";
 import { System } from "./System";
-import { InstancedGraphicParams, RenderMemory } from "../System";
+import { InstancedGraphicParams, RenderMemory, PrimitiveVisibility } from "../System";
 import { InstancedGeometry, InstanceBuffers } from "./InstancedGeometry";
 
 /** @internal */
@@ -48,6 +50,8 @@ export class Primitive extends Graphic {
     return undefined !== geom ? new this(geom) : undefined;
   }
 
+  public get isDisposed(): boolean { return this.cachedGeometry.isDisposed; }
+
   public dispose() {
     dispose(this.cachedGeometry);
   }
@@ -74,48 +78,41 @@ export class Primitive extends Graphic {
     return this.cachedGeometry.getRenderPass(target);
   }
 
-  public get featureIndexType(): FeatureIndexType {
-    const feature = this.cachedGeometry.featuresInfo;
-    return undefined !== feature ? feature.type : FeatureIndexType.Empty;
-  }
-
-  public get usesMaterialColor(): boolean {
-    const materialData = this.cachedGeometry.material;
-    return undefined !== materialData && (materialData.overridesRgb || materialData.overridesAlpha);
-  }
+  public get hasFeatures(): boolean { return this.cachedGeometry.hasFeatures; }
 
   public addCommands(commands: RenderCommands): void { commands.addPrimitive(this); }
 
-  public addHiliteCommands(commands: RenderCommands, batch: Batch, pass: RenderPass): void {
+  public addHiliteCommands(commands: RenderCommands, pass: RenderPass): void {
     // Edges do not contribute to hilite pass.
     // Note that IsEdge() does not imply geom->ToEdge() => true...polylines can be edges too...
-    if (!this.isEdge) {
-      commands.getCommands(pass).push(DrawCommand.createForPrimitive(this, batch));
-    }
+    if (!this.isEdge)
+      commands.getCommands(pass).push(new PrimitiveCommand(this));
   }
 
-  public setUniformFeatureIndices(featId: number): void { this.cachedGeometry.uniformFeatureIndices = featId; }
   public get hasAnimation(): boolean { return this.cachedGeometry.hasAnimation; }
   public get isInstanced(): boolean { return this.cachedGeometry.isInstanced; }
   public get isLit(): boolean { return this.cachedGeometry.isLitSurface; }
   public get isEdge(): boolean { return this.cachedGeometry.isEdge; }
   public get renderOrder(): RenderOrder { return this.cachedGeometry.renderOrder; }
+  public get hasMaterialAtlas(): boolean { return this.cachedGeometry.hasMaterialAtlas; }
 
   public toPrimitive(): Primitive { return this; }
 
   private static _drawParams?: DrawParams;
+
+  public static freeParams(): void { Primitive._drawParams = undefined; }
 
   public draw(shader: ShaderProgramExecutor): void {
     // ###TODO: local to world should be pushed before we're invoked...we shouldn't need to pass (or copy) it
     if (undefined === Primitive._drawParams)
       Primitive._drawParams = new DrawParams();
 
-    const drawParams = Primitive._drawParams!;
-    drawParams.init(shader.params, this.cachedGeometry, shader.target.currentTransform, shader.renderPass);
+    const drawParams = Primitive._drawParams;
+    drawParams.init(shader.params, this.cachedGeometry);
     shader.draw(drawParams);
   }
 
-  public getTechniqueId(target: Target): TechniqueId { return this.cachedGeometry.getTechniqueId(target); }
+  public get techniqueId(): TechniqueId { return this.cachedGeometry.techniqueId; }
 }
 
 /** @internal */
@@ -139,9 +136,13 @@ export class SkyCubePrimitive extends Primitive {
 
 /** @internal */
 export class SkySpherePrimitive extends Primitive {
-  public constructor(cachedGeom: CachedGeometry) { super(cachedGeom); }
+  public constructor(cachedGeom: CachedGeometry) {
+    super(cachedGeom);
+    assert(cachedGeom instanceof SkySphereViewportQuadGeometry);
+  }
 
   public draw(shader: ShaderProgramExecutor): void {
+    (this.cachedGeometry as SkySphereViewportQuadGeometry).initWorldPos(shader.target);
     super.draw(shader); // Draw the skybox sphere
   }
 }

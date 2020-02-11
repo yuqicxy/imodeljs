@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import { initialize, terminate } from "../IntegrationTests";
@@ -10,16 +10,22 @@ import { Ruleset } from "@bentley/presentation-common";
 import { RulesetManagerImpl } from "@bentley/presentation-backend/lib/RulesetManager";
 import { NativePlatformDefinition, createDefaultNativePlatform } from "@bentley/presentation-backend/lib/NativePlatform";
 import { tweakRuleset } from "./Helpers";
+import { PresentationManagerMode } from "@bentley/presentation-backend";
 
 describe("Rulesets roundtrip", () => {
 
   let nativePlatform: NativePlatformDefinition;
   let rulesets: RulesetManagerImpl;
 
-  before(() => {
-    initialize();
+  before(async () => {
+    await initialize();
 
-    const TNativePlatform = createDefaultNativePlatform(); // tslint:disable-line: variable-name naming-convention
+    const TNativePlatform = createDefaultNativePlatform({ // tslint:disable-line: variable-name naming-convention
+      id: "",
+      localeDirectories: [],
+      taskAllocationsMap: {},
+      mode: PresentationManagerMode.ReadWrite,
+    });
     nativePlatform = new TNativePlatform();
 
     rulesets = new RulesetManagerImpl(() => nativePlatform);

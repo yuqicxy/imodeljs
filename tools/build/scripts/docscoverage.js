@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
@@ -26,10 +26,9 @@ if (!fs.existsSync("./lib/docs/json/file.json")) {
 const docJson = JSON.parse(fs.readFileSync("./lib/docs/json/file.json"));
 
 if (docJson === undefined || docJson.children === undefined) {
-  console.log("Error - Could not successfully parse the json document into a json object.")
+  console.log("Error - Could not successfully parse the json document into a json object.");
   process.exit(1);
 }
-
 
 const coverageJSON = {
   files: []
@@ -93,11 +92,11 @@ function checkForDocumentation(child) {
   }
 
   if ((child.comment !== undefined && child.comment.shortText !== undefined) ||
-  (child.signatures !== undefined && child.signatures[0].comment !== undefined && child.signatures[0].comment.shortText !== undefined)) {
+    (child.signatures !== undefined && child.signatures[0].comment !== undefined && child.signatures[0].comment.shortText !== undefined)) {
     fileObject.documented++;
   } else {
     fileObject.undocumented++;
-    switch(child.kind) {
+    switch (child.kind) {
       case 4:
         fileObject.enumerations++;
         break;
@@ -131,7 +130,7 @@ for (const child of docJson.children) {
 
 // Create folder for coverage on a per-file basis
 if (!fs.existsSync("./lib/docs/coveragePerFile"))
-  fs.mkdirSync("./lib/docs/coveragePerFile")
+  fs.mkdirSync("./lib/docs/coveragePerFile");
 
 // For each found file, output specific info regarding class, method, and enumerations coverage
 // Also, keep a stream open for the general file holding all file percentages
@@ -161,6 +160,5 @@ generalStream.once("open", (fd) => {
   generalStream.write("</body></html>");
   generalStream.end();
 });
-
 
 console.log("Generated documentation coverage file: " + process.cwd() + "\\lib\\docs\\coverage.html");

@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { LogLevel } from "@bentley/bentleyjs-core";
 import { IModelToken, DevToolsStatsOptions } from "@bentley/imodeljs-common";
 import { DevTools, IModelApp, PingTestResult } from "@bentley/imodeljs-frontend";
 import { assert } from "chai";
+import { EventSourceManager } from "@bentley/imodeljs-frontend/lib/EventSource";
 
 describe("DevTools", () => {
   let devTools: DevTools;
@@ -16,6 +17,7 @@ describe("DevTools", () => {
     const iModelToken: IModelToken = {
       iModelId: "test",
       changeSetId: "test",
+      key: EventSourceManager.GLOBAL,
       toJSON() { return this; },
     }; // Supply a real token in an integration test
     devTools = DevTools.connectToBackendInstance(iModelToken);

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModels */
+/** @packageDocumentation
+ * @module iModels
+ */
 
 import { assert, BeEvent, IModelStatus, Logger } from "@bentley/bentleyjs-core";
 import { AccessToken } from "@bentley/imodeljs-clients";
@@ -170,8 +172,6 @@ export class AutoPush {
 
   /** The autoSchedule property */
   public get autoSchedule(): boolean { return this._autoSchedule; }
-
-  /** The autoSchedule property */
   public set autoSchedule(v: boolean) {
     this._autoSchedule = v;
     if (v)

@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Core */
+/** @packageDocumentation
+ * @module Core
+ */
 
-import { BeEvent, Guid } from "@bentley/bentleyjs-core";
-import { RulesetManagerState, Ruleset, RegisteredRuleset, IClientStateHolder } from "@bentley/presentation-common";
+import { Guid } from "@bentley/bentleyjs-core";
+import { Ruleset, RegisteredRuleset } from "@bentley/presentation-common";
 
 /**
  * Presentation ruleset registry.
@@ -34,19 +36,9 @@ export interface RulesetManager {
 }
 
 /** @internal */
-export class RulesetManagerImpl implements RulesetManager, IClientStateHolder<RulesetManagerState> {
+export class RulesetManagerImpl implements RulesetManager {
 
   private _clientRulesets = new Map<string, RegisteredRuleset[]>();
-  public key = RulesetManagerState.STATE_ID;
-  public onStateChanged = new BeEvent<() => void>();
-
-  public get state(): RulesetManagerState {
-    const rulesets: RulesetManagerState = [];
-    this._clientRulesets.forEach((m) => {
-      m.forEach((r) => rulesets.push(r.toJSON()));
-    });
-    return rulesets;
-  }
 
   /**
    * Get a ruleset with the specified id.
@@ -66,7 +58,6 @@ export class RulesetManagerImpl implements RulesetManager, IClientStateHolder<Ru
     if (!this._clientRulesets.has(ruleset.id))
       this._clientRulesets.set(ruleset.id, []);
     this._clientRulesets.get(ruleset.id)!.push(registered);
-    this.onStateChanged.raiseEvent();
     return registered;
   }
 
@@ -96,9 +87,6 @@ export class RulesetManagerImpl implements RulesetManager, IClientStateHolder<Ru
       }
     }
 
-    if (didRemove)
-      this.onStateChanged.raiseEvent();
-
     return didRemove;
   }
 
@@ -110,7 +98,6 @@ export class RulesetManagerImpl implements RulesetManager, IClientStateHolder<Ru
       return;
 
     this._clientRulesets.clear();
-    this.onStateChanged.raiseEvent();
   }
 
 }

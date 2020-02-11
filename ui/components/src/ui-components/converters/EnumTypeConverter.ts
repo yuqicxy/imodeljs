@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module TypeConverters */
+/** @packageDocumentation
+ * @module TypeConverters
+ */
 
 import { PropertyDescription, EnumerationChoice, Primitives } from "@bentley/imodeljs-frontend";
-import { TypeConverter } from "./TypeConverter";
+import { TypeConverter, StandardTypeConverterTypeNames } from "./TypeConverter";
 import { TypeConverterManager } from "./TypeConverterManager";
 
 /**
@@ -34,12 +36,13 @@ export class EnumTypeConverter extends TypeConverter {
     return -1;
   }
 
-  public sortCompare(a: Primitives.Enum, b: Primitives.Enum, _ignoreCase?: boolean): number {
+  public sortCompare(a: Primitives.Enum, b: Primitives.Enum, ignoreCase?: boolean): number {
     if (isNaN(+a) || isNaN(+b)) {
-      return TypeConverterManager.getConverter("string").sortCompare(a, b, _ignoreCase);
+      return TypeConverterManager.getConverter("string").sortCompare(a, b, ignoreCase);
     }
 
     return (+a) - (+b);
   }
 }
-TypeConverterManager.registerConverter("enum", EnumTypeConverter);
+
+TypeConverterManager.registerConverter(StandardTypeConverterTypeNames.Enum, EnumTypeConverter);

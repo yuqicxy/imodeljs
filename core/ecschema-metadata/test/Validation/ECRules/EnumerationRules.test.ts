@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { expect } from "chai";
@@ -16,7 +16,7 @@ describe("Enumeration rule tests", () => {
   let schema: Schema;
 
   beforeEach(async () => {
-    schema = new Schema(new SchemaContext(), "TestSchema", 1, 0, 0);
+    schema = new Schema(new SchemaContext(), "TestSchema", "ts", 1, 0, 0);
   });
 
   it("enumerationTypeUnsupported, rule violated.", async () => {

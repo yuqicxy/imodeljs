@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { ShaderBuilder, VariableType } from "../ShaderBuilder";
 import { RenderPass } from "../RenderFlags";
@@ -34,4 +36,5 @@ export function addRenderPass(builder: ShaderBuilder) {
   builder.addGlobal("kRenderPass_Hilite", VariableType.Float, "7.0", true);
   builder.addGlobal("kRenderPass_WorldOverlay", VariableType.Float, "8.0", true);
   builder.addGlobal("kRenderPass_ViewOverlay", VariableType.Float, "9.0", true);
+  builder.addGlobal("kRenderPass_PlanarClassification", VariableType.Float, "15.0", true);
 }

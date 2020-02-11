@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PropertyEditors */
+/** @packageDocumentation
+ * @module PropertyEditors
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -13,11 +15,11 @@ import {
 import { PropertyEditorManager, PropertyEditorBase } from "./PropertyEditorManager";
 import { PropertyEditorProps, TypeEditor } from "./EditorContainer";
 import "./EnumButtonGroupEditor.scss";
+import { Icon } from "@bentley/ui-core";
 
 /** @internal */
 interface EnumEditorState {
   selectValue: string | number;
-  valueIsNumber: boolean;
 }
 
 /** EnumButtonGroupEditor React component that is a property editor with select input
@@ -31,7 +33,6 @@ export class EnumButtonGroupEditor extends React.Component<PropertyEditorProps, 
   /** @internal */
   public readonly state: Readonly<EnumEditorState> = {
     selectValue: "",
-    valueIsNumber: false,
   };
 
   /** @internal */
@@ -58,7 +59,7 @@ export class EnumButtonGroupEditor extends React.Component<PropertyEditorProps, 
       if (propertyRecord.property.enum) {
         const numChoices = propertyRecord.property.enum.choices.length;
         this._enumIcons = new Array<IconDefinition>(numChoices);
-        this._enumIcons.fill({ iconClass: "icon icon-placeholder" });
+        this._enumIcons.fill({ iconSpec: "icon icon-placeholder" });
 
         // istanbul ignore else
         if (propertyRecord.property.editor && propertyRecord.property.editor.params) {
@@ -102,7 +103,7 @@ export class EnumButtonGroupEditor extends React.Component<PropertyEditorProps, 
     const button = this._btnRefs.get(this.state.selectValue);
     // istanbul ignore else
     if (button)
-      button.focus();
+      button.focus({ preventScroll: true });
   }
 
   /** @internal */
@@ -127,26 +128,23 @@ export class EnumButtonGroupEditor extends React.Component<PropertyEditorProps, 
       const button = this._btnRefs.get(state!.selectValue);
       // istanbul ignore else
       if (button)
-        button.focus();
+        button.focus({ preventScroll: true });
     }
   }
 
   private static getStateFromProps(props: PropertyEditorProps): EnumEditorState | null {
     const propertyRecord = props.propertyRecord;
     let selectValue: string | number;
-    let valueIsNumber: boolean;
 
     // istanbul ignore else
     if (propertyRecord && propertyRecord.value.valueFormat === PropertyValueFormat.Primitive) {
       const primitiveValue = (propertyRecord.value as PrimitiveValue).value;
       if (typeof primitiveValue === "string") {
         selectValue = primitiveValue as string;
-        valueIsNumber = false;
       } else {
         selectValue = primitiveValue as number;
-        valueIsNumber = true;
       }
-      return { selectValue, valueIsNumber };
+      return { selectValue };
     }
     return null;
   }
@@ -154,7 +152,7 @@ export class EnumButtonGroupEditor extends React.Component<PropertyEditorProps, 
   private getIcon(index: number) {
     // istanbul ignore else
     if (this._enumIcons && this._enumIcons.length > index)
-      return (<i className={this._enumIcons[index].iconClass} />);
+      return (<Icon iconSpec={this._enumIcons[index].iconSpec} />);
     return null;
   }
 

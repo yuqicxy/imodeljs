@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
@@ -25,6 +25,9 @@ const knownSourceMapPaths = [paths.appSrc];
 
 /** Creates a list of include paths for app source and all its @bentley dependencies */
 const createBentleySourceMapsIncludePaths = (resource) => {
+  if (process.env.DISABLE_SOURCE_MAPS)
+    return false;
+
   for (const knownDir of knownSourceMapPaths) {
     if (resource.startsWith(knownDir))
       return true;
@@ -89,7 +92,7 @@ const modulesToExcludeFromTests = [
   // If these paths don't end in "/" (or "\"), they'll also exclude *filenames* beginning with "web" or "electron":
   path.normalize(paths.appSrcBackendElectron + path.sep),
   path.normalize(paths.appSrcBackendWeb + path.sep),
-]
+];
 
 module.exports = {
   createDevToolModuleFilename,

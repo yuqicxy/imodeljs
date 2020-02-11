@@ -1,23 +1,24 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Item */
+/** @packageDocumentation
+ * @module Item
+ */
 
 import * as React from "react";
 
 import { IModelApp, Tool } from "@bentley/imodeljs-frontend";
+import { StringGetter } from "@bentley/ui-abstract";
+import { CommonProps, Icon, BadgeUtilities } from "@bentley/ui-core";
+import { Item, getToolbarItemProps } from "@bentley/ui-ninezone";
 
-import { Icon } from "../shared/IconComponent";
 import { FrontstageManager } from "../frontstage/FrontstageManager";
 import { SyncUiEventDispatcher, SyncUiEventArgs, SyncUiEventId } from "../syncui/SyncUiEventDispatcher";
 import { BaseItemState } from "../shared/ItemDefBase";
-import { ToolItemProps, StringGetter } from "../shared/ItemProps";
 import { UiFramework } from "../UiFramework";
-import { Item, getToolbarItemProps } from "@bentley/ui-ninezone";
 import { KeyboardShortcutManager } from "../keyboardshortcut/KeyboardShortcut";
-import { CommonProps } from "@bentley/ui-core";
-import { BetaBadge } from "../betabadge/BetaBadge";
+import { ToolItemProps } from "../shared/ItemProps";
 
 /** Properties for the [[ToolButton]] React Component.
  * @public
@@ -65,11 +66,17 @@ export class ToolButton extends React.Component<ToolButtonProps, BaseItemState> 
 
     if (!refreshState && this.props.stateSyncIds && this.props.stateSyncIds.length > 0)
       refreshState = this.props.stateSyncIds.some((value: string): boolean => args.eventIds.has(value));
+
     if (refreshState) {
       if (this.props.stateFunc)
         newState = this.props.stateFunc(newState);
+
       if ((this.state.isActive !== newState.isActive) || (this.state.isEnabled !== newState.isEnabled) || (this.state.isVisible !== newState.isVisible)) {
-        this.setState((_prevState) => ({ isActive: newState.isActive, isEnabled: newState.isEnabled, isVisible: newState.isVisible }));
+        this.setState({
+          isActive: newState.isActive,
+          isEnabled: newState.isEnabled,
+          isVisible: newState.isVisible,
+        });
       }
     }
   }
@@ -116,6 +123,8 @@ export class ToolButton extends React.Component<ToolButtonProps, BaseItemState> 
 
     const icon = <Icon iconSpec={this.props.iconSpec} />;
     const toolbarItemProps = getToolbarItemProps(this.props);
+    const badge = BadgeUtilities.getComponentForBadge(this.props.badgeType, this.props.betaBadge);  // tslint:disable-line: deprecation
+
     return (
       <Item
         {...toolbarItemProps}
@@ -128,7 +137,7 @@ export class ToolButton extends React.Component<ToolButtonProps, BaseItemState> 
         onClick={this._execute}
         onKeyDown={this._handleKeyDown}
         icon={icon}
-        betaBadge={this.props.betaBadge && <BetaBadge />}
+        badge={badge}
       />
     );
   }

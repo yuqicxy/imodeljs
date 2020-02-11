@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import classnames from "classnames";
@@ -29,7 +29,9 @@ export class InlineEdit extends React.Component<InlineEditProps, InlineEditState
     this.state = { value: this.props.defaultValue, originalValue: this.props.defaultValue };
   }
 
-  public componentWillReceiveProps(newProps: InlineEditProps) {
+  // TODO - Fix this so the unit test still runs successfully - must use getDerivedStateFromProps or componentDidUpdate
+  /** @internal */
+  public UNSAFE_componentWillReceiveProps(newProps: InlineEditProps) {    // tslint:disable-line: naming-convention
     if (newProps.defaultValue !== this.state.value) {
       this.setState({ value: newProps.defaultValue, originalValue: newProps.defaultValue });
     }
@@ -46,7 +48,9 @@ export class InlineEdit extends React.Component<InlineEditProps, InlineEditState
 
   private _onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
-      this.setState({ value: this.state.originalValue }, (() => this._inputRef.current!.select()));
+      this.setState(
+        (prevState) => ({ value: prevState.originalValue }),
+        () => this._inputRef.current!.select());
     } else if (event.key === "Enter") {
       this._sendChange(this.state.value);
     }

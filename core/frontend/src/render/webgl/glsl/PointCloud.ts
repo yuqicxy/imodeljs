@@ -1,24 +1,26 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { addModelViewProjectionMatrix } from "./Vertex";
 import { addUniformHiliter } from "./FeatureSymbology";
 import { ProgramBuilder, VertexShaderComponent, FragmentShaderComponent, VariableType } from "../ShaderBuilder";
-import { PointCloudGeometry } from "../PointCloud";
-import { GL } from "../GL";
-import { assert } from "@bentley/bentleyjs-core";
 import { addColorPlanarClassifier, addHilitePlanarClassifier, addFeaturePlanarClassifier } from "./PlanarClassification";
 import { IsClassified, FeatureMode } from "../TechniqueFlags";
+import { AttributeMap } from "../AttributeMap";
+import { TechniqueId } from "../TechniqueId";
 
 const computePosition = "gl_PointSize = 1.0; return MAT_MVP * rawPos;";
 const computeColor = "return vec4(a_color, 1.0);";
 const computeBaseColor = "return v_color;";
+const checkForClassifiedDiscard = "return baseColor.a == 0.0;";
 
 function createBuilder(): ProgramBuilder {
-  const builder = new ProgramBuilder();
+  const builder = new ProgramBuilder(AttributeMap.findAttributeMap(TechniqueId.PointCloud, false));
   const vert = builder.vert;
   vert.set(VertexShaderComponent.ComputePosition, computePosition);
   addModelViewProjectionMatrix(vert);
@@ -30,19 +32,11 @@ function createBuilder(): ProgramBuilder {
 export function createPointCloudBuilder(classified: IsClassified, featureMode: FeatureMode): ProgramBuilder {
   const builder = createBuilder();
 
-  builder.vert.addAttribute("a_color", VariableType.Vec3, (shaderProg) => {
-    shaderProg.addAttribute("a_color", (attr, params) => {
-      const pointCloudGeom = params.geometry as PointCloudGeometry;
-      assert(pointCloudGeom !== undefined);
-      if (undefined !== pointCloudGeom && undefined !== pointCloudGeom.colors)
-        attr.enableArray(pointCloudGeom.colors, 3, GL.DataType.UnsignedByte, true, 0, 0);
-    });
-  });
-
   builder.addFunctionComputedVarying("v_color", VariableType.Vec4, "computeNonUniformColor", computeColor);
   builder.frag.set(FragmentShaderComponent.ComputeBaseColor, computeBaseColor);
   if (classified) {
-    addColorPlanarClassifier(builder);
+    addColorPlanarClassifier(builder, false);
+    builder.frag.set(FragmentShaderComponent.CheckForDiscard, checkForClassifiedDiscard);
     if (FeatureMode.None !== featureMode)
       addFeaturePlanarClassifier(builder);
   }
@@ -54,10 +48,8 @@ export function createPointCloudBuilder(classified: IsClassified, featureMode: F
 export function createPointCloudHiliter(classified: IsClassified): ProgramBuilder {
   const builder = createBuilder();
   addUniformHiliter(builder);
-  if (classified) {
-    addColorPlanarClassifier(builder);
+  if (classified)
     addHilitePlanarClassifier(builder, false);
-  }
 
   return builder;
 }

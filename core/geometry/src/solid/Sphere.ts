@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Solid */
+/** @packageDocumentation
+ * @module Solid
+ */
 
 import { Point3d, Vector3d } from "../geometry3d/Point3dVector3d";
 import { Range3d } from "../geometry3d/Range";
@@ -32,6 +34,9 @@ import { Vector2d } from "../geometry3d/Point2dVector2d";
  * @public
  */
 export class Sphere extends SolidPrimitive implements UVSurface {
+  /** String name for schema properties */
+  public readonly solidPrimitiveType = "sphere";
+
   private _localToWorld: Transform;  // unit sphere maps to world through the transform0 part of this map.
   private _latitudeSweep: AngleSweep;
   /** Return the latitude (in radians) all fractional v. */
@@ -65,6 +70,11 @@ export class Sphere extends SolidPrimitive implements UVSurface {
   public cloneTransformed(transform: Transform): Sphere | undefined {
     const sphere1 = this.clone();
     transform.multiplyTransformTransform(sphere1._localToWorld, sphere1._localToWorld);
+    if (transform.matrix.determinant() < 0.0) {
+      if (sphere1._latitudeSweep !== undefined) {
+        sphere1._latitudeSweep.reverseInPlace();
+      }
+    }
     return sphere1;
   }
   /** Return a coordinate frame (right handed, unit axes)
@@ -135,7 +145,7 @@ export class Sphere extends SolidPrimitive implements UVSurface {
   public cloneLocalToWorld(): Transform { return this._localToWorld.clone(); }
   /** Test if `other` is a `Sphere` */
   public isSameGeometryClass(other: any): boolean { return other instanceof Sphere; }
-/** Test for same geometry in `other` */
+  /** Test for same geometry in `other` */
   public isAlmostEqual(other: GeometryQuery): boolean {
     if (other instanceof Sphere) {
       if (this.capped !== other.capped) return false;
@@ -222,7 +232,7 @@ export class Sphere extends SolidPrimitive implements UVSurface {
     const vector90 = transform.matrix.multiplyXYZ(0, c1, 0);
     return Loop.create(Arc3d.create(center, vector0, vector90) as Arc3d);
   }
-/** Extend a range to contain this sphere. */
+  /** Extend a range to contain this sphere. */
   public extendRange(range: Range3d, transform?: Transform): void {
     let placement = this._localToWorld;
     if (transform) {

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module UnifiedSelection */
+/** @packageDocumentation
+ * @module PropertyGrid
+ */
 
 import * as React from "react";
 import { KeySet } from "@bentley/presentation-common";
@@ -12,6 +14,7 @@ import { getDisplayName, translate } from "../common/Utils";
 import { IUnifiedSelectionComponent } from "../common/IUnifiedSelectionComponent";
 import { IPresentationPropertyDataProvider } from "./DataProvider";
 import "./WithUnifiedSelection.scss";
+import { FillCentered } from "@bentley/ui-core";
 
 const DEFAULT_REQUESTED_CONTENT_INSTANCES_LIMIT = 100;
 
@@ -162,7 +165,7 @@ export function propertyGridWithUnifiedSelection<P extends PropertyGridProps>(Pr
 
       let content;
       if (this.state.overLimit) {
-        content = (<span>{this.state.localizedStrings ? this.state.localizedStrings.tooManyElements : undefined}</span>);
+        content = (<FillCentered>{this.state.localizedStrings ? this.state.localizedStrings.tooManyElements : undefined}</FillCentered>);
       } else {
         content = (<PropertyGridComponent {...props} />);
       }

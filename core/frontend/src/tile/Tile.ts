@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tile */
+/** @packageDocumentation
+ * @module Tile
+ */
 
 import {
   assert,
@@ -13,22 +15,24 @@ import {
 import {
   Arc3d,
   ClipPlaneContainment,
+  ClipShape,
+  ClipMaskXYZRangePlanes,
   ClipVector,
-  Matrix4d,
   Point2d,
   Point3d,
-  Point4d,
-  Range1d,
   Range3d,
   Transform,
   Vector3d,
+  Map4d,
 } from "@bentley/geometry-core";
 import {
   BoundingSphere,
   ColorDef,
+  computeChildTileRanges,
   ElementAlignedBox3d,
   Frustum,
   FrustumPlanes,
+  LinePixels,
   TileProps,
 } from "@bentley/imodeljs-common";
 import { IModelApp } from "../IModelApp";
@@ -43,9 +47,11 @@ import {
 } from "../render/System";
 import { GraphicBuilder } from "../render/GraphicBuilder";
 import { SceneContext } from "../ViewContext";
-import { ViewFrustum } from "../Viewport";
+import { ViewingSpace } from "../Viewport";
 import { TileRequest } from "./TileRequest";
-import { TileLoader, TileTree } from "./TileTree";
+import { TileLoader, TileTree, TraversalSelectionContext, TraversalDetails } from "./TileTree";
+
+// cSpell:ignore undisplayable bitfield
 
 const scratchRange2d = [new Point2d(), new Point2d(), new Point2d(), new Point2d()];
 function addRangeGraphic(builder: GraphicBuilder, range: Range3d, is2d: boolean): void {
@@ -61,58 +67,6 @@ function addRangeGraphic(builder: GraphicBuilder, range: Range3d, is2d: boolean)
   pts[2].set(range.high.x, range.high.y);
   pts[3].set(range.low.x, range.high.y);
   builder.addLineString2d(pts, 0);
-}
-
-/** @internal */
-export function bisectRange3d(range: Range3d, takeUpper: boolean): void {
-  const diag = range.diagonal();
-  const pt = takeUpper ? range.high : range.low;
-  if (diag.x > diag.y && diag.x > diag.z)
-    pt.x = (range.low.x + range.high.x) / 2.0;
-  else if (diag.y > diag.z)
-    pt.y = (range.low.y + range.high.y) / 2.0;
-  else
-    pt.z = (range.low.z + range.high.z) / 2.0;
-}
-
-/** @internal */
-export function bisectRange2d(range: Range3d, takeUpper: boolean): void {
-  const diag = range.diagonal();
-  const pt = takeUpper ? range.high : range.low;
-  if (diag.x > diag.y)
-    pt.x = (range.low.x + range.high.x) / 2.0;
-  else
-    pt.y = (range.low.y + range.high.y) / 2.0;
-}
-
-/**
- * Given a Tile, compute the ranges which would result from sub-dividing its range a la IModelTile.getChildrenProps().
- * This function exists strictly for debugging purposes.
- */
-function computeChildRanges(tile: Tile): Array<{ range: Range3d, isEmpty: boolean }> {
-  const emptyMask = tile.emptySubRangeMask;
-  const is2d = tile.root.is2d;
-  const bisectRange = is2d ? bisectRange2d : bisectRange3d;
-
-  const ranges: Array<{ range: Range3d, isEmpty: boolean }> = [];
-  for (let i = 0; i < 2; i++) {
-    for (let j = 0; j < 2; j++) {
-      for (let k = 0; k < (is2d ? 1 : 2); k++) {
-        const emptyBit = 1 << (i + j * 2 + k * 4);
-        const isEmpty = 0 !== (emptyMask & emptyBit);
-
-        const range = tile.range.clone();
-        bisectRange(range, 0 === i);
-        bisectRange(range, 0 === j);
-        if (!is2d)
-          bisectRange(range, 0 === k);
-
-        ranges.push({ range, isEmpty });
-      }
-    }
-  }
-
-  return ranges;
 }
 
 /** A 3d tile within a [[TileTree]].
@@ -139,10 +93,9 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
   protected _sizeMultiplier?: number;
   protected _request?: TileRequest;
   protected _transformToRoot?: Transform;
-  protected _localRange?: ElementAlignedBox3d;
-  protected _localContentRange?: ElementAlignedBox3d;
   protected _emptySubRangeMask?: number;
   private _state: TileState;
+  private static _loadedRealityChildren = new Array<Tile>();
 
   public constructor(props: Tile.Params) {
     this.root = props.root;
@@ -158,12 +111,10 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
     this._sizeMultiplier = props.sizeMultiplier;
     if (undefined !== (this.transformToRoot = props.transformToRoot)) {
       this.transformToRoot.multiplyRange(props.range, this.range);
-      this._localRange = this.range;
-      if (undefined !== props.contentRange) {
+      if (undefined !== props.contentRange)
         this.transformToRoot.multiplyRange(props.contentRange, this._contentRange);
-        this._localContentRange = props.contentRange;
-      }
     }
+
     if (!this.root.loader.tileRequiresLoading(props)) {
       this.setIsReady();    // If no contents, this node is for structure only and no content loading is required.
     }
@@ -195,18 +146,6 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
       for (const child of this._children)
         child.collectStatistics(stats);
   }
-
-  /* ###TODO
-  public cancelAllLoads(): void {
-    if (this.isLoading) {
-      this.loadStatus = Tile.LoadStatus.NotLoaded;
-      if (this._children !== undefined) {
-        for (const child of this._children)
-          child.cancelAllLoads();
-      }
-    }
-  }
-  */
 
   public get loadStatus(): Tile.LoadStatus {
     switch (this._state) {
@@ -240,6 +179,9 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
   public get isReady(): boolean { return Tile.LoadStatus.Ready === this.loadStatus; }
 
   public setContent(content: Tile.Content): void {
+    // This should never happen but paranoia.
+    this._graphic = dispose(this._graphic);
+
     const { graphic, isLeaf, contentRange, sizeMultiplier } = content;
 
     this._graphic = graphic;
@@ -281,7 +223,9 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
     this._state = TileState.Abandoned;
   }
 
-  public get maximumSize(): number { return this._maximumSize * this.sizeMultiplier; }
+  public get maximumSize(): number {
+    return undefined !== this.sizeMultiplier ? this._maximumSize * this.sizeMultiplier : this._maximumSize;
+  }
   public get isEmpty(): boolean { return this.isReady && !this.hasGraphics && !this.hasChildren; }
   public get hasChildren(): boolean { return !this.isLeaf; }
   public get contentRange(): ElementAlignedBox3d {
@@ -301,7 +245,7 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
 
   public get graphics(): RenderGraphic | undefined { return this._graphic; }
   public get hasGraphics(): boolean { return undefined !== this.graphics; }
-  public get sizeMultiplier(): number { return undefined !== this._sizeMultiplier ? this._sizeMultiplier : 1.0; }
+  public get sizeMultiplier(): number | undefined { return this._sizeMultiplier; }
   public get hasSizeMultiplier(): boolean { return undefined !== this._sizeMultiplier; }
   public get children(): Tile[] | undefined { return this._children; }
   public get iModel(): IModelConnection { return this.root.iModel; }
@@ -312,7 +256,7 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
   public isRegionCulled(args: Tile.DrawArgs): boolean { return Tile._scratchRootSphere.init(this.center, this.radius), this.isCulled(this.range, args, Tile._scratchRootSphere); }
   public isContentCulled(args: Tile.DrawArgs): boolean { return this.isCulled(this.contentRange, args); }
 
-  private getRangeGraphic(context: SceneContext): RenderGraphic | undefined {
+  public getRangeGraphic(context: SceneContext): RenderGraphic | undefined {
     const type = context.viewport.debugBoundingBoxes;
     if (type === this._rangeGraphicType)
       return this._rangeGraphic;
@@ -329,10 +273,12 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
           addRangeGraphic(builder, this.contentRange, this.root.is2d);
         }
       } else if (Tile.DebugBoundingBoxes.ChildVolumes === type) {
-        const ranges = computeChildRanges(this);
+        const ranges = computeChildTileRanges(this, this.root);
         for (const range of ranges) {
           const color = range.isEmpty ? ColorDef.blue : ColorDef.green;
-          builder.setSymbology(color, color, 1);
+          const pixels = !range.isEmpty ? LinePixels.HiddenLine : LinePixels.Solid;
+          const width = !range.isEmpty ? 2 : 1;
+          builder.setSymbology(color, color, width, pixels);
           addRangeGraphic(builder, range.range, this.root.is2d);
         }
       } else if (Tile.DebugBoundingBoxes.Sphere === type) {
@@ -402,6 +348,100 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
       return Tile.Visibility.Visible;
   }
 
+  public getContentClip(): ClipVector | undefined {
+    return ClipVector.createCapture([ClipShape.createBlock(this.contentRange, ClipMaskXYZRangePlanes.All)]);
+  }
+
+  protected get _anyChildNotFound() {
+    if (this._children !== undefined)
+      for (const child of this._children)
+        if (child.isNotFound)
+          return true;
+
+    return this._childrenLoadStatus === TileTree.LoadStatus.NotFound;
+  }
+
+  protected selectRealityChildren(context: TraversalSelectionContext, args: Tile.DrawArgs, traversalDetails: TraversalDetails) {
+    const childrenLoadStatus = this.loadChildren(); // NB: asynchronous
+    if (TileTree.LoadStatus.Loading === childrenLoadStatus) {
+      args.markChildrenLoading();
+      this._childrenLastUsed = args.now;
+      traversalDetails.childrenLoading = true;
+      return;
+    }
+
+    if (undefined !== this.children) {
+      const traversalChildren = this.root.getTraversalChildren(this.depth);
+      traversalChildren.initialize();
+      for (let i = 0; i < this.children!.length; i++)
+        this.children[i].selectRealityTiles(context, args, traversalChildren.getChildDetail(i));
+
+      traversalChildren.combine(traversalDetails);
+    }
+  }
+  public addBoundingRectangle(builder: GraphicBuilder, color: ColorDef) {
+    builder.setSymbology(color, color, 3);
+    builder.addRangeBox(this.range);
+  }
+
+  public allChildrenIncluded(tiles: Tile[]) {
+    if (this.children === undefined || tiles.length !== this.children.length)
+      return false;
+    for (const tile of tiles)
+      if (tile.parent !== this)
+        return false;
+    return true;
+  }
+  protected getLoadedRealityChildren(args: Tile.DrawArgs): boolean {
+    if (this._childrenLoadStatus !== TileTree.LoadStatus.Loaded || this._children === undefined)
+      return false;
+
+    for (const child of this._children) {
+      if (child.isReady && Tile.Visibility.Visible === child.computeVisibility(args)) {
+        this._childrenLastUsed = args.now;
+        Tile._loadedRealityChildren.push(child);
+      } else if (!child.getLoadedRealityChildren(args))
+        return false;
+    }
+    return true;
+  }
+
+  public selectRealityTiles(context: TraversalSelectionContext, args: Tile.DrawArgs, traversalDetails: TraversalDetails) {
+    const vis = this.computeVisibility(args);
+    if (Tile.Visibility.OutsideFrustum === vis) {
+      // Note -- Can't unload children here because this tile tree may be used by more than one viewport.
+      return;
+    }
+    if (this.root.loader.forceTileLoad(this) && !this.isReady) {
+      context.selectOrQueue(this, traversalDetails);    // Force loading if loader requires this tile. (cesium terrain visibility).
+      return;
+    }
+
+    if (this.isDisplayable && (vis === Tile.Visibility.Visible || this.isLeaf || this._anyChildNotFound)) {
+      context.selectOrQueue(this, traversalDetails);
+      const preloadSkip = this.root.loader.preloadRealityParentSkip;
+      let preloadCount = this.root.loader.preloadRealityParentDepth + preloadSkip;
+      let parentDepth = 0;
+      for (let parent = this.parent; preloadCount > 0 && parent !== undefined; parent = parent.parent) {
+        if (parent.children!.length > 1 && ++parentDepth > preloadSkip) {
+          context.preload(parent);
+          preloadCount--;
+        }
+
+        if (!this.isReady) {      // This tile is visible but not loaded - Use higher resolution children if present
+          if (this.getLoadedRealityChildren(args))
+            context.select(Tile._loadedRealityChildren);
+          Tile._loadedRealityChildren.length = 0;
+        }
+      }
+    } else {
+      this.selectRealityChildren(context, args, traversalDetails);
+      if (this.isDisplayable && this.isReady && (traversalDetails.childrenLoading || 0 !== traversalDetails.queuedChildren.length)) {
+        context.selectOrQueue(this, traversalDetails);
+      }
+    }
+  }
+
   public selectTiles(selected: Tile[], args: Tile.DrawArgs, numSkipped: number = 0): Tile.SelectParent {
     const vis = this.computeVisibility(args);
     if (Tile.Visibility.OutsideFrustum === vis) {
@@ -461,8 +501,10 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
 
     const childrenLoadStatus = this.loadChildren(); // NB: asynchronous
     const children = canSkipThisTile ? this.children : undefined;
-    if (canSkipThisTile && TileTree.LoadStatus.Loading === childrenLoadStatus)
+    if (canSkipThisTile && TileTree.LoadStatus.Loading === childrenLoadStatus) {
       args.markChildrenLoading();
+      this._childrenLastUsed = args.now;
+    }
 
     if (undefined !== children) {
       // If we are the root tile and we are not displayable, then we want to draw *any* currently available children in our place, or else we would draw nothing.
@@ -488,7 +530,7 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
         return Tile.SelectParent.No;
 
       // Some types of tiles (like maps) allow the ready children to be drawn on top of the parent while other children are not yet loaded.
-      if (this.root.loader.parentsAndChildrenExclusive)
+      if (args.parentsAndChildrenExclusive)
         selected.length = initialSize;
     }
 
@@ -565,7 +607,7 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
     return false;
   }
 
-  private loadChildren(): TileTree.LoadStatus {
+  protected loadChildren(): TileTree.LoadStatus {
     if (TileTree.LoadStatus.NotLoaded === this._childrenLoadStatus) {
       this._childrenLoadStatus = TileTree.LoadStatus.Loading;
       this.root.loader.getChildrenProps(this).then((props: TileProps[]) => {
@@ -573,13 +615,10 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
         this._childrenLoadStatus = TileTree.LoadStatus.Loaded;
         if (undefined !== props) {
           // If this tile is undisplayable, update its content range based on children's content ranges.
-          const parentRange = this.hasContentRange ? undefined : new Range3d();
+          // Note, the children usually *have* no content at this point, so content range == tile range.
+          const parentRange = (this.hasContentRange || undefined !== this.root.contentRange) ? undefined : new Range3d();
           for (const prop of props) {
             const child = new Tile(Tile.paramsFromJSON(prop, this.root, this));
-
-            // stick the corners on the Tile (used only by WebMercator Tiles)
-            if ((prop as any).corners)
-              (child as any).corners = (prop as any).corners;
 
             this._children.push(child);
             if (undefined !== parentRange && !child.isEmpty)
@@ -625,6 +664,17 @@ export class Tile implements IDisposable, RenderMemory.Consumer {
     assert(undefined === request || undefined === this.request);
     this._request = request;
   }
+
+  public countDescendants(): number {
+    let count = 0;
+    if (undefined !== this._children) {
+      count = this._children.length;
+      for (const child of this._children)
+        count += child.countDescendants();
+    }
+
+    return count;
+  }
 }
 
 // tslint:disable:no-const-enum
@@ -669,14 +719,16 @@ export namespace Tile {
    * @internal
    */
   export const enum LoadPriority {
+    /** Background map tiles. */
+    Map = 1,
     /** Typically, tiles generated from the contents of geometric models. */
-    Primary = 0,
+    Primary = 20,
+    /** Terrain -- requires background/map tiles for drape. */
+    Terrain = 30,
     /** Typically, context reality models. */
-    Context = 1,
+    Context = 40,
     /** Supplementary tiles used to classify the contents of geometric or reality models. */
-    Classifier = 2,
-    /** Typically, map tiles. */
-    Background = 3,
+    Classifier = 50,
   }
 
   /**
@@ -713,7 +765,7 @@ export namespace Tile {
     public readonly root: TileTree;
     public clipVolume?: RenderClipVolume;
     public readonly context: SceneContext;
-    public viewFrustum?: ViewFrustum;
+    public viewFrustum?: ViewingSpace;
     public readonly graphics: GraphicBranch = new GraphicBranch();
     public readonly now: BeTimePoint;
     public readonly purgeOlderThan: BeTimePoint;
@@ -721,47 +773,26 @@ export namespace Tile {
     public planarClassifier?: RenderPlanarClassifier;
     public drape?: RenderTextureDrape;
     public readonly viewClip?: ClipVector;
+    public parentsAndChildrenExclusive: boolean;
 
-    public getPixelSizeAtPoint(inPoint?: Point3d): number {
-      return this.viewFrustum !== undefined ? this.viewFrustum.getPixelSizeAtPoint(inPoint) : this.context.getPixelSizeAtPoint();
-    }
-
-    private static _scratchTileToView = Matrix4d.createIdentity();
-    private static _scratchTileToWorld = Matrix4d.createIdentity();
-    private static _scratchViewCorner = Point4d.createZero();
-    public getPixelSize(tile: Tile) {
-      if (tile.root.isBackgroundMap) {
-        /* For background maps which contain only rectangles with textures, use the projected screen rectangle rather than sphere to calculate pixel size.  */
-        const rangeCorners = tile.contentRange.corners();
-        const worldToView = this.viewFrustum ? this.viewFrustum.worldToViewMap : this.context.viewport.viewFrustum.worldToViewMap;
-        Matrix4d.createTransform(this.location, DrawArgs._scratchTileToWorld);
-        DrawArgs._scratchTileToWorld.multiplyMatrixMatrix(worldToView.transform0, DrawArgs._scratchTileToView);
-        const xRange = Range1d.createNull(), yRange = Range1d.createNull();
-        let behindEye = false;
-        for (const corner of rangeCorners) {
-          const viewCorner = DrawArgs._scratchTileToView.multiplyPoint3d(corner, 1, DrawArgs._scratchViewCorner);
-          if (viewCorner.w < 0.0) {
-            behindEye = true;
-            break;
-          }
-          xRange.extendX(viewCorner.x / viewCorner.w);
-          yRange.extendX(viewCorner.y / viewCorner.w);
-        }
-        if (!behindEye)
-          return xRange.isNull ? 1.0E-3 : Math.sqrt(xRange.length() * yRange.length());
-      }
+    public getPixelSize(tile: Tile): number {
       const radius = this.getTileRadius(tile); // use a sphere to test pixel size. We don't know the orientation of the image within the bounding box.
       const center = this.getTileCenter(tile);
 
-      const pixelSizeAtPt = this.getPixelSizeAtPoint(center);
+      const viewPt = this.worldToViewMap.transform0.multiplyPoint3dQuietNormalize(center);
+      const viewPt2 = new Point3d(viewPt.x + 1.0, viewPt.y, viewPt.z);
+      const pixelSizeAtPt = this.worldToViewMap.transform1.multiplyPoint3dQuietNormalize(viewPt).distance(this.worldToViewMap.transform1.multiplyPoint3dQuietNormalize(viewPt2));
       return 0 !== pixelSizeAtPt ? radius / pixelSizeAtPt : 1.0e-3;
     }
 
     public get frustumPlanes(): FrustumPlanes {
       return this._frustumPlanes !== undefined ? this._frustumPlanes : this.context.frustumPlanes;
     }
+    protected get worldToViewMap(): Map4d {
+      return this.viewFrustum ? this.viewFrustum!.worldToViewMap : this.context.viewport.viewingSpace.worldToViewMap;
+    }
 
-    public constructor(context: SceneContext, location: Transform, root: TileTree, now: BeTimePoint, purgeOlderThan: BeTimePoint, clip?: RenderClipVolume) {
+    public constructor(context: SceneContext, location: Transform, root: TileTree, now: BeTimePoint, purgeOlderThan: BeTimePoint, clip?: RenderClipVolume, parentsAndChildrenExclusive = true) {
       this.location = location;
       this.root = root;
       this.clipVolume = clip;
@@ -769,19 +800,26 @@ export namespace Tile {
       this.now = now;
       this.purgeOlderThan = purgeOlderThan;
       this.graphics.setViewFlagOverrides(root.viewFlagOverrides);
-      this.viewFrustum = context.viewFrustum;
+      this.viewFrustum = context.viewingSpace;
       if (this.viewFrustum !== undefined)
         this._frustumPlanes = new FrustumPlanes(this.viewFrustum.getFrustum());
 
       this.planarClassifier = context.getPlanarClassifierForModel(root.modelId);
-      this.drape = context.getTextureDrape(root.modelId);
+      this.drape = context.getTextureDrapeForModel(root.modelId);
 
       // NB: Culling is currently feature-gated - ignore view clip if feature not enabled.
-      if (IModelApp.renderSystem.options.cullAgainstActiveVolume && context.viewFlags.clipVolume && false !== root.viewFlagOverrides.clipVolumeOverride)
+      if (context.viewFlags.clipVolume && false !== root.viewFlagOverrides.clipVolumeOverride)
         this.viewClip = context.viewport.view.getViewClip();
+
+      this.graphics.animationId = root.modelId;
+      this.parentsAndChildrenExclusive = parentsAndChildrenExclusive;
     }
 
-    public get tileSizeModifier(): number { return 1.0; } // ###TODO? may adjust for performance, or device pixel density, etc
+    /** A multiplier applied to a [[Tile]]'s `maximumSize` property to adjust level of detail.
+     * @see [[Viewport.tileSizeModifier]].
+     */
+    public get tileSizeModifier(): number { return this.context.viewport.tileSizeModifier; }
+
     public getTileCenter(tile: Tile): Point3d { return this.location.multiplyPoint3d(tile.center); }
 
     private static _scratchRange = new Range3d();
@@ -798,7 +836,8 @@ export namespace Tile {
         return;
 
       const classifierOrDrape = undefined !== this.planarClassifier ? this.planarClassifier : this.drape;
-      const branch = this.context.createGraphicBranch(this.graphics, this.location, this.clipVolume, classifierOrDrape);
+      const opts = { iModel: this.root.iModel, clipVolume: this.clipVolume, classifierOrDrape };
+      const branch = this.context.createGraphicBranch(this.graphics, this.location, opts);
 
       this.context.outputGraphic(branch);
     }

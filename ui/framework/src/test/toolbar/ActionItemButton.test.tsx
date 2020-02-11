@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import { mount, shallow } from "enzyme";
 import * as sinon from "sinon";
 import { expect } from "chai";
+
+import { BadgeType } from "@bentley/ui-abstract";
 
 import {
   ActionItemButton,
@@ -22,6 +24,10 @@ describe("ActionItemButton", () => {
 
   before(async () => {
     await TestUtils.initializeUiFramework();
+  });
+
+  after(() => {
+    TestUtils.terminateUiFramework();
   });
 
   beforeEach(async () => {
@@ -160,7 +166,23 @@ it("should render with betaBadge", () => {
     });
 
   const wrapper = mount(<ActionItemButton actionItem={myCommand} />);
-  const badge = wrapper.find("div.nz-beta-badge");
+  const badge = wrapper.find("div.nz-badge");
   badge.length.should.eq(1);
+  wrapper.unmount();
+});
+
+it("should render with badgeType", () => {
+  const myCommand =
+    new CommandItemDef({
+      commandId: "command",
+      iconSpec: "icon-placeholder",
+      badgeType: BadgeType.New,
+    });
+
+  const wrapper = mount(<ActionItemButton actionItem={myCommand} />);
+  const badge = wrapper.find("div.nz-badge");
+  badge.length.should.eq(1);
+  const newBadge = wrapper.find("div.core-new-badge");
+  newBadge.length.should.eq(1);
   wrapper.unmount();
 });

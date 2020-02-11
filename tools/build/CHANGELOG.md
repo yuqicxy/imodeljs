@@ -1,6 +1,83 @@
 # Change Log - @bentley/build-tools
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:11 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:11 GMT
+
+### Updates
+
+- Upgrade to TypeScript 3.7.2.
+- Update tests to pass '--inspect' instead of '--debug' to Node to support Node 12.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Added tslint-react-set-state-usage to ThirdPartyNotices.md in tools/build
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Upgrade to @microsoft/api-extractor 7.6.2
+- Code analysis related cleanup
+- Add lint rule to enforce two-space indentation.
+- Added TSLint rules for React setState calls
+- Replaced the noUnusedLocals tsc option with no-unused-variable lint rule.
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Fix mocha report failing when running in a context without a package.json
+- Fix issue with custom Mocha reporter not correctly outputting mocha file when run in Certa.
+- Update API-extractor to 5.7.4 to consume a fix for Node 12.
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Upgrade to @microsoft/api-extractor 7.5.0
+- Added initial ui-abstract package setup
+- Update cli to better match script functionality.
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+*Version update only*
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Add tslint rule banning Math.hypot
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+*Version update only*
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Update README and code cleanup
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Add the deprecation tslint rule as a warning. https://palantir.github.io/tslint/rules/deprecation/
+- Closing STDIN no longer kills child processes created using simpleSpawn
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

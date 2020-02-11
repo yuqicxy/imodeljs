@@ -1,17 +1,18 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as faker from "faker";
-import { ECInstanceNodeKey, StandardNodeTypes, Node, NodePathElement } from "../../../presentation-common";
+import { ECInstanceNodeKey, ECInstancesNodeKey, StandardNodeTypes, Node, NodePathElement } from "../../../presentation-common";
 import {
-  ECInstanceNodeKeyJSON, ECClassGroupingNodeKey, ECPropertyGroupingNodeKey,
+  ECInstanceNodeKeyJSON, ECInstancesNodeKeyJSON, ECClassGroupingNodeKey, ECPropertyGroupingNodeKey,
   LabelGroupingNodeKey, GroupingNodeKey, BaseNodeKey,
 } from "../../../hierarchy/Key";
 import { NodeJSON } from "../../../hierarchy/Node";
 import { NodePathElementJSON } from "../../../hierarchy/NodePathElement";
 import { nullable, createRandomHexColor, createRandomRgbColor } from "./Misc";
 import { createRandomECInstanceKey, createRandomECInstanceKeyJSON } from "./EC";
+import { createRandomLabelDefinitionJSON, createRandomLabelDefinition } from "./LabelDefinition";
 
 export const createRandomBaseNodeKey = (): BaseNodeKey => {
   return {
@@ -20,6 +21,7 @@ export const createRandomBaseNodeKey = (): BaseNodeKey => {
   };
 };
 
+/** @deprecated */
 export const createRandomECInstanceNodeKey = (): ECInstanceNodeKey => {
   return {
     type: StandardNodeTypes.ECInstanceNode,
@@ -28,11 +30,30 @@ export const createRandomECInstanceNodeKey = (): ECInstanceNodeKey => {
   };
 };
 
+/** @deprecated */
 export const createRandomECInstanceNodeKeyJSON = (): ECInstanceNodeKeyJSON => {
   return {
     type: StandardNodeTypes.ECInstanceNode,
     pathFromRoot: [faker.random.uuid(), faker.random.uuid()],
     instanceKey: createRandomECInstanceKeyJSON(),
+  };
+};
+
+export const createRandomECInstancesNodeKey = (): ECInstancesNodeKey => {
+  const instanceKeys = [createRandomECInstanceKey(), createRandomECInstanceKey()];
+  return {
+    type: StandardNodeTypes.ECInstancesNode,
+    pathFromRoot: [faker.random.uuid(), faker.random.uuid()],
+    instanceKeys,
+    instanceKey: instanceKeys[0],
+  };
+};
+
+export const createRandomECInstancesNodeKeyJSON = (): ECInstancesNodeKeyJSON => {
+  return {
+    type: StandardNodeTypes.ECInstancesNode,
+    pathFromRoot: [faker.random.uuid(), faker.random.uuid()],
+    instanceKeys: [createRandomECInstanceKeyJSON(), createRandomECInstanceKeyJSON()],
   };
 };
 
@@ -74,9 +95,11 @@ export const createRandomGroupingNodeKey = (groupedInstancesCount?: number): Gro
 };
 
 export const createRandomECInstanceNode = (): Node => {
+  const labelDefinition = createRandomLabelDefinition();
   return {
     key: createRandomECInstanceNodeKey(),
-    label: faker.random.words(),
+    label: labelDefinition.displayValue,
+    labelDefinition,
     description: nullable<string>(faker.lorem.sentence),
     imageId: nullable<string>(faker.random.word),
     foreColor: nullable<string>(createRandomHexColor),
@@ -95,6 +118,7 @@ export const createRandomECInstanceNodeJSON = (): NodeJSON => {
   return {
     key: createRandomECInstanceNodeKeyJSON(),
     label: faker.random.words(),
+    labelDefinition: createRandomLabelDefinitionJSON(),
     description: nullable<string>(faker.lorem.sentence),
     foreColor: nullable<string>(createRandomHexColor),
     backColor: nullable<string>(createRandomRgbColor),

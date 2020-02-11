@@ -1,20 +1,22 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Item */
+/** @packageDocumentation
+ * @module Item
+ */
 
 import * as React from "react";
 
-import { Size } from "@bentley/ui-ninezone";
+import { SizeProps } from "@bentley/ui-core";
 
-import { CustomItemProps } from "./ItemProps";
 import { ActionButtonItemDef } from "./ActionButtonItemDef";
+import { CustomItemProps } from "./CustomItemProps";
 
 /** @internal */
 interface CloneProps {
   key: string;
-  onSizeKnown: (size: Size) => void;
+  onSizeKnown: (size: SizeProps) => void;
 }
 
 /** An Item that renders a React component.

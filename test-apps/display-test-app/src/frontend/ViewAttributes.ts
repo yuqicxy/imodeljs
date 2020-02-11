@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import {
@@ -18,6 +18,7 @@ import {
   BackgroundMapProps,
   BackgroundMapProviderName,
   BackgroundMapType,
+  TerrainProps,
   RenderMode,
   ViewFlags,
   ColorDef,
@@ -30,13 +31,13 @@ import {
   ComboBox,
   createComboBox,
   createColorInput,
-  ColorInputProps,
   createNestedMenu,
   createNumericInput,
+  createSlider,
+  Slider,
 } from "@bentley/frontend-devtools";
 import { ToolBarDropDown } from "./ToolBar";
 import { Settings } from "./FeatureOverrides";
-import { isString } from "util";
 import { AmbientOcclusionEditor } from "./AmbientOcclusion";
 import { EnvironmentEditor } from "./EnvironmentEditor";
 
@@ -110,7 +111,7 @@ export class ViewAttributes {
 
     this.addEnvironmentEditor();
 
-    this.addBackgroundMap();
+    this.addBackgroundMapOrTerrain();
     this.addAmbientOcclusion();
 
     // Set initial states
@@ -122,255 +123,6 @@ export class ViewAttributes {
   public dispose(): void {
     this._removeMe();
     this._parent.removeChild(this._element);
-  }
-
-  private addEdgeDisplay(): void {
-    const edgeDisplayDiv = document.createElement("div");
-    const nestedMenu = createNestedMenu({
-      id: this._nextId,
-      label: "Edge Display",
-      parent: this._element,
-      expand: ViewAttributes._expandEdgeDisplay,
-      // We use a static so the expand/collapse state persists after closing and reopening the drop-down.
-      handler: (expanded) => ViewAttributes._expandEdgeDisplay = expanded,
-      body: edgeDisplayDiv,
-    });
-
-    this._updates.push((view) => {
-      if (view.is2d())
-        nestedMenu.div.hidden = true;
-      else
-        nestedMenu.div.hidden = false;
-    });
-
-    // Create Visible Edges Checkbox
-    const visEdgesCb = this.addCheckbox("Visible Edges", (enabled: boolean) => {
-      const vf = this._vp.viewFlags.clone(this._scratchViewFlags);
-      vf.visibleEdges = enabled;
-      this._vp.viewFlags = vf;
-      this.sync();
-    }, nestedMenu.body);
-    const visEdgeDiv = this.addHiddenLineEditor(visEdgesCb, edgeDisplayDiv);
-
-    // Create Hidden Edges Checkbox
-    const hidEdgesCb = this.addCheckbox("Hidden Edges", (enabled: boolean) => {
-      const vf = this._vp.viewFlags.clone(this._scratchViewFlags);
-      vf.hiddenEdges = enabled;
-      this._vp.viewFlags = vf;
-      this.sync();
-    }, edgeDisplayDiv);
-    hidEdgesCb.checkbox.disabled = true;
-    const hidEdgeDiv = this.addHiddenLineEditor(hidEdgesCb, edgeDisplayDiv, true);
-    this._updates.push((view) => {
-      if (view.is3d()) {
-        visEdgeDiv.hidden = !view.viewFlags.visibleEdges;
-        hidEdgeDiv.hidden = !view.viewFlags.hiddenEdges;
-        hidEdgesCb.checkbox.disabled = !view.viewFlags.visibleEdges;
-        const visWeightChecked = (visEdgeDiv.children[2].children[0] as HTMLInputElement).checked;
-        const hidWeightChecked = (hidEdgeDiv.children[2].children[0] as HTMLInputElement).checked;
-        if (visWeightChecked && hidWeightChecked) {
-          const visWeight = (visEdgeDiv.children[2].children[2] as HTMLInputElement).value; // visEdgeDiv.children.item(2) !== null ? visEdgeDiv.children.item(2)!.children.item(2)!.value;
-          const hidWeight = (hidEdgeDiv.children[2].children[2] as HTMLInputElement).value;
-          if (parseInt(hidWeight, 10) > parseInt(visWeight, 10)) {
-            (hidEdgeDiv.children[2].children[2] as HTMLInputElement).value = visWeight;
-          }
-        } else if (!visWeightChecked && hidWeightChecked) {
-          (hidEdgeDiv.children[2].children[2] as HTMLInputElement).value = "1";
-        }
-      }
-    });
-  }
-
-  private addHiddenLineEditor(parentCb: CheckBox, parent: HTMLDivElement, hiddenEdge?: true): HTMLDivElement {
-    const hlSettings = this._vp.view.is3d() ? (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings : HiddenLine.Settings.defaults;
-    const hlEdgeSettings = hiddenEdge ? hlSettings.hidden : hlSettings.visible;
-    const hlDiv = document.createElement("div");
-    hlDiv.hidden = hiddenEdge ? !this._vp.view.viewFlags.hiddenEdges : !this._vp.view.viewFlags.visibleEdges;
-
-    // Create transparency threshold checkbox and slider
-    const transDiv = document.createElement("div");
-    const transCb = document.createElement("input");
-    transCb.type = "checkbox";
-    transCb.id = "cb_ovrTrans";
-    transDiv.appendChild(transCb);
-    const label4 = document.createElement("label");
-    label4.htmlFor = "cb_ovrTrans";
-    label4.innerText = "Transparency Threshold ";
-    transDiv.appendChild(label4);
-    const slider = document.createElement("input");
-    slider.type = "range";
-    slider.className = "slider";
-    slider.min = "0.0";
-    slider.max = "1.0";
-    slider.step = "0.05";
-    slider.value = hlSettings.transparencyThreshold.toString();
-    slider.disabled = true;
-    transDiv.appendChild(slider);
-    slider.addEventListener("input", () => {
-      const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-      const oldHLEdgeSettings = hiddenEdge ? oldHLSettings.hidden : oldHLSettings.visible;
-      this.updateEdgeDisplay(hlDiv, parseFloat(slider.value),
-        colorCb.checked ? new ColorDef(colorInput.value) : (oldHLEdgeSettings.ovrColor ? oldHLEdgeSettings.color : undefined),
-        parseInt(patternCb.select.value, 10), // oldHLEdgeSettings.pattern,
-        lbCb.checked ? (isString(num.value) ? parseInt(num.value, 10) : num.value) : oldHLEdgeSettings.width,
-        hiddenEdge);
-    });
-    transCb.addEventListener("click", () => {
-      const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-      const oldHLEdgeSettings = hiddenEdge ? oldHLSettings.hidden : oldHLSettings.visible;
-      slider.disabled = !transCb.checked;
-      this.updateEdgeDisplay(hlDiv, transCb.checked ? parseFloat(slider.value) : undefined,
-        colorCb.checked ? new ColorDef(colorInput.value) : (oldHLEdgeSettings.ovrColor ? oldHLEdgeSettings.color : undefined),
-        parseInt(patternCb.select.value, 10), // oldHLEdgeSettings.pattern,
-        lbCb.checked ? (isString(num.value) ? parseInt(num.value, 10) : num.value) : oldHLEdgeSettings.width,
-        hiddenEdge);
-    });
-    hlDiv.appendChild(transDiv);
-    if (hiddenEdge) {
-      transDiv.hidden = true;
-      transCb.hidden = true;
-    }
-
-    // Create color checkbox and color picker
-    const colorDiv = document.createElement("div");
-    const colorCb = document.createElement("input");
-    colorCb.type = "checkbox";
-    colorCb.id = "cb_ovrColor";
-    colorDiv.appendChild(colorCb);
-    const props: ColorInputProps = {
-      parent: colorDiv,
-      id: "color_ovrColor",
-      label: "Color",
-      value: hlEdgeSettings.color ? hlEdgeSettings.color.toHexString() : "#ffffff",
-      display: "inline",
-      disabled: true,
-      handler: (value: string) => {
-        const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-        const oldHLEdgeSettings = hiddenEdge ? oldHLSettings.hidden : oldHLSettings.visible;
-        this.updateEdgeDisplay(hlDiv, transCb.checked ? parseFloat(slider.value) : oldHLSettings.transparencyThreshold,
-          colorCb.checked ? new ColorDef(value) : (oldHLEdgeSettings.ovrColor ? oldHLEdgeSettings.color : undefined),
-          parseInt(patternCb.select.value, 10),
-          lbCb.checked ? (isString(num.value) ? parseInt(num.value, 10) : num.value) : oldHLEdgeSettings.width,
-          hiddenEdge);
-      },
-    };
-    const colorInput: HTMLInputElement = createColorInput(props).input;
-    colorCb.addEventListener("click", () => {
-      const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-      const oldHLEdgeSettings = hiddenEdge ? oldHLSettings.hidden : oldHLSettings.visible;
-      colorInput.disabled = !colorCb.checked;
-      this.updateEdgeDisplay(hlDiv, transCb.checked ? parseFloat(slider.value) : oldHLSettings.transparencyThreshold,
-        colorCb.checked ? new ColorDef(colorInput.value) : (oldHLEdgeSettings.ovrColor ? oldHLEdgeSettings.color : undefined),
-        parseInt(patternCb.select.value, 10),
-        lbCb.checked ? (isString(num.value) ? parseInt(num.value, 10) : num.value) : oldHLEdgeSettings.width,
-        hiddenEdge);
-    });
-    hlDiv.appendChild(colorDiv);
-    if (hiddenEdge) {
-      colorDiv.hidden = true;
-      colorCb.hidden = true;
-    }
-
-    // Create weight checkbox and numeric input
-    const lbDiv = document.createElement("div");
-    const lbCb = document.createElement("input");
-    lbCb.type = "checkbox";
-    lbCb.id = "cb_ovrWeight";
-    lbDiv.appendChild(lbCb);
-    const label = document.createElement("label");
-    label.htmlFor = "cb_ovrWeight";
-    label.innerText = "Weight ";
-    lbDiv.appendChild(label);
-    const num = createNumericInput({
-      parent: lbDiv,
-      value: 1,
-      disabled: true,
-      min: 1,
-      max: 31,
-      step: 1,
-      handler: (value) => {
-        const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-        const oldHLEdgeSettings = hiddenEdge ? oldHLSettings.hidden : oldHLSettings.visible;
-        this.updateEdgeDisplay(hlDiv, transCb.checked ? parseFloat(slider.value) : oldHLSettings.transparencyThreshold,
-          colorCb.checked ? new ColorDef(colorInput.value) : (oldHLEdgeSettings.ovrColor ? oldHLEdgeSettings.color : undefined),
-          parseInt(patternCb.select.value, 10),
-          lbCb.checked ? value : oldHLEdgeSettings.width,
-          hiddenEdge);
-      },
-    });
-    lbDiv.appendChild(num);
-    lbCb.addEventListener("click", () => {
-      const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-      const oldHLEdgeSettings = hiddenEdge ? oldHLSettings.hidden : oldHLSettings.visible;
-      num.disabled = !lbCb.checked;
-      this.updateEdgeDisplay(hlDiv, transCb.checked ? parseFloat(slider.value) : oldHLSettings.transparencyThreshold,
-        colorCb.checked ? new ColorDef(colorInput.value) : (oldHLEdgeSettings.ovrColor ? oldHLEdgeSettings.color : undefined),
-        parseInt(patternCb.select.value, 10),
-        lbCb.checked ? (isString(num.value) ? parseInt(num.value, 10) : num.value) : oldHLEdgeSettings.width,
-        hiddenEdge);
-    });
-    hlDiv.appendChild(lbDiv);
-
-    // Create style combo box
-    const patternCb = Settings.addStyle(hlDiv, hlEdgeSettings.pattern ? hlEdgeSettings.pattern : LinePixels.Invalid, (select: HTMLSelectElement) => {
-      const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-      const oldHLEdgeSettings = hiddenEdge ? oldHLSettings.hidden : oldHLSettings.visible;
-      this.updateEdgeDisplay(hlDiv, transCb.checked ? parseFloat(slider.value) : oldHLSettings.transparencyThreshold,
-        colorCb.checked ? new ColorDef(colorInput.value) : (oldHLEdgeSettings.ovrColor ? oldHLEdgeSettings.color : undefined),
-        parseInt(select.value, 10),
-        lbCb.checked ? (isString(num.value) ? parseInt(num.value, 10) : num.value) : oldHLEdgeSettings.width,
-        hiddenEdge);
-    });
-    parent.appendChild(hlDiv);
-
-    // Add to update list
-    const update = (view: ViewState) => {
-      if (this._vp.view.is2d()) {
-        parentCb.div.style.display = "none";
-        hlDiv.hidden = true;
-        return;
-      }
-      const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-      const oldHLEdgeSettings = hiddenEdge ? oldHLSettings.hidden : oldHLSettings.visible;
-      parentCb.div.style.display = "block";
-      const checked = parentCb.checkbox.checked;
-      parentCb.checkbox.checked = view.viewFlags[hiddenEdge ? "hiddenEdges" : "visibleEdges"];
-      this.updateEdgeDisplay(hlDiv, checked && transCb.checked ? parseFloat(slider.value) : oldHLSettings.transparencyThreshold,
-        checked && colorCb.checked ? new ColorDef(colorInput.value) : (oldHLEdgeSettings.ovrColor ? oldHLEdgeSettings.color : undefined),
-        parseInt(patternCb.select.value, 10), // oldHLEdgeSettings.pattern,
-        checked && lbCb.checked ? (isString(num.value) ? parseInt(num.value, 10) : num.value) : oldHLEdgeSettings.width,
-        hiddenEdge);
-    };
-    this._updates.push(update);
-
-    return hlDiv;
-  }
-
-  private updateEdgeDisplay(parent: HTMLDivElement, transThresh?: number, color?: ColorDef, pattern?: LinePixels, width?: number, hiddenEdge?: true): void {
-    const oldHLSettings = (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings;
-    const newHLSettings = HiddenLine.Settings.fromJSON({
-      visible: hiddenEdge ? oldHLSettings.visible : HiddenLine.Style.fromJSON({
-        ovrColor: color ? true : false,
-        color,
-        pattern,
-        width,
-      }),
-      hidden: !hiddenEdge ? HiddenLine.Style.fromJSON({
-        ovrColor: oldHLSettings.hidden.ovrColor,
-        color: oldHLSettings.hidden.color,
-        pattern: oldHLSettings.hidden.pattern,
-        width: (oldHLSettings.hidden.width === undefined || (width !== undefined && oldHLSettings.hidden.width <= width) ? oldHLSettings.hidden.width : width), // verify hidden width <= visible width
-      }) : HiddenLine.Style.fromJSON({
-        ovrColor: color ? true : false,
-        color,
-        pattern,
-        width: (width === undefined || (oldHLSettings.visible.width !== undefined && width <= oldHLSettings.visible.width) ? width : oldHLSettings.visible.width), // verify hidden width <= visible width
-      }, true),
-      transThreshold: transThresh,
-    });
-    (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings = newHLSettings;
-    this.sync();
-    parent.hidden = hiddenEdge ? !this._vp.view.viewFlags.hiddenEdges : !this._vp.view.viewFlags.visibleEdges;
   }
 
   private addDisplayStylePicker(): void {
@@ -393,7 +145,7 @@ export class ViewAttributes {
 
     const update = (view: ViewState) => {
       const visible = !only3d || view.is3d();
-      elems.div.style.display = visible ? "block" : "none";
+      elems.div.style.display = visible ? "" : "none";
       if (visible)
         elems.checkbox.checked = view.viewFlags[flag];
     };
@@ -435,8 +187,8 @@ export class ViewAttributes {
     const update = (view: ViewState) => {
       const vf = view.viewFlags;
       const visible = view.is3d();
-      elems.div.style.display = visible ? "block" : "none";
-      shadowsColorInput.div.style.display = (visible && vf.shadows) ? "inline" : "none";
+      elems.div.style.display = visible ? "" : "none";
+      shadowsColorInput.div.style.display = (visible && vf.shadows) ? "" : "none";
       updateUI(view);
       if (visible)
         elems.checkbox.checked = vf.shadows;
@@ -458,7 +210,7 @@ export class ViewAttributes {
     const update = (view: ViewState) => {
       const vf = view.viewFlags;
       const visible = view.is3d() && RenderMode.SmoothShade === vf.renderMode;
-      elems.div.style.display = visible ? "block" : "none";
+      elems.div.style.display = visible ? "" : "none";
       if (visible)
         elems.checkbox.checked = vf.lighting;
     };
@@ -473,7 +225,7 @@ export class ViewAttributes {
       else
         (this._vp.view as ViewState3d).turnCameraOff();
 
-      this.sync();
+      this.sync(true);
     }, parent);
 
     const update = (view: ViewState) => {
@@ -525,32 +277,33 @@ export class ViewAttributes {
     this._updates.push((view) => ao.update(view));
   }
 
-  private addBackgroundMap(): void {
+  private getBackgroundMap(view: ViewState) { return view.displayStyle.settings.backgroundMap; }
+  private addBackgroundMapOrTerrain(): void {
     const isMapSupported = (view: ViewState) => view.is3d() && view.iModel.isGeoLocated;
-    const getBackgroundMap = (view: ViewState) => view.displayStyle.settings.backgroundMap;
 
     const div = document.createElement("div");
     div.appendChild(document.createElement("hr")!);
 
-    const comboBoxesDiv = document.createElement("div")!;
+    const backgroundSettingsDiv = document.createElement("div")!;
 
-    const showHideDropDowns = (show: boolean) => {
+    const showOrHideSettings = (show: boolean) => {
       const display = show ? "block" : "none";
-      comboBoxesDiv.style.display = display;
+      backgroundSettingsDiv.style.display = display;
     };
 
     const enableMap = (enabled: boolean) => {
       const vf = this._vp.viewFlags.clone(this._scratchViewFlags);
       vf.backgroundMap = enabled;
       this._vp.viewFlags = vf;
-      showHideDropDowns(enabled);
+      backgroundSettingsDiv.style.display = enabled ? "block" : "none";
+      showOrHideSettings(enabled);
       this.sync();
     };
     const checkbox = this.addCheckbox("Background Map", enableMap, div).checkbox;
 
-    const providers = createComboBox({
-      parent: comboBoxesDiv,
-      name: "Provider: ",
+    const imageryProviders = createComboBox({
+      parent: backgroundSettingsDiv,
+      name: "Imagery: ",
       id: "viewAttr_MapProvider",
       entries: [
         { name: "Bing", value: "BingProvider" },
@@ -560,7 +313,7 @@ export class ViewAttributes {
     }).select;
 
     const types = createComboBox({
-      parent: comboBoxesDiv,
+      parent: backgroundSettingsDiv,
       name: "Type: ",
       id: "viewAttr_mapType",
       entries: [
@@ -571,21 +324,21 @@ export class ViewAttributes {
       handler: (select) => this.updateBackgroundMap({ providerData: { mapType: Number.parseInt(select.value, 10) } }),
     }).select;
 
-    const groundBiasDiv = document.createElement("div") as HTMLDivElement;
-    const groundBiasLabel = document.createElement("label") as HTMLLabelElement;
-    groundBiasLabel.style.display = "inline";
-    groundBiasLabel.htmlFor = "ts_viewToolPickRadiusInches";
-    groundBiasLabel.innerText = "Ground Bias: ";
-    groundBiasDiv.appendChild(groundBiasLabel);
-    const groundBias = createNumericInput({
-      parent: groundBiasDiv,
-      value: getBackgroundMap(this._vp.view).groundBias,
-      handler: (value) => this.updateBackgroundMap({ groundBias: value }),
-    }, true);
-    groundBiasDiv.style.display = "block";
-    groundBiasDiv.style.textAlign = "left";
-    comboBoxesDiv.appendChild(groundBiasDiv);
-    const terrainCheckbox = this.addCheckbox("Terrain", (enabled: boolean) => { this.updateBackgroundMap({ applyTerrain: enabled }); }, comboBoxesDiv).checkbox;
+    const terrainSettings = this.addTerrainSettings();
+    const mapSettings = this.addMapSettings();
+
+    const enableTerrain = (enable: boolean) => {
+      this.updateBackgroundMap({ applyTerrain: enable });
+      terrainSettings.style.display = enable ? "block" : "none";
+      mapSettings.style.display = enable ? "none" : "block";
+      this.sync();
+    };
+
+    const terrainCheckbox = this.addCheckbox("Terrain", enableTerrain, backgroundSettingsDiv).checkbox;
+    const transCheckbox = this.addCheckbox("Transparency", (enabled: boolean) => this.updateBackgroundMap({ transparency: enabled ? 0.5 : false }), backgroundSettingsDiv).checkbox;
+    backgroundSettingsDiv.appendChild(document.createElement("hr")!);
+    backgroundSettingsDiv.appendChild(mapSettings);
+    backgroundSettingsDiv.appendChild(terrainSettings);
 
     this._updates.push((view) => {
       const visible = isMapSupported(view);
@@ -594,22 +347,110 @@ export class ViewAttributes {
         return;
 
       checkbox.checked = view.viewFlags.backgroundMap;
-      showHideDropDowns(checkbox.checked);
+      showOrHideSettings(checkbox.checked);
 
-      const map = getBackgroundMap(view);
-      providers.value = map.providerName;
+      const map = this.getBackgroundMap(view);
+      imageryProviders.value = map.providerName;
       types.value = map.mapType.toString();
-      groundBias.value = map.groundBias.toString();
       terrainCheckbox.checked = map.applyTerrain;
+      transCheckbox.checked = false !== map.transparency;
+      enableTerrain(terrainCheckbox.checked);
     });
-
-    div.appendChild(comboBoxesDiv);
-
+    div.appendChild(backgroundSettingsDiv);
     this._element.appendChild(div);
+  }
+
+  private addMapSettings() {
+    const mapSettingsDiv = document.createElement("div");
+    const groundBiasDiv = document.createElement("div") as HTMLDivElement;
+    const groundBiasLabel = document.createElement("label") as HTMLLabelElement;
+    groundBiasLabel.style.display = "inline";
+    groundBiasLabel.htmlFor = "ts_viewToolPickRadiusInches";
+    groundBiasLabel.innerText = "Ground Bias: ";
+    groundBiasDiv.appendChild(groundBiasLabel);
+    const groundBias = createNumericInput({
+      parent: groundBiasDiv,
+      value: this.getBackgroundMap(this._vp.view).groundBias,
+      handler: (value) => this.updateBackgroundMap({ groundBias: value }),
+    }, true);
+    groundBiasDiv.style.display = "block";
+    groundBiasDiv.style.textAlign = "left";
+    mapSettingsDiv.appendChild(groundBiasDiv);
+
+    const depthCheckbox = this.addCheckbox("Depth", (enabled: boolean) => this.updateBackgroundMap({ useDepthBuffer: enabled }), mapSettingsDiv).checkbox;
+
+    this._updates.push((view) => {
+      const map = this.getBackgroundMap(view);
+      groundBias.value = map.groundBias.toString();
+      depthCheckbox.checked = map.useDepthBuffer;
+
+    });
+    return mapSettingsDiv;
   }
 
   private updateBackgroundMap(props: BackgroundMapProps): void {
     this._vp.changeBackgroundMapProps(props);
+  }
+
+  private addTerrainSettings() {
+    const getTerrainSettings = (view: ViewState) => view.displayStyle.settings.backgroundMap.terrainSettings;
+    const updateTerrainSettings = (props: TerrainProps) => this._vp.changeBackgroundMapProps({ terrainSettings: props });
+
+    const settingsDiv = document.createElement("div")!;
+    const heightOriginMode: HTMLSelectElement = createComboBox({
+      name: "Height Origin Mode: ",
+      id: "viewAttr_TerrainHeightOrigin",
+      entries: [
+        { name: "GPS (Geodetic/Ellipsoid)", value: "0" },
+        { name: "Sea Level (Geoid)", value: "1" },
+        { name: "Ground", value: "2" },
+      ],
+      handler: (select) => { updateTerrainSettings({ heightOriginMode: parseInt(select.value, 10) }); },
+    }).select;
+
+    const heightOriginDiv = document.createElement("div") as HTMLDivElement;
+    const heightOriginLabel = document.createElement("label") as HTMLLabelElement;
+    heightOriginLabel.style.display = "inline";
+    heightOriginLabel.htmlFor = "ts_viewToolPickRadiusInches";
+    heightOriginLabel.innerText = "Model Height: ";
+    heightOriginDiv.appendChild(heightOriginLabel);
+    const heightOrigin = createNumericInput({
+      parent: heightOriginDiv,
+      value: getTerrainSettings(this._vp.view).heightOrigin,
+      handler: (value) => updateTerrainSettings({ heightOrigin: value }),
+    }, true);
+    heightOriginDiv.appendChild(heightOriginMode);
+    heightOriginDiv.style.display = "block";
+    heightOriginDiv.style.textAlign = "left";
+    settingsDiv.appendChild(heightOriginDiv);
+
+    const lightingCheckBox = this.addCheckbox("Terrain Lighting", (enabled: boolean) => updateTerrainSettings({ applyLighting: enabled }), settingsDiv).checkbox;
+
+    const exaggerationDiv = document.createElement("div") as HTMLDivElement;
+    const exaggerationLabel = document.createElement("label") as HTMLLabelElement;
+    exaggerationLabel.style.display = "inline";
+    exaggerationLabel.htmlFor = "ts_viewToolPickRadiusInches";
+    exaggerationLabel.innerText = "Exaggeration: ";
+    exaggerationDiv.appendChild(exaggerationLabel);
+    const exaggeration = createNumericInput({
+      parent: exaggerationDiv,
+      value: getTerrainSettings(this._vp.view).exaggeration,
+      handler: (value) => updateTerrainSettings({ exaggeration: value }),
+    }, true);
+    exaggerationDiv.style.display = "block";
+    exaggerationDiv.style.textAlign = "left";
+    settingsDiv.appendChild(exaggerationDiv);
+
+    this._updates.push((view) => {
+      const map = view.displayStyle.settings.backgroundMap;
+      const terrainSettings = map.terrainSettings;
+      heightOriginMode.value = terrainSettings.heightOriginMode.toString();
+      heightOrigin.value = terrainSettings.heightOrigin.toString();
+      lightingCheckBox.checked = terrainSettings.applyLighting;
+      exaggeration.value = terrainSettings.exaggeration.toString();
+    });
+
+    return settingsDiv;
   }
 
   private addCheckbox(cbLabel: string, handler: (enabled: boolean) => void, parent?: HTMLElement): CheckBox {
@@ -634,13 +475,184 @@ export class ViewAttributes {
     }
   }
 
-  private sync(): void {
-    this._vp.synchWithView(true);
+  private sync(saveInUndo = false): void {
+    this._vp.synchWithView({ noSaveInUndo: !saveInUndo });
   }
 
   private get _nextId(): string {
     ++this._id;
     return "viewAttributesPanel_" + this._id;
+  }
+
+  private get edgeSettings() { return (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings; }
+  private overrideEdgeSettings(props: HiddenLine.SettingsProps) {
+    (this._vp.view as ViewState3d).getDisplayStyle3d().settings.hiddenLineSettings = this.edgeSettings.override(props);
+    this.sync();
+  }
+
+  private addEdgeDisplay(): void {
+    const edgeDisplayDiv = document.createElement("div");
+    const nestedMenu = createNestedMenu({
+      id: this._nextId,
+      label: "Edge Display",
+      parent: this._element,
+      expand: ViewAttributes._expandEdgeDisplay,
+      // We use a static so the expand/collapse state persists after closing and reopening the drop-down.
+      handler: (expanded) => ViewAttributes._expandEdgeDisplay = expanded,
+      body: edgeDisplayDiv,
+    });
+
+    const slider: Slider = createSlider({
+      id: this._nextId,
+      name: "Transparency Threshold",
+      parent: edgeDisplayDiv,
+      min: "0.0",
+      max: "1.0",
+      step: "0.05",
+      value: "1.0",
+      handler: (_) => this.overrideEdgeSettings({ transThreshold: parseFloat(slider.slider.value) }),
+    });
+    slider.div.style.textAlign = "left";
+
+    const visEdgesCb = this.addCheckbox("Visible Edges", (enabled: boolean) => {
+      const vf = this._vp.viewFlags.clone(this._scratchViewFlags);
+      vf.visibleEdges = enabled;
+      hidEdgesCb.checkbox.disabled = !enabled;
+      hidEditor.hidden = hidEditor.hidden || !enabled;
+      visEditor.hidden = !enabled;
+      this._vp.viewFlags = vf;
+      this.sync();
+    }, nestedMenu.body);
+
+    const visEditor = this.addHiddenLineEditor(false);
+    edgeDisplayDiv.appendChild(visEditor);
+
+    const hidEdgesCb = this.addCheckbox("Hidden Edges", (enabled: boolean) => {
+      const vf = this._vp.viewFlags.clone(this._scratchViewFlags);
+      vf.hiddenEdges = enabled;
+      hidEditor.hidden = !enabled;
+      this._vp.viewFlags = vf;
+      this.sync();
+    }, edgeDisplayDiv);
+
+    const hidEditor = this.addHiddenLineEditor(true);
+    edgeDisplayDiv.appendChild(hidEditor);
+
+    this._updates.push((view) => {
+      if (view.is2d()) {
+        nestedMenu.div.hidden = true;
+        return;
+      }
+
+      nestedMenu.div.hidden = false;
+      const settings = this.edgeSettings;
+      slider.slider.value = settings.transparencyThreshold.toString();
+
+      const vf = this._vp.viewFlags.clone(this._scratchViewFlags);
+      visEdgesCb.checkbox.checked = vf.visibleEdges;
+      visEditor.hidden = !vf.visibleEdges;
+      hidEdgesCb.checkbox.checked = vf.visibleEdges && vf.hiddenEdges;
+      hidEditor.hidden = !vf.hiddenEdges;
+    });
+  }
+
+  private addHiddenLineEditor(forHiddenEdges: boolean): HTMLDivElement {
+    const style = this._vp.view.is3d() ? this.edgeSettings : HiddenLine.Settings.defaults;
+    const settingsName = forHiddenEdges ? "hidden" : "visible";
+    const settings = style[settingsName];
+    const div = document.createElement("div");
+    div.style.paddingLeft = "10px";
+    div.hidden = forHiddenEdges ? !this._vp.view.viewFlags.hiddenEdges : !this._vp.view.viewFlags.visibleEdges;
+
+    // Color override (visible only)
+    let colorCb: HTMLInputElement | undefined;
+    let colorInput: HTMLInputElement | undefined;
+    if (!forHiddenEdges) {
+      const colorDiv = document.createElement("div");
+      div.appendChild(colorDiv);
+
+      colorCb = document.createElement("input");
+      colorCb.type = "checkbox";
+      colorCb.id = this._nextId;
+      colorCb.checked = settings.ovrColor;
+      colorDiv.appendChild(colorCb);
+
+      const color = undefined !== settings.color ? settings.color.toHexString() : "#ffffff";
+      colorInput = createColorInput({
+        parent: colorDiv,
+        id: this._nextId,
+        label: "Color",
+        value: color,
+        display: "inline",
+        disabled: !settings.ovrColor,
+        handler: (value: string) => this.overrideEdgeSettings({ [settingsName]: this.edgeSettings[settingsName].overrideColor(new ColorDef(value)) }),
+      }).input;
+
+      colorCb.addEventListener("click", () => {
+        this.overrideEdgeSettings({ [settingsName]: this.edgeSettings[settingsName].overrideColor(colorCb!.checked ? new ColorDef(colorInput!.value) : undefined) });
+      });
+    }
+
+    // Width override
+    const widthDiv = document.createElement("div");
+    div.appendChild(widthDiv);
+
+    const widthCb = document.createElement("input");
+    widthCb.type = "checkbox";
+    widthCb.id = this._nextId;
+    widthCb.checked = undefined !== settings.width;
+    widthDiv.appendChild(widthCb);
+
+    const widthLabel = document.createElement("label");
+    widthLabel.htmlFor = widthCb.id;
+    widthLabel.innerText = "Weight ";
+    widthDiv.appendChild(widthLabel);
+
+    const width = createNumericInput({
+      parent: widthDiv,
+      value: undefined !== settings.width ? settings.width : 1,
+      disabled: undefined === settings.width,
+      min: 1,
+      max: 31,
+      step: 1,
+      handler: (value) => this.overrideEdgeSettings({ [settingsName]: this.edgeSettings[settingsName].overrideWidth(value) }),
+    });
+    widthDiv.appendChild(width);
+
+    widthCb.addEventListener("click", () => {
+      this.overrideEdgeSettings({ [settingsName]: this.edgeSettings[settingsName].overrideWidth(widthCb.checked ? parseInt(width.value, 10) : undefined) });
+    });
+
+    // Line style override
+    const patternCb = Settings.addStyle(div, settings.pattern ? settings.pattern : LinePixels.Invalid, (select) => {
+      this.overrideEdgeSettings({ [settingsName]: this.edgeSettings[settingsName].overridePattern(parseInt(select.value, 10)) });
+    });
+
+    // Synchronization
+    this._updates.push((view: ViewState) => {
+      if (view.is2d()) {
+        div.hidden = true;
+        return;
+      }
+
+      const curStyle = this.edgeSettings[settingsName];
+      if (undefined !== colorCb && undefined !== colorInput) {
+        colorCb.checked = undefined !== curStyle.color;
+        colorInput.disabled = !colorCb.checked;
+        if (undefined !== curStyle.color)
+          colorInput.value = curStyle.color.toHexString();
+      }
+
+      widthCb.checked = undefined !== curStyle.width;
+      width.disabled = !widthCb.checked;
+      if (undefined !== curStyle.width)
+        width.value = curStyle.width.toString();
+
+      const pix = undefined !== curStyle.pattern ? curStyle.pattern : LinePixels.Invalid;
+      patternCb.select.value = pix.toString();
+    });
+
+    return div;
   }
 }
 

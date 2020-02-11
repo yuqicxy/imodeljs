@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { assert } from "@bentley/bentleyjs-core";
 import { ProgramBuilder, VariableType, VariablePrecision, FragmentShaderComponent } from "../ShaderBuilder";
@@ -22,7 +24,7 @@ const getClipPlaneFloat = `
   }
 `;
 
-const unpackFloat = `
+export const unpackFloat = `
   float unpackFloat(vec4 v) {
     const float bias = 38.0;
     v *= 255.0;

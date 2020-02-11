@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 import { ChildNodeSpecificationBase, ChildNodeSpecificationTypes, DefaultGroupingPropertiesContainer } from "./ChildNodeSpecification";
 import { RelationshipDirection } from "../RelationshipDirection";
@@ -62,7 +64,7 @@ export interface RelatedInstanceNodesSpecification extends ChildNodeSpecificatio
   /**
    * Condition for filtering instances of defined classes.
    *
-   * **See:** [ECExpressions Available in InstanceFilter]($docs/learning/hierarchies/ECExpressions.md#instance-filter)
+   * **See:** [ECExpressions Available in InstanceFilter]($docs/learning/presentation/Hierarchies/ECExpressions.md#instance-filter)
    */
   instanceFilter?: string;
 }

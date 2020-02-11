@@ -1,11 +1,17 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Notifications */
+/** @packageDocumentation
+ * @module Notifications
+ */
 import { Point2d, XAndY } from "@bentley/geometry-core";
 import { IModelApp } from "./IModelApp";
 import { BeDuration } from "@bentley/bentleyjs-core";
+import { RelativePosition } from "@bentley/ui-abstract";
+import { ToolAssistanceInstructions } from "./tools/ToolAssistance";
+
+// cSpell:words messagebox
 
 /** Describes the type and behavior of a [[NotifyMessageDetails]].
  * @public
@@ -39,20 +45,6 @@ export enum OutputMessageAlert {
   None = 0,
   Dialog = 1,
   Balloon = 2,
-}
-
-/** Relative Position for setPointerTypeDetails
- * @public
- */
-export enum RelativePosition {
-  Left = 0,
-  Top = 1,
-  Right = 2,
-  Bottom = 3,
-  TopLeft = 4,
-  TopRight = 5,
-  BottomLeft = 6,
-  BottomRight = 7,
 }
 
 /** Reason for ending the activity message via endActivityMessage
@@ -182,7 +174,9 @@ export class ActivityMessageDetails {
 export class NotificationManager {
   public readonly toolTipLocation = new Point2d();
 
-  /** Output a prompt, given an i18n key. */
+  /** Output a prompt, given an i18n key.
+   * @param key The key of the localized string with the prompt message.
+   */
   public outputPromptByKey(key: string) { this.outputPrompt(IModelApp.i18n.translate(key)); }
 
   /** Output a localized prompt to the user. A 'prompt' indicates an action the user should take to proceed.
@@ -235,24 +229,38 @@ export class NotificationManager {
   /** Show a tooltip window. Saves tooltip location for AccuSnap to test if cursor has moved far enough away to close tooltip.
    * @param htmlElement The HTMLElement that anchors the toolTip.
    * @param message What to display inside the ToolTip. May be a string or an HTMLElement.
-   * @param location An optional location, relative to the origin of _htmlElement, for the ToolTip. If undefined, center of _htmlElement
+   * @param location An optional location, relative to the origin of _htmlElement, for the ToolTip. If undefined, center of `htmlElement`
    * @param options Options that supply additional information about how the ToolTip should function.
    * @note If message is an HTMLElement, the notification manager will display the HTMLElement verbatim. This can represent a security
    * risk if any part the element is created from user input. Applications should be careful to *sanitize* any such input before
    * creating an HTMLElement to pass to this method.
    */
-  public openToolTip(_htmlElement: HTMLElement, message: HTMLElement | string, location?: XAndY, options?: ToolTipOptions): void {
+  public openToolTip(htmlElement: HTMLElement, message: HTMLElement | string, location?: XAndY, options?: ToolTipOptions): void {
     this.toolTipLocation.setFrom(location);
-    this._showToolTip(_htmlElement, message, location, options);
+    this._showToolTip(htmlElement, message, location, options);
   }
 
   /** Clear the tooltip if it is currently open. */
   public clearToolTip(): void { }
+
+  /** Update message position created with [[OutputMessageType.Pointer]].
+   * @param displayPoint        Point at which to display the Pointer type message.
+   * @param relativePosition    Position relative to displayPoint at which to display the Pointer type message.
+   */
+  public updatePointerMessage(_displayPoint: XAndY, _relativePosition = RelativePosition.TopRight): void { }
 
   /** Close message created with [[OutputMessageType.Pointer]]. */
   public closePointerMessage(): void { }
 
   /** Close message created with [[OutputMessageType.InputField]]. */
   public closeInputFieldMessage(): void { }
+
+  /** Setup tool assistance instructions for a tool. The instructions include the main instruction, which includes the current prompt.
+   * @param instructions The tool assistance instructions.
+   * @alpha
+   */
+  public setToolAssistance(instructions: ToolAssistanceInstructions | undefined) {
+    this.outputPrompt(instructions ? instructions.mainInstruction.text : "");
+  }
 
 }

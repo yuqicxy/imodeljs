@@ -1,17 +1,18 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Toolbar */
+/** @packageDocumentation
+ * @module Toolbar
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 
-import { CommonProps } from "@bentley/ui-core";
+import { CommonProps, Size, SizeProps } from "@bentley/ui-core";
 
 import { ToolbarItem, ToolbarItemProps } from "../Toolbar";
-import { Size } from "../../utilities/Size";
 
 import "./Item.scss";
 
@@ -32,9 +33,9 @@ export interface ItemProps extends CommonProps {
   /** Title for the item. */
   title?: string;
   /** Function called when size is known. */
-  onSizeKnown?: (size: Size) => void;
-  /** A Beta badge to draw. */
-  betaBadge?: React.ReactNode;
+  onSizeKnown?: (size: SizeProps) => void;
+  /** A badge to draw. */
+  badge?: React.ReactNode;
 }
 
 class ActualItem extends React.PureComponent<ItemProps> implements ToolbarItem {
@@ -75,9 +76,9 @@ class ActualItem extends React.PureComponent<ItemProps> implements ToolbarItem {
         <div className="nz-icon">
           {this.props.icon}
         </div>
-        {this.props.betaBadge &&
-          <div className="nz-beta-badge">
-            {this.props.betaBadge}
+        {this.props.badge &&
+          <div className="nz-badge">
+            {this.props.badge}
           </div>
         }
         {panel}

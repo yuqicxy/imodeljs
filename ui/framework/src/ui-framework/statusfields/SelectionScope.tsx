@@ -1,14 +1,17 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module StatusBar */
+/** @packageDocumentation
+ * @module StatusBar
+ */
 
 import * as React from "react";
 import { connect } from "react-redux";
 import classnames from "classnames";
 import { FooterIndicator } from "@bentley/ui-ninezone";
-import { UiFramework, PresentationSelectionScope } from "../UiFramework";
+import { UiFramework } from "../UiFramework";
+import { PresentationSelectionScope } from "../redux/SessionState";
 import { StatusFieldProps } from "./StatusFieldProps";
 
 import "./SelectionScope.scss";
@@ -50,7 +53,9 @@ class SelectionScopeFieldComponent extends React.Component<SelectionScopeFieldPr
         style={this.props.style}
         isInFooterMode={this.props.isInFooterMode}
       >
-        <span className="uifw-statusFields-selectionScope-label">{this._label}:</span>
+        {this.props.isInFooterMode &&
+          <span className="uifw-statusFields-selectionScope-label">{this._label}:</span>
+        }
         <select
           className="uifw-statusFields-selectionScope-selector"
           value={this.props.activeSelectionScope}

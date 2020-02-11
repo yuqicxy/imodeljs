@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import * as React from "react";
@@ -41,12 +41,12 @@ describe("ConfigurableUiManager", () => {
     MockRender.App.shutdown();
   });
 
-  it("findFrontstageDef passed no argument", () => {
-    FrontstageManager.setActiveFrontstageDef(undefined); // tslint:disable-line:no-floating-promises
+  it("findFrontstageDef passed no argument", async () => {
+    await FrontstageManager.setActiveFrontstageDef(undefined);
     expect(ConfigurableUiManager.findFrontstageDef()).to.be.undefined;
   });
 
-  it("addFrontstageProvider & findFrontstageDef", () => {
+  it("addFrontstageProvider & findFrontstageDef", async () => {
     class Frontstage1 extends FrontstageProvider {
       public get frontstage(): React.ReactElement<FrontstageProps> {
         return (
@@ -63,7 +63,7 @@ describe("ConfigurableUiManager", () => {
 
     const frontstageDef2 = ConfigurableUiManager.findFrontstageDef("TestFrontstage2");
     expect(frontstageDef2).to.not.be.undefined;
-    FrontstageManager.setActiveFrontstageDef(frontstageDef2); // tslint:disable-line:no-floating-promises
+    await FrontstageManager.setActiveFrontstageDef(frontstageDef2);
   });
 
   class TestWidget extends WidgetControl {
@@ -73,6 +73,11 @@ describe("ConfigurableUiManager", () => {
       this.reactElement = <div />;
     }
   }
+
+  it("getConstructorClassId should return undefined before registration", () => {
+    const classId = ConfigurableUiManager.getConstructorClassId(TestWidget);
+    expect(classId).to.be.undefined;
+  });
 
   it("registerControl & createConfigurable using same classId", () => {
     ConfigurableUiManager.registerControl("TestWidget", TestWidget);

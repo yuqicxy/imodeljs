@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module BaseClients */
+/** @packageDocumentation
+ * @module iTwinServiceClients
+ */
 import { ClientRequestContext, GetMetaDataFunction, HttpStatus, Logger, WSStatus } from "@bentley/bentleyjs-core";
 import * as deepAssign from "deep-assign";
 import { AuthorizedClientRequestContext } from "./AuthorizedClientRequestContext";
@@ -80,21 +82,21 @@ export class WsgError extends ResponseError {
     }
 
     const errorCodesToRetry: number[] = [WSStatus.LoginFailed,
-    WSStatus.SslRequired,
-    WSStatus.NotEnoughRights,
-    WSStatus.RepositoryNotFound,
-    WSStatus.SchemaNotFound,
-    WSStatus.ClassNotFound,
-    WSStatus.PropertyNotFound,
-    WSStatus.InstanceNotFound,
-    WSStatus.FileNotFound,
-    WSStatus.NotSupported,
-    WSStatus.NoServerLicense,
-    WSStatus.NoClientLicense,
-    WSStatus.TooManyBadLoginAttempts,
-    HttpStatus.ServerError,
-    HttpStatus.ClientError,
-    WSStatus.Unknown];
+      WSStatus.SslRequired,
+      WSStatus.NotEnoughRights,
+      WSStatus.RepositoryNotFound,
+      WSStatus.SchemaNotFound,
+      WSStatus.ClassNotFound,
+      WSStatus.PropertyNotFound,
+      WSStatus.InstanceNotFound,
+      WSStatus.FileNotFound,
+      WSStatus.NotSupported,
+      WSStatus.NoServerLicense,
+      WSStatus.NoClientLicense,
+      WSStatus.TooManyBadLoginAttempts,
+      HttpStatus.ServerError,
+      HttpStatus.ClientError,
+      WSStatus.Unknown];
     const errorStatus = WsgError.getErrorStatus(parsedError.name !== undefined ?
       WsgError.getWSStatusId(parsedError.name) : WSStatus.Unknown, response.statusType);
     return errorCodesToRetry.includes(errorStatus);
@@ -246,13 +248,13 @@ export abstract class WsgClient extends Client {
     }
 
     return super.getUrl(requestContext)
-      .then(async (url: string): Promise<string> => {
-        this._url = url;
-        if (!excludeApiVersion) {
-          this._url += "/" + this.apiVersion;
-        }
-        return Promise.resolve(this._url); // TODO: On the server this really needs a lifetime!!
-      });
+    .then(async (url: string): Promise<string> => {
+      this._url = url;
+      if (!excludeApiVersion) {
+        this._url += "/" + this.apiVersion;
+      }
+      return Promise.resolve(this._url); // TODO: On the server this really needs a lifetime!!
+    });
   }
 
   /**

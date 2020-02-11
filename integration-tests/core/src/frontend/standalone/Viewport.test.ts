@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { BeDuration, Id64, Id64Arg, Id64String, using } from "@bentley/bentleyjs-core";
 import { Angle, Point3d } from "@bentley/geometry-core";
@@ -12,6 +12,8 @@ import {
 import { RenderPlan } from "@bentley/imodeljs-frontend/lib/rendering";
 import { assert, expect } from "chai";
 import * as path from "path";
+
+// cSpell:ignore calibri subcats subcat pmcv ovrs
 
 const iModelDir = path.join(process.env.IMODELJS_CORE_DIRNAME!, "core/backend/lib/test/assets");
 
@@ -47,7 +49,7 @@ describe("Viewport", () => {
 
   it("Viewport", async () => {
     const vpView = spatialView.clone();
-    const vp = ScreenViewport.create(viewDiv!, vpView);
+    const vp = ScreenViewport.create(viewDiv, vpView);
     assert.isFalse(vp.isRedoPossible, "no redo");
     assert.isFalse(vp.isUndoPossible, "no undo");
     assert.isFalse(vp.isCameraOn, "camera is off");
@@ -69,7 +71,7 @@ describe("Viewport", () => {
     assert.isTrue(vp2.getFrustum().isSame(frustSave), "vp2 frustum should be same as vp1 after connect");
     vp.turnCameraOn();
 
-    vp.synchWithView(true);
+    vp.synchWithView();
     assert.equal(vp.iModel, imodel);
     assert.equal(vp2.iModel, imodel2);
 
@@ -92,7 +94,7 @@ describe("Viewport", () => {
     assert.isTrue(vp2.getFrustum().isSame(frust2), "frustum should be synched");
 
     vp2.view.displayStyle.monochromeColor = ColorDef.blue;
-    vp2.synchWithView(true);
+    vp2.synchWithView();
     assert.equal(vp.view.displayStyle.monochromeColor.getRgb(), ColorDef.blue.getRgb(), "synch from 2->1 should work");
 
     const pan = IModelApp.tools.create("View.Pan", vp) as PanViewTool;
@@ -152,7 +154,6 @@ describe("Viewport", () => {
       assert.isDefined(plan.hline);
       assert.isFalse(plan.hline!.visible.ovrColor);
       assert.equal(plan.hline!.hidden.width, undefined);
-      assert.isUndefined(plan.lights);
     }
   });
 
@@ -177,20 +178,80 @@ describe("Viewport", () => {
     };
 
     // Set up baseline values for all properties
-    test({ providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5 },
-      { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5 });
+    test({ providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true },
+      { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+    // Set values to the current values
+    test({ providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true },
+      { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+    // Undefined values => preserve current name, type, & bias
+    test({ providerName: undefined, providerData: { mapType: undefined }, groundBias: undefined, transparency: undefined, useDepthBuffer: undefined, applyTerrain: undefined },
+      { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+    // Missing values => preserve current name, type, & bias
+    test({},
+      { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+    // Invalid provider => use default instead
+    test({ providerName: "NonExistentProvider" }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+    // Change provider only
+    test({ providerName: "MapBoxProvider" }, { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
 
     // Invalid provider => use default instead
-    test({ providerName: "NonExistentProvider" }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5 });
+    test({ providerName: "" }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
 
     // providerData missing mapType => preserve current mapType
-    test({ providerData: {} }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5 });
-
-    // Change mapType only
-    test({ providerData: { mapType: BackgroundMapType.Aerial } }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Aerial }, groundBias: 1234.5 });
+    test({ providerData: {} }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
 
     // invalid mapType => use default
-    test({ providerData: { mapType: 9876 } }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: 1234.5 });
+    test({ providerData: { mapType: -1 } }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // Change mapType only
+    test({ providerData: { mapType: BackgroundMapType.Aerial } }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Aerial }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // invalid mapType => use default
+    test({ providerData: { mapType: 9876 } }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: 1234.5, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // Change groundBias only to int
+    test({ groundBias: 543 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: 543, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // Change groundBias to negative
+    test({ groundBias: -50.3 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -50.3, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // Change provider & type
+    test({ providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Aerial } },
+      { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Aerial }, groundBias: -50.3, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // Change type & bias
+    test({ providerData: { mapType: BackgroundMapType.Street }, groundBias: 0.03 },
+      { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 0.03, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // Change provider & bias
+    test({ providerName: "BingProvider", groundBias: 0 },
+      { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: 0, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // Test invalid provider & type => name & type revert to default
+    test({ providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: -10 },
+      { providerName: "MapBoxProvider", providerData: { mapType: BackgroundMapType.Street }, groundBias: -10, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+    test({ providerName: "NonExistentProvider", providerData: { mapType: 4 } },
+      { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: 0.3, useDepthBuffer: true, applyTerrain: true });
+
+    // Change transparency to a number
+    test({ transparency: 0.0 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: 0.0, useDepthBuffer: true, applyTerrain: true });
+    test({ transparency: 1.0 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: 1.0, useDepthBuffer: true, applyTerrain: true });
+    test({ transparency: 0.7 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: 0.7, useDepthBuffer: true, applyTerrain: true });
+    test({ transparency: -2.0 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: 0.0, useDepthBuffer: true, applyTerrain: true });
+    test({ transparency: 2.0 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: 1.0, useDepthBuffer: true, applyTerrain: true });
+
+    // Change transparency to false
+    test({ transparency: false }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: false, useDepthBuffer: true, applyTerrain: true });
+
+    // Change applyTerrain to false
+    test({ applyTerrain: false }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: false, useDepthBuffer: true, applyTerrain: false });
+
+    // Change useDepthBuffer to false
+    test({ useDepthBuffer: false }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: false, useDepthBuffer: false, applyTerrain: false });
+
+    // Test that transparency cannot be enabled unless the depth buffer is also enabled
+    // test({ useDepthBuffer: false, transparency: 0.5 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: false, useDepthBuffer: false, applyTerrain: false });
+    // test({ useDepthBuffer: true, transparency: 0.5 }, { providerName: "BingProvider", providerData: { mapType: BackgroundMapType.Hybrid }, groundBias: -10, transparency: 0.5, useDepthBuffer: true, applyTerrain: false });
 
     // etc...test valid and invalid combinations. try to make the tests fail.
   });
@@ -750,13 +811,7 @@ describe("Viewport changed events", async () => {
     removeListener();
   });
 
-  // ###TODO AFFAN PLEASE FIX
-  it.skip("should load subcategories for all displayed categories", async () => {
-    // Current concurrent query manager initalized on first query. This initalization cost time as each thread must also
-    // open connection to db. This time get included in the first call to sub categories making timing variable and cause failure on Linux
-    // Following query is just a dummy query to get the query manager initialized before the actual test begin.
-    await testImodel.queryRowCount("select null from bis.element");
-
+  it("should load subcategories for all displayed categories", async () => {
     // NB: Because subcategories are cached, and previous tests probably loaded some, we must clear the cache.
     const subcats = testImodel.subcategories;
     subcats.onIModelConnectionClose();
@@ -1015,5 +1070,45 @@ describe("Per-model category visibility overrides", () => {
     ovrs.expectSubCategoryAppearance("0x1c", "0x32", true);
     ovrs.expectSubCategoryAppearance("0x1c", "0x2e", true, ColorDef.blue);
     ovrs.expectSubCategoryAppearance("0x1c", "0x33", true, ColorDef.white);
+  });
+
+  it("supports iteration", () => {
+    const vp = ScreenViewport.create(viewDiv!, spatialView.clone());
+    const pmcv = vp.perModelCategoryVisibility;
+    pmcv.setOverride("0x1c", ["0x2f", "0x31"], show);
+    pmcv.setOverride("0x1c", ["0x2d"], hide);
+    pmcv.setOverride("0x1d", ["0x2d"], show);
+    pmcv.setOverride("0x1d", ["0x2f", "0x2e"], hide);
+
+    let nIterations = 0;
+    let completed = pmcv.forEachOverride((_modelId, _categoryId, _visible) => ++nIterations < 3);
+    expect(completed).to.be.false;
+    expect(nIterations).to.equal(3);
+
+    nIterations = 0;
+    const cats1c = [new Set<string>(), new Set<string>()];
+    const cats1d = [new Set<string>(), new Set<string>()];
+
+    completed = pmcv.forEachOverride((modelId, catId, vis) => {
+      expect(modelId === "0x1c" || modelId === "0x1d").to.be.true;
+      const arr = modelId === "0x1c" ? cats1c : cats1d;
+      const set = vis ? arr[0] : arr[1];
+      set.add(catId);
+      ++nIterations;
+      return true;
+    });
+
+    expect(completed).to.be.true;
+    expect(nIterations).to.equal(6);
+
+    expect(cats1c[0].size).to.equal(2);
+    expect(cats1c[1].size).to.equal(1);
+    expect(cats1d[0].size).to.equal(1);
+    expect(cats1d[1].size).to.equal(2);
+
+    expect(Array.from(cats1c[0]).join()).to.equal("0x2f,0x31");
+    expect(Array.from(cats1c[1]).join()).to.equal("0x2d");
+    expect(Array.from(cats1d[0]).join()).to.equal("0x2d");
+    expect(Array.from(cats1d[1]).join()).to.equal("0x2e,0x2f");
   });
 });

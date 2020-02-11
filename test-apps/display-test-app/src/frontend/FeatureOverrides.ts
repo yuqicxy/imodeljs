@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import {
@@ -9,13 +9,10 @@ import {
   IDisposable,
 } from "@bentley/bentleyjs-core";
 import {
-  ColorByName,
-  ColorDef,
   LinePixels,
   RgbColor,
 } from "@bentley/imodeljs-common";
 import {
-  EmphasizeElements,
   FeatureOverrideProvider,
   FeatureSymbology,
   Viewport,
@@ -32,17 +29,6 @@ import {
   ColorInputProps,
 } from "@bentley/frontend-devtools";
 import { ToolBarDropDown } from "./ToolBar";
-
-export function emphasizeSelectedElements(vp: Viewport): void {
-  const emph = EmphasizeElements.getOrCreate(vp);
-  if (emph.overrideSelectedElements(vp, new ColorDef(ColorByName.orange), undefined, true, false) // replace existing; don't clear selection set...
-    && emph.emphasizeSelectedElements(vp, undefined, true)) { // ...replace existing; now clear selection set
-    vp.isFadeOutActive = true;
-  } else {
-    EmphasizeElements.clear(vp); // clear any previous overrides
-    vp.isFadeOutActive = false;
-  }
-}
 
 export class Provider implements FeatureOverrideProvider {
   private readonly _elementOvrs = new Map<Id64String, FeatureSymbology.Appearance>();
@@ -159,6 +145,13 @@ export class Settings implements IDisposable {
       handler: (cb) => this.updateNonLocatable(cb.checked ? true : undefined),
     });
 
+    createCheckBox({
+      parent: this._element,
+      name: "Emphasized",
+      id: "ovr_emphasized",
+      handler: (cb) => this.updateAppearance("emphasized", cb.checked ? true : undefined),
+    });
+
     const buttonDiv = document.createElement("div");
     buttonDiv.style.textAlign = "center";
     createButton({
@@ -197,7 +190,7 @@ export class Settings implements IDisposable {
 
   // private reset() { this._appearance = FeatureSymbology.Appearance.defaults; }
 
-  private updateAppearance(field: "rgb" | "transparency" | "linePixels" | "weight" | "ignoresMaterial" | "nonLocatable", value: any): void {
+  private updateAppearance(field: "rgb" | "transparency" | "linePixels" | "weight" | "ignoresMaterial" | "nonLocatable" | "emphasized", value: any): void {
     const props = this._appearance.toJSON();
     props[field] = value;
     this._appearance = FeatureSymbology.Appearance.fromJSON(props);
@@ -226,20 +219,20 @@ export class Settings implements IDisposable {
     label.innerText = "Transparency ";
     div.appendChild(label);
 
-    const slider = document.createElement("input");
-    slider.type = "range";
-    slider.className = "slider";
-    slider.min = "0.0";
-    slider.max = "1.0";
-    slider.step = "0.05";
-    slider.value = "0.0";
-    slider.disabled = true;
-    div.appendChild(slider);
+    const num = createNumericInput({
+      parent: div,
+      value: 0,
+      disabled: true,
+      min: 0,
+      max: 255,
+      step: 1,
+      handler: (value) => this.updateTransparency(value / 255),
+    });
+    div.appendChild(num);
 
-    slider.addEventListener("input", () => this.updateTransparency(parseFloat(slider.value)));
     cb.addEventListener("click", () => {
-      slider.disabled = !cb.checked;
-      this.updateTransparency(cb.checked ? parseFloat(slider.value) : undefined);
+      num.disabled = !cb.checked;
+      this.updateTransparency(cb.checked ? parseInt(num.value, 10) / 255 : undefined);
     });
 
     parent.appendChild(div);

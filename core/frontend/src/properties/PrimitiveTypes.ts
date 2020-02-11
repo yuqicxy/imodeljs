@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module TypeConverters */
+/** @packageDocumentation
+ * @module Properties
+ */
 
 import { Id64String } from "@bentley/bentleyjs-core";
 
@@ -21,10 +23,21 @@ export namespace Primitives {
 
   export type Numeric = Float | Int;
 
-  export type Point2d = string[];
-  export type Point3d = string[];
+  export type Point2d = string[] | number[] | { x: number, y: number };
+  export type Point3d = string[] | number[] | { x: number, y: number, z: number };
 
   export type Point = Point2d | Point3d;
+
+  export interface CompositePart {
+    displayValue: string;
+    rawValue: Value;
+    typeName: string;
+  }
+  export interface Composite {
+    separator: string;
+    parts: CompositePart[];
+  }
+
   // tslint:disable-next-line
-  export type Value = Text | String | ShortDate | Boolean | Numeric | Enum | Point;
+  export type Value = Text | String | ShortDate | Boolean | Numeric | Enum | Point | Composite;
 }

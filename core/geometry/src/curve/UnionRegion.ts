@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 import { StrokeOptions } from "./StrokeOptions";
 import { GeometryQuery } from "./GeometryQuery";
 import { RecursiveCurveProcessor } from "./CurveProcessor";
@@ -19,6 +21,9 @@ import { AnyCurve } from "./CurveChain";
  * @public
  */
 export class UnionRegion extends CurveCollection {
+   /** String name for schema properties */
+  public readonly curveCollectionType = "unionRegion";
+
   /** test if `other` is a `UnionRegion` */
   public isSameGeometryClass(other: GeometryQuery): boolean { return other instanceof UnionRegion; }
   /** collection of Loop and ParityRegion children. */
@@ -58,7 +63,7 @@ export class UnionRegion extends CurveCollection {
    * * Returns false if the `AnyCurve` child is not a region type.
    */
   public tryAddChild(child: AnyCurve): boolean {
-    if (child instanceof ParityRegion || child instanceof Loop) {
+    if (child && child instanceof ParityRegion || child instanceof Loop) {
       this._children.push(child);
       return true;
     }

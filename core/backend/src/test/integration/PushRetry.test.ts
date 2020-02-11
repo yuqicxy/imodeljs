@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { assert } from "chai";
 import * as path from "path";
@@ -14,10 +14,9 @@ import {
 import * as utils from "./../../../../clients-backend/lib/test/imodelhub/TestUtils";
 import { ResponseBuilder, RequestType, ScopeType } from "./../../../../clients-backend/lib/test/ResponseBuilder";
 import { IModelTestUtils } from "../IModelTestUtils";
-import { TestUsers } from "../TestUsers";
+import { TestUsers, TestConfig } from "../TestUsers";
 import { HubUtility } from "./HubUtility";
 import { createNewModelAndCategory } from "./IModelWrite.test";
-import { TestConfig } from "../TestConfig";
 import { TestPushUtility } from "./TestPushUtility";
 import { KnownTestLocations } from "../KnownTestLocations";
 
@@ -90,7 +89,7 @@ describe("PushRetry", () => {
             let rows: any[] = testIModel.executeQuery(ChangeSummaryManager.buildPropertyValueChangesECSql(testIModel, instanceChange, ChangedValueState.BeforeUpdate));
             assert.equal(rows.length, 1);
             instanceChange.before = rows[0];
-            rows = testIModel.executeQuery(ChangeSummaryManager.buildPropertyValueChangesECSql(testIModel, instanceChange, ChangedValueState.BeforeUpdate));
+            rows = testIModel.executeQuery(ChangeSummaryManager.buildPropertyValueChangesECSql(testIModel, instanceChange, ChangedValueState.AfterUpdate));
             assert.equal(rows.length, 1);
             instanceChange.after = rows[0];
             break;

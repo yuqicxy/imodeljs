@@ -1,10 +1,19 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+
+// cSpell:ignore focustrap imagecheckbox iconinput
+
 export * from "./ui-core/UiCore";
 
+export * from "./ui-core/badge/Badge";
+export * from "./ui-core/badge/BadgeUtilities";
+export * from "./ui-core/badge/BetaBadge";
+export * from "./ui-core/badge/NewBadge";
+
 export * from "./ui-core/base/Div";
+export * from "./ui-core/base/DivWithOutsideClick";
 export * from "./ui-core/base/Centered";
 export * from "./ui-core/base/FillCentered";
 export * from "./ui-core/base/ScrollView";
@@ -36,6 +45,7 @@ export * from "./ui-core/hocs/withIsPressed";
 export * from "./ui-core/hocs/withOnOutsideClick";
 export * from "./ui-core/hocs/withTimeout";
 
+export * from "./ui-core/icons/IconComponent";
 export * from "./ui-core/icons/SvgPath";
 export * from "./ui-core/icons/SvgSprite";
 export * from "./ui-core/icons/WebFontIcon";
@@ -47,7 +57,6 @@ export * from "./ui-core/popup/Popup";
 export * from "./ui-core/radialmenu/RadialMenu";
 export * from "./ui-core/radialmenu/Annulus";
 
-// cSpell:ignore imagecheckbox
 export * from "./ui-core/imagecheckbox/ImageCheckBox";
 
 export * from "./ui-core/searchbox/SearchBox";
@@ -61,6 +70,7 @@ export * from "./ui-core/loading/LoadingStatus";
 export * from "./ui-core/loading/Spinner";
 
 export * from "./ui-core/toggle/Toggle";
+export * from "./ui-core/toggle/LabeledToggle";
 
 export { ExpansionToggle, ExpansionToggleProps } from "./ui-core/tree/ExpansionToggle";
 export { TreeBranch, TreeBranchProps } from "./ui-core/tree/Branch";
@@ -72,7 +82,10 @@ export * from "./ui-core/uisettings/UiSettings";
 export * from "./ui-core/uisettings/LocalUiSettings";
 export * from "./ui-core/uisettings/SessionUiSettings";
 
+export * from "./ui-core/utils/Point";
 export * from "./ui-core/utils/Props";
+export * from "./ui-core/utils/Rectangle";
+export * from "./ui-core/utils/Size";
 export * from "./ui-core/utils/Timer";
 export * from "./ui-core/utils/UiError";
 export * from "./ui-core/utils/UiEvent";
@@ -83,13 +96,18 @@ export * from "./ui-core/utils/getUserColor";
 export * from "./ui-core/utils/shallowDiffers";
 export * from "./ui-core/utils/typeUtils";
 export * from "./ui-core/utils/isPromiseLike";
+export * from "./ui-core/utils/ScrollPositionMaintainer";
+export * from "./ui-core/utils/CustomHooks";
 
 export * from "./ui-core/button/Button";
 export * from "./ui-core/button/UnderlinedButton";
 
+export * from "./ui-core/inputs/autosuggest/AutoSuggest";
 export * from "./ui-core/inputs/checkbox/Checkbox";
 export * from "./ui-core/inputs/Input";
+export * from "./ui-core/inputs/InputLabel";
 export * from "./ui-core/inputs/InputStatus";
+export * from "./ui-core/inputs/iconinput/IconInput";
 export * from "./ui-core/inputs/LabeledComponentProps";
 export * from "./ui-core/inputs/LabeledInput";
 export * from "./ui-core/inputs/LabeledSelect";
@@ -100,9 +118,15 @@ export * from "./ui-core/inputs/Radio";
 export * from "./ui-core/inputs/Select";
 export * from "./ui-core/inputs/Textarea";
 
+export * from "./ui-core/form/Field";
+export * from "./ui-core/form/Form";
+
 export * from "./ui-core/tabs/HorizontalTabs";
+export * from "./ui-core/tabs/VerticalTabs";
+export * from "./ui-core/tabs/Tabs";
 
 export * from "./ui-core/text/BodyText";
+export * from "./ui-core/text/BlockText";
 export * from "./ui-core/text/Headline";
 export * from "./ui-core/text/LeadingText";
 export * from "./ui-core/text/LeadingText2";
@@ -115,6 +139,11 @@ export * from "./ui-core/text/TextProps";
 export * from "./ui-core/text/Title";
 export * from "./ui-core/text/Title2";
 
+export * from "./ui-core/tiles/FeaturedTile";
+export * from "./ui-core/tiles/MinimalFeaturedTile";
+export * from "./ui-core/tiles/MinimalTile";
+export * from "./ui-core/tiles/Tile";
+
 // Set the version number so it can be found at runtime. BUILD_SEMVER is replaced at build time by the webpack DefinePlugin.
 declare var BUILD_SEMVER: string;
 // istanbul ignore next
@@ -126,7 +155,6 @@ if ((typeof (BUILD_SEMVER) !== "undefined") && (typeof window !== "undefined") &
 
 /** @docs-package-description
  * The ui-core package contains general purpose React components, such as Dialog, MessageBox, SearchBox, RadialMenu and SplitButton.
- * For more information, see [learning about ui-core]($docs/learning/core/index.md).
  */
 /**
  * @docs-group-description Base

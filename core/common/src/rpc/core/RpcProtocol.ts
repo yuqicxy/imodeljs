@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module RpcInterface */
+/** @packageDocumentation
+ * @module RpcInterface
+ */
 
 import { BeEvent, SerializedClientRequestContext } from "@bentley/bentleyjs-core";
 import { RpcInterface, RpcInterfaceDefinition } from "../../RpcInterface";
@@ -33,6 +35,7 @@ export interface SerializedRpcRequest extends SerializedClientRequestContext {
   path: string;
   parameters: RpcSerializedValue;
   caching: RpcResponseCacheControl;
+  ip?: string;
 }
 
 /** An RPC operation request fulfillment.

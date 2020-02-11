@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as chai from "chai";
 
@@ -114,7 +114,7 @@ function mockGetGlobalEventSASToken() {
   ResponseBuilder.mockResponse(utils.IModelHubUrlMock.getUrl(), RequestType.Post, requestPath, requestResponse, 1, postBody);
 }
 
-describe("iModelHub GlobalEventHandler", () => {
+describe("iModelHub GlobalEventHandler (#unit)", () => {
   let globalEventSubscription: GlobalEventSubscription;
   let globalEventSas: GlobalEventSAS;
   let projectId: string;
@@ -123,13 +123,7 @@ describe("iModelHub GlobalEventHandler", () => {
   let requestContext: AuthorizedClientRequestContext;
   let serviceAccountRequestContext: AuthorizedClientRequestContext;
 
-  before(async function (this: Mocha.IHookCallbackContext) {
-    if (!TestConfig.enableMocks) {
-      this.skip();
-      utils.getRequestBehaviorOptionsHandler().disableBehaviorOption("DisableGlobalEvents");
-      imodelHubClient.requestOptions.setCustomOptions(utils.getRequestBehaviorOptionsHandler().toCustomRequestOptions());
-    }
-
+  before(async () => {
     const accessToken: AccessToken = await utils.login();
     requestContext = new AuthorizedClientRequestContext(accessToken);
     projectId = await utils.getProjectId(requestContext);
@@ -224,10 +218,7 @@ describe("iModelHub GlobalEventHandler", () => {
     chai.expect(timeoutCounter).to.be.lessThan(100);
   });
 
-  it("should receive Global Event with Peek-lock", async function (this: Mocha.ITestCallbackContext) {
-    if (!TestConfig.enableMocks)
-      this.skip();
-
+  it("should receive Global Event with Peek-lock (#unit)", async () => {
     const eventBody = `{"EventTopic":"iModelHubGlobalEvents","FromEventSubscriptionId":"${Guid.createValue()}","ToEventSubscriptionId":"","ProjectId":"${projectId}","iModelId":"${Guid.createValue()}"}`;
     mockPeekLockGlobalEvent(globalEventSubscription.wsgId, JSON.parse(eventBody), "iModelCreatedEvent");
     const lockedEvent = await imodelHubClient.globalEvents.getEvent(requestContext, globalEventSas.sasToken!, globalEventSas.baseAddress!, globalEventSubscription.wsgId, undefined, GetEventOperationType.Peek);
@@ -237,10 +228,7 @@ describe("iModelHub GlobalEventHandler", () => {
     chai.expect(deleted);
   });
 
-  it("should receive Global Event SoftiModelDeleteEvent", async function (this: Mocha.ITestCallbackContext) {
-    if (!TestConfig.enableMocks)
-      this.skip();
-
+  it("should receive Global Event SoftiModelDeleteEvent (#unit)", async () => {
     const eventBody = `{"EventTopic":"iModelHubGlobalEvents","FromEventSubscriptionId":"${Guid.createValue()}","ToEventSubscriptionId":"","ProjectId":"${Guid.createValue()}","iModelId":"${Guid.createValue()}"}`;
     mockGetGlobalEvent(globalEventSubscription.wsgId, JSON.parse(eventBody), "SoftiModelDeleteEvent");
 
@@ -250,10 +238,7 @@ describe("iModelHub GlobalEventHandler", () => {
     chai.assert(!!event!.iModelId);
   });
 
-  it("should receive Global Event HardiModelDeleteEvent", async function (this: Mocha.ITestCallbackContext) {
-    if (!TestConfig.enableMocks)
-      this.skip();
-
+  it("should receive Global Event HardiModelDeleteEvent (#unit)", async () => {
     const eventBody = `{"EventTopic":"iModelHubGlobalEvents","FromEventSubscriptionId":"${Guid.createValue()}","ToEventSubscriptionId":"","ProjectId":"${Guid.createValue()}","iModelId":"${Guid.createValue()}"}`;
     mockGetGlobalEvent(globalEventSubscription.wsgId, JSON.parse(eventBody), "HardiModelDeleteEvent");
 
@@ -263,10 +248,7 @@ describe("iModelHub GlobalEventHandler", () => {
     chai.assert(!!event!.iModelId);
   });
 
-  it("should receive Global Event ChangeSetCreatedEvent", async function (this: Mocha.ITestCallbackContext) {
-    if (!TestConfig.enableMocks)
-      this.skip();
-
+  it("should receive Global Event ChangeSetCreatedEvent (#unit)", async () => {
     const eventBody = `{"EventTopic":"iModelHubGlobalEvents","FromEventSubscriptionId":"${Guid.createValue()}","ToEventSubscriptionId":"","ProjectId":"${Guid.createValue()}","iModelId":"${Guid.createValue()}","BriefcaseId":2,"ChangeSetId":"369","ChangeSetIndex":"1"}`;
     mockGetGlobalEvent(globalEventSubscription.wsgId, JSON.parse(eventBody), "ChangeSetCreatedEvent");
 
@@ -276,10 +258,7 @@ describe("iModelHub GlobalEventHandler", () => {
     chai.assert(!!event!.iModelId);
   });
 
-  it("should receive Global Event NamedVersionCreatedEvent", async function (this: Mocha.ITestCallbackContext) {
-    if (!TestConfig.enableMocks)
-      this.skip();
-
+  it("should receive Global Event NamedVersionCreatedEvent (#unit)", async () => {
     const eventBody = `{"EventTopic":"iModelHubGlobalEvents","FromEventSubscriptionId":"${Guid.createValue()}","ToEventSubscriptionId":"","ProjectId":"${Guid.createValue()}","iModelId":"${Guid.createValue()}","ChangeSetId":"369","VersionId":"${Guid.createValue()}","VersionName":"357"}`;
     mockGetGlobalEvent(globalEventSubscription.wsgId, JSON.parse(eventBody), "NamedVersionCreatedEvent");
 

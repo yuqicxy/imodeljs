@@ -1,13 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ConfigurableUi */
+/** @packageDocumentation
+ * @module ConfigurableUi
+ */
 
 import * as React from "react";
 import { connect } from "react-redux";
 
-import { CommonProps } from "@bentley/ui-core";
+import { CommonProps, Point } from "@bentley/ui-core";
 
 import { UiFramework } from "../UiFramework";
 import { ModalDialogRenderer } from "../dialog/ModalDialogManager";
@@ -18,9 +20,15 @@ import { KeyboardShortcutManager } from "../keyboardshortcut/KeyboardShortcut";
 import { KeyboardShortcutMenu } from "../keyboardshortcut/KeyboardShortcutMenu";
 import { PointerMessage } from "../messages/Pointer";
 import { InputFieldMessage } from "../messages/InputField";
-import { FrameworkState } from "../FrameworkState";
+import { FrameworkState } from "../redux/FrameworkState";
+import { CursorInformation } from "../cursor/CursorInformation";
+import { CursorPopupRenderer } from "../cursor/cursorpopup/CursorPopupManager";
+import { CursorPopupMenu } from "../cursor/cursormenu/CursorMenu";
+import { PopupRenderer } from "../popup/PopupManager";
 
 import "./configurableui.scss";
+
+// cSpell:ignore cursormenu
 
 /** Properties for [[ConfigurableUiContent]]
  * @public
@@ -50,13 +58,15 @@ class ConfigurableUiContentClass extends React.Component<ConfigurableUiContentPr
   }
 
   public componentDidMount() {
-    window.addEventListener("keydown", this._handleKeyDown);
+    window.addEventListener("keyup", this._handleKeyUp);
+    // window.addEventListener("focusin", this._handleFocusIn);
 
     KeyboardShortcutManager.setFocusToHome();
   }
 
   public componentWillUnmount() {
-    window.removeEventListener("keydown", this._handleKeyDown);
+    window.removeEventListener("keyup", this._handleKeyUp);
+    // window.removeEventListener("focusin", this._handleFocusIn);
   }
 
   public render(): JSX.Element | undefined {
@@ -72,11 +82,14 @@ class ConfigurableUiContentClass extends React.Component<ConfigurableUiContentPr
         <PointerMessage />
         <KeyboardShortcutMenu />
         <InputFieldMessage />
+        <CursorPopupMenu />
+        <CursorPopupRenderer />
+        <PopupRenderer />
       </div>
     );
   }
 
-  private _handleKeyDown(e: KeyboardEvent): void {
+  private _handleKeyUp(e: KeyboardEvent): void {
     const element = document.activeElement as HTMLElement;
 
     if (element === document.body && e.key !== "Escape") {
@@ -90,9 +103,10 @@ class ConfigurableUiContentClass extends React.Component<ConfigurableUiContentPr
   // }
 
   private _handleMouseMove(e: React.MouseEvent): void {
-    KeyboardShortcutManager.cursorX = e.clientX;
-    KeyboardShortcutManager.cursorY = e.clientY;
+    const point = new Point(e.pageX, e.pageY);
+    CursorInformation.handleMouseMove(point);
   }
+
 }
 
 /** The ConfigurableUiContent component is the high order component the pages specified using ConfigurableUi

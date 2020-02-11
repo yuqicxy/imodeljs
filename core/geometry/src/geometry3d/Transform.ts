@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module CartesianGeometry */
+/** @packageDocumentation
+ * @module CartesianGeometry
+ */
 
 import { Geometry, AxisOrder, BeJSONFunctions } from "../Geometry";
 import { Point4d } from "../geometry4d/Point4d";
@@ -135,7 +137,9 @@ export class Transform implements BeJSONFunctions {
     return new Transform(this.origin.cloneAsPoint3d(), axes0);
   }
   /** Create a copy with the given origin and matrix captured as the Transform origin and Matrix3d. */
-  public static createRefs(origin: XYZ, matrix: Matrix3d, result?: Transform): Transform {
+  public static createRefs(origin: XYZ | undefined, matrix: Matrix3d, result?: Transform): Transform {
+    if (!origin)
+      origin = Point3d.createZero();
     if (result) {
       result._origin = origin;
       result._matrix = matrix;
@@ -210,6 +214,11 @@ export class Transform implements BeJSONFunctions {
    * Note there is a closely related createFixedPointAndMatrix whose point input is the fixed point of the global-to-global transformation.
    */
   public static createOriginAndMatrix(origin: XYZ | undefined, matrix: Matrix3d | undefined, result?: Transform): Transform {
+    if (result) {
+      result._origin.setFromPoint3d(origin);
+      result._matrix.setFrom(matrix);
+      return result;
+    }
     return Transform.createRefs(
       origin ? origin.cloneAsPoint3d() : Point3d.createZero(),
       matrix === undefined ? Matrix3d.createIdentity() : matrix.clone(), result);
@@ -223,10 +232,30 @@ export class Transform implements BeJSONFunctions {
       result = Transform.createRefs(Vector3d.createFrom(origin), Matrix3d.createColumns(vectorX, vectorY, vectorZ));
     return result;
   }
+  /** Create by with matrix from Matrix3d.createRigidFromColumns.
+   * * Has careful logic for building up optional result without allocations.
+   */
+  public static createRigidFromOriginAndColumns(origin: XYZ | undefined, vectorX: Vector3d, vectorY: Vector3d, axisOrder: AxisOrder, result?: Transform): Transform | undefined {
+    const matrix = Matrix3d.createRigidFromColumns(vectorX, vectorY, axisOrder,
+      result ? result._matrix : undefined);
+    if (!matrix)
+      return undefined;
+    if (result) {
+      // The matrix was already defined !!!
+      result._origin.setFrom(origin);
+      return result;
+    }
+    // cleanly capture the matrix and then the point ..
+    result = Transform.createRefs(undefined, matrix);
+    result._origin.setFromPoint3d(origin);
+    return result;
+  }
+
   /** Reinitialize by directly installing origin and columns of the matrix
    */
-  public setOriginAndMatrixColumns(origin: XYZ, vectorX: Vector3d, vectorY: Vector3d, vectorZ: Vector3d) {
-    this._origin.setFrom(origin);
+  public setOriginAndMatrixColumns(origin: XYZ | undefined, vectorX: Vector3d | undefined, vectorY: Vector3d | undefined, vectorZ: Vector3d | undefined) {
+    if (origin !== undefined)
+      this._origin.setFrom(origin);
     this._matrix.setColumns(vectorX, vectorY, vectorZ);
   }
 
@@ -271,11 +300,11 @@ export class Transform implements BeJSONFunctions {
   }
 
   /** Transform the input point.  Return as a new point or in the pre-allocated result (if result is given) */
-  public multiplyXYZ(x: number, y: number, z: number, result?: Point3d): Point3d {
+  public multiplyXYZ(x: number, y: number, z: number = 0, result?: Point3d): Point3d {
     return Matrix3d.xyzPlusMatrixTimesCoordinates(this._origin, this._matrix, x, y, z, result);
   }
   /** Multiply a specific row of the transform times xyz. Return the (number). */
-  public multiplyComponentXYZ(componentIndex: number, x: number, y: number, z: number): number {
+  public multiplyComponentXYZ(componentIndex: number, x: number, y: number, z: number = 0): number {
     const coffs = this._matrix.coffs;
     const i0 = 3 * componentIndex;
     return this.origin.at(componentIndex) + coffs[i0] * x + coffs[i0 + 1] * y + coffs[i0 + 2] * z;
@@ -513,8 +542,11 @@ export class Transform implements BeJSONFunctions {
     return result;
   }
 
-  /** transform each of the 8 corners of a range. Return the range of the transformed corers */
+  /** transform each of the 8 corners of a range. Return the range of the transformed corners */
   public multiplyRange(range: Range3d, result?: Range3d): Range3d {
+    if (range.isNull)
+      return range.clone(result);
+
     // snag current values to allow aliasing.
     const lowX = range.low.x;
     const lowY = range.low.y;

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Matrix3d } from "../../geometry3d/Matrix3d";
 import { Geometry } from "../../Geometry";
@@ -60,6 +60,7 @@ function hypotenuseCalculationLoop(numTest: number, funcIdentifier: number) {
       name = "Math_HypotenuseXY";
       console.time(name);
       for (let i = 0; i < numTest; i++) {
+        // tslint:disable-next-line:ban
         Math.hypot(10, -5);
       }
       console.timeEnd(name);
@@ -79,6 +80,7 @@ function hypotenuseCalculationLoop(numTest: number, funcIdentifier: number) {
       name = "Math_HypotenuseXYZ";
       console.time(name);
       for (let i = 0; i < numTest; i++) {
+        // tslint:disable-next-line:ban
         Math.hypot(10, -5, 2);
       }
       console.timeEnd(name);
@@ -98,6 +100,7 @@ function hypotenuseCalculationLoop(numTest: number, funcIdentifier: number) {
       name = "Math_HypotenuseXYZW";
       console.time(name);
       for (let i = 0; i < numTest; i++) {
+        // tslint:disable-next-line:ban
         Math.hypot(10, -5, 2, 7);
       }
       console.timeEnd(name);

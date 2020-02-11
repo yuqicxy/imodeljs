@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import * as React from "react";
@@ -24,7 +24,7 @@ export class ViewportWidgetControl extends WidgetControl {
   }
 }
 
-interface ViewportWidgetProps {
+export interface ViewportWidgetProps {
   projectName: string;
   imodelName: string;
 }
@@ -35,7 +35,7 @@ interface ViewportWidgetState {
 }
 
 /** Widget that displays a ViewportComponent or Loading message */
-class ViewportWidget extends React.Component<ViewportWidgetProps, ViewportWidgetState> {
+export class ViewportWidget extends React.Component<ViewportWidgetProps, ViewportWidgetState> {
   private _loading = IModelApp.i18n.translate("SampleApp:Test.loading");
   private _viewport: ScreenViewport | undefined;
 

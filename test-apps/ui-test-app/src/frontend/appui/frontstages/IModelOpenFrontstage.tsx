@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import {
   CoreTools, ContentGroup, ContentControl,
   ConfigurableCreateInfo, FrontstageProvider, FrontstageProps,
-  Frontstage, IModelInfo,
+  Frontstage, IModelInfo, UiFramework,
 } from "@bentley/ui-framework";
 import { SampleAppIModelApp } from "../../index";
 import { IModelOpen } from "../imodelopen/IModelOpen";
@@ -15,8 +15,10 @@ class IModelOpenControl extends ContentControl {
   constructor(info: ConfigurableCreateInfo, options: any) {
     super(info, options);
 
-    const accessToken = SampleAppIModelApp.getAccessToken()!;
-    this.reactElement = <IModelOpen accessToken={accessToken} onIModelSelected={this._onOpenIModel} />;
+    if (UiFramework.oidcClient && UiFramework.oidcClient.isAuthorized)
+      this.reactElement = <IModelOpen onIModelSelected={this._onOpenIModel} />;
+    else
+      this.reactElement = null;
   }
 
   // called when an imodel has been selected on the IModelOpen

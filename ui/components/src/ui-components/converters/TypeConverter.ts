@@ -1,8 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module TypeConverters */
+/** @packageDocumentation
+ * @module TypeConverters
+ */
+
+// cSpell:ignore valuetypes shortdate
 
 import {
   OutputMessagePriority,
@@ -26,13 +30,19 @@ export enum StandardTypeConverterTypeNames {
   Text = "text",
   String = "string",
   ShortDate = "shortdate",
+  DateTime = "dateTime",
   Boolean = "boolean",
+  Bool = "bool",
   Float = "float",
+  Double = "double",
   Int = "int",
+  Integer = "integer",
   Hexadecimal = "hexadecimal",
+  Hex = "hex",
   Enum = "enum",
   Point2d = "point2d",
   Point3d = "point3d",
+  Navigation = "navigation",
 }
 
 /** Sort compare method for types that support sorting
@@ -129,8 +139,16 @@ export abstract class TypeConverter implements SortComparer, OperatorProcessor {
     return valueA !== valueB;
   }
 
+  public isNull(value: Primitives.Value): boolean {
+    return value === null || value === undefined;
+  }
+
+  public isNotNull(value: Primitives.Value): boolean {
+    return value !== null && value !== undefined;
+  }
+
   public get isStringType(): boolean { return false; }
   public get isLessGreaterType(): boolean { return false; }
-  public get isNullableType(): boolean { return false; }
   public get isBooleanType(): boolean { return false; }
+  public get isNullableType(): boolean { return true; }
 }

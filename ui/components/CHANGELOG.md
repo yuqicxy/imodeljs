@@ -1,6 +1,163 @@
 # Change Log - @bentley/ui-components
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Remove the @types/linkify-it as a real dependency and make it a devDependency.
+- Allow TreeNodeItem and PropertyData label to be represented as PropertyRecord
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Fix styling issue in property grid when actionButtonRenders are not defined.
+- Fixed lgtm issues in UI folders
+- Update code to up code coverage to avoid CI failures on Linux machines.
+- Added Action Buttons for properties
+- Attempt to fix sporadic failing solartimeline test.
+- Fix bug in timeline component when view only has an analysis animation without dates.
+- Update timeline test to use fake timers to see if that resolved sporadic failures on CI builds.
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Update sunrise/sunset calculation
+- Update solar timeline test
+- Made detecting links have stricter rules. Links have to start with a schema or `www.`.
+- Fix solar timeline timezone bug.
+- Added a tooltip component.
+- No longer accessing this.state or this.props in setState updater - flagged by lgtm report
+- Changed SignIn & SignOut buttons to large. Fixed Dialog component resizing. Reduced default minimum size of Dialog component.
+- Update sinon version.
+- Added documentation to ControlledTree API and changes release tags to beta
+- Added node editing support in ControlledTree
+- Changes ControlledTree events to pass TreeNodeItem instead of nodeId
+- Added 'removeChild', 'insertChild', 'getChildOffset' methods to MutableTreeModel
+- Moved ControlledTree node highlighting to TreeRenderer
+- Use exhaustive-deps linter rule.
+- Truncate property grid group title.
+- Rename array length property label to be less ambiguous
+- Solar timeline date/time offset fix.
+- Start arrays at `1` when rendering array property items
+- Removed unused React state variables. Removed unsupported setState calls from render() methods.
+- Code cleanup based on code analysis report from lgtm.
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Update Icon package version
+- Responsive logic in Property Grid to switch to Vertical orientation when too narrow
+- Added StatusBarComposer, StatusBarItem, StatusBarManager and StatusBarItemsManager
+- Added Table cell context menu support
+- Added Tree Node.tsx export to ui-components package
+- Added tslint-react-hooks to UI packages
+- Change componentDidUpdate to call _setDuration instead of setState directly. This will make sure the onChange handler is called.
+- Refactor ControlledTree custom hooks to use useEffectSkipFirst
+- Separated TreeModelSource and TreeNodeLoader. Added highlighting support to ControlledTree.
+- Added node icon rendering to ControlledTree
+- Fix node content sometimes not being re-rendered when editor state changed very quickly
+- Add componentDidUpdate() to the TimelineComponent, updating currentDuration after the app changes the state of initialDuration.
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Add ability to have Table provide top visible row feedback
+- Made PropertyGrid categories keep the collapsed state when data is refreshed.
+- Added New badge for UI items
+- Added Table column filtering support
+- Added initial ui-abstract package setup
+- Added UiAdmin with support for displaying Menus and Toolbars at a location
+- Added DataProvider getter on TreeModelSource
+- Fix tree attempting to highlight empty text in nodes
+- Fix tree no re-rendering delay loaded nodes after reload
+- Added initial implementation of ControlledTree
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+### Updates
+
+- Clear internal row/column selection data when number or rows change in Table. Add definitions for platform MeasureTools.
+- Allow width defined in ColumnDescription to be passed into <Table> component to set initial column width.
+- Added AutoSuggest component and improved KeyinBrowser component
+- Focus EnumButtonGroupEditor without scrolling.
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- AccuDraw Popup Editors. Improved editor sizes. Editor Params improvements.
+- Initial Accudraw Ui components - Buttons, ContextMenus, Calculator, Editors. IconInput in ui-core.
+- Added ability to automatically expand non primitive properties
+- Ability to Scroll to Table row via scrollToRow Prop
+- Add alwaysMinimized prop to TimelineComponent.
+- Tool Assistance changes per UX Design
+- Joe G required the tree (empty data) be more descriptive and generic.
+- In the Model/Category/Spatial trees, center the error message
+- upgrade to TypeScript 3.6.2
+- Fixed signature of BreadcrumbTreeUtils.aliasNodeListToTableDataProvider for consistent extract-api treatment
+- Tree: Clear page caches when reloading tree data
+- this.props.viewportRef(this._vp); callback moved to the end of async componentDidMount(); Additional check if (!this._mounted) after await
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Using Checkbox component in BooleanEditor. Cleaned up cell editor positioning.
+- Updated inputs and button padding for iModel.js. Fixed Popup colors & z-index.
+- Color picker had incorrect styling after focus trap added.
+- Added support for content view minSize properties
+- Added support for ProjectWise Explorer links.
+- Added a new component for the Poc, an icon picker.
+- Addressed some warnings introduced with React 16.9
+- Timeline: added display for times
+- Fixed bug in style of the weight picker popup
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Update to use latest icon library
+- Added CursorPrompt, improved Pointer messages
+- explicitly set margin for button groups to avoid bleed over from BWC styles.
+- After canceling (clearing) search, set focus back to input field.
+- Skip failing test until UI team can investigate
+- Updated generic icon package
+- Fix DateTime type converters
+- Improve point type converters to handle points defined as `number[]` or `{x,y}` or `{x,y,z}`
+- Change floating point converter to round-off numbers up to 2 decimal places
+- Fixed property grid tests.
+- Fixed OnPropertyLinkClick event handler assignment for nested properties in PropertyGrid. Fixed OnPropertyLinkClick signature for PropertyGrid.
+- Added onPropertyLinkClick handler property for PropertyGrid with default behavior to open url links in the new tab or open email client if it is an email link. Wrote tests for it.
+- Update FilteringInput to use updated search box design from UX.
+- Added SelectionMode.None to the default SelectionHandler.
+- Tree: Fix children not loaded when parent is reloaded due to other page loads after children request
+- Update to latest icon package version.
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Tree: Add `bulkCheckboxActionsDisabled` prop.
+- Tree: Update visual styles.
+- Table: Update visual styles.
+- PropertyView: Update visual styles.
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

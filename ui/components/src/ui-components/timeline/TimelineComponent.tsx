@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Timeline */
+/** @packageDocumentation
+ * @module Timeline
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -16,6 +18,10 @@ import { ContextMenu, ContextMenuItem } from "./ContextMenu";
 import { UiComponents } from "../UiComponents";
 import "./TimelineComponent.scss";
 
+const slowSpeed = 60 * 1000;
+const mediumSpeed = 20 * 1000;
+const fastSpeed = 10 * 1000;
+
 interface TimelineComponentProps {
   startDate?: Date; // start date
   endDate?: Date;   // end date
@@ -24,10 +30,12 @@ interface TimelineComponentProps {
   milestones?: Milestone[]; // optional milestones
   minimized?: boolean;  // show in minimized mode
   repeat?: boolean;  // repeat animation indefinitely
+  showDuration?: boolean; // show the duration instead of time
   onChange?: (duration: number) => void; // callback with current value (as a fraction)
   onPlayPause?: (playing: boolean) => void; // callback triggered when play/pause button is pressed
   onJump?: (forward: boolean) => void; // callback triggered when backward/forward buttons are pressed
   onSettingsChange?: (arg: PlaybackSettings) => void; // callback triggered when a setting is changed
+  alwaysMinimized?: boolean; // always display in miniMode with no expand menu
 }
 
 interface TimelineComponentState {
@@ -57,7 +65,7 @@ export class TimelineComponent extends React.PureComponent<TimelineComponentProp
     this.state = {
       isSettingsOpen: false,
       isPlaying: false,
-      minimized: this.props.minimized,
+      minimized: this.props.alwaysMinimized ? true : this.props.minimized,
       currentDuration: props.initialDuration ? props.initialDuration : 0,
       totalDuration: this.props.totalDuration,
       repeat: this.props.repeat ? true : false,
@@ -71,6 +79,12 @@ export class TimelineComponent extends React.PureComponent<TimelineComponentProp
   public componentWillUnmount() {
     window.cancelAnimationFrame(this._requestFrame);
     this._unmounted = true;
+  }
+
+  public componentDidUpdate(prevProps: TimelineComponentProps) {
+    if (this.props.initialDuration !== prevProps.initialDuration) {
+      this._setDuration(this.props.initialDuration ? this.props.initialDuration : 0);
+    }
   }
 
   // user clicked backward button
@@ -209,16 +223,11 @@ export class TimelineComponent extends React.PureComponent<TimelineComponentProp
   private _onTotalDurationChange = (value: string) => {
     // NOTE: we should reset the current duration to 0
     const milliseconds = this._getMilliseconds(value);
-    this.setState({ totalDuration: milliseconds }, () => {
-      // istanbul ignore else
-      if (this.props.onSettingsChange) {
-        this.props.onSettingsChange({ duration: this.state.totalDuration });
-      }
-    });
+    this._onSetTotalDuration(milliseconds);
   }
 
   private _onSettingsClick = () => {
-    this.setState({ isSettingsOpen: !this.state.isSettingsOpen });
+    this.setState((prevState) => ({ isSettingsOpen: !prevState.isSettingsOpen }));
   }
 
   private _onCloseSettings = () => {
@@ -227,20 +236,24 @@ export class TimelineComponent extends React.PureComponent<TimelineComponentProp
 
   // istanbul ignore next - WIP
   private _onModeChanged = () => {
-    this.setState({ minimized: !this.state.minimized, isSettingsOpen: false }, () => {
-      if (this.props.onSettingsChange) {
-        this.props.onSettingsChange({ minimized: this.state.minimized });
-      }
-    });
+    this.setState(
+      (prevState) => ({ minimized: !prevState.minimized, isSettingsOpen: false }),
+      () => {
+        if (this.props.onSettingsChange) {
+          this.props.onSettingsChange({ minimized: this.state.minimized });
+        }
+      });
   }
 
   private _onRepeatChanged = () => {
-    this.setState({ repeat: !this.state.repeat, isSettingsOpen: false }, () => {
-      // istanbul ignore else
-      if (this.props.onSettingsChange) {
-        this.props.onSettingsChange({ loop: this.state.repeat });
-      }
-    });
+    this.setState(
+      (prevState) => ({ repeat: !prevState.repeat, isSettingsOpen: false }),
+      () => {
+        // istanbul ignore else
+        if (this.props.onSettingsChange) {
+          this.props.onSettingsChange({ loop: this.state.repeat });
+        }
+      });
   }
 
   private _currentDate = (): Date => {
@@ -252,22 +265,39 @@ export class TimelineComponent extends React.PureComponent<TimelineComponentProp
     return new Date();
   }
 
+  private _onSetTotalDuration = (milliseconds: number) => {
+    this.setState(
+      { totalDuration: milliseconds, isSettingsOpen: false },
+      () => {
+        // istanbul ignore else
+        if (this.props.onSettingsChange) {
+          this.props.onSettingsChange({ duration: milliseconds });
+        }
+      });
+  }
+
   private _renderSettings = () => {
     const expandName = (this.state.minimized) ? this._expandLabel : this._minimizeLabel;
     const hasDates = this.props.startDate && this.props.endDate;
+    const alwaysMinimized = this.props.alwaysMinimized;
+    const { totalDuration } = this.state;
     return (
       <>
         <span data-testid="timeline-settings" className="timeline-settings icon icon-more-vertical-2" ref={(element) => this._settings = element} onClick={this._onSettingsClick} ></span>
         <ContextMenu parent={this._settings} isOpened={this.state.isSettingsOpen} onClickOutside={this._onCloseSettings.bind(this)} position={Position.BottomRight}>
-          {hasDates && <ContextMenuItem name={expandName} onClick={this._onModeChanged} />}
+          {!alwaysMinimized && hasDates && <ContextMenuItem name={expandName} onClick={this._onModeChanged} />}
           <ContextMenuItem name={this._repeatLabel} checked={this.state.repeat} onClick={this._onRepeatChanged} />
+          <ContextMenuItem isSeparator={true} />
+          <ContextMenuItem name={UiComponents.i18n.translate("UiComponents:timeline.slow")} checked={totalDuration === slowSpeed} onClick={this._onSetTotalDuration.bind(this, slowSpeed)} />
+          <ContextMenuItem name={UiComponents.i18n.translate("UiComponents:timeline.medium")} checked={totalDuration === mediumSpeed} onClick={this._onSetTotalDuration.bind(this, mediumSpeed)} />
+          <ContextMenuItem name={UiComponents.i18n.translate("UiComponents:timeline.fast")} checked={totalDuration === fastSpeed} onClick={this._onSetTotalDuration.bind(this, fastSpeed)} />
         </ContextMenu>
       </>
     );
   }
 
   public render() {
-    const { startDate, endDate, milestones } = this.props;
+    const { startDate, endDate, milestones, showDuration } = this.props;
     const { currentDuration, totalDuration, minimized } = this.state;
     const currentDate = this._currentDate();
     const durationString = this._displayTime(currentDuration);
@@ -276,7 +306,7 @@ export class TimelineComponent extends React.PureComponent<TimelineComponentProp
     const miniMode = minimized || !hasDates;
 
     return (
-      <div className={classnames("timeline-component", miniMode && "minimized", hasDates && "has-dates")}>
+      <div data-testid="timeline-component" className={classnames("timeline-component", miniMode && "minimized", hasDates && "has-dates")} >
         <div className="header">
           <PlayButton className="play-button" isPlaying={this.state.isPlaying} onPlay={this._onPlay} onPause={this._onPause} />
           <PlayerButton className="play-backward" icon="icon-caret-left" onClick={this._onBackward} />
@@ -297,7 +327,8 @@ export class TimelineComponent extends React.PureComponent<TimelineComponentProp
           <PlayButton className="play-button" isPlaying={this.state.isPlaying} onPlay={this._onPlay} onPause={this._onPause} />
           <div className="start-time-container">
             {hasDates && <span className="start-date">{startDate!.toLocaleDateString()}</span>}
-            <span className="start-time">{durationString}</span>
+            {hasDates && !showDuration && <span className="start-time">{startDate!.toLocaleTimeString()}</span>}
+            {showDuration && <span className="duration-start-time">{durationString}</span>}
           </div>
           <Scrubber
             className="slider"
@@ -307,12 +338,14 @@ export class TimelineComponent extends React.PureComponent<TimelineComponentProp
             endDate={endDate}
             isPlaying={this.state.isPlaying}
             inMiniMode={miniMode}
+            showTime={!showDuration}
             onChange={this._onTimelineChange}
             onUpdate={this._onTimelineChange}
           />
           <div className="end-time-container">
             {hasDates && <span className="end-date">{endDate!.toLocaleDateString()}</span>}
-            <InlineEdit className="end-time" defaultValue={totalDurationString} onChange={this._onTotalDurationChange} />
+            {hasDates && !showDuration && <span className="end-time">{endDate!.toLocaleTimeString()}</span>}
+            {showDuration && <InlineEdit className="duration-end-time" defaultValue={totalDurationString} onChange={this._onTotalDurationChange} />}
           </div>
           {miniMode && this._renderSettings()}
         </div>

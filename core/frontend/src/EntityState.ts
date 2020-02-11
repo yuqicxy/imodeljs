@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ElementState */
+/** @packageDocumentation
+ * @module ElementState
+ */
 
 import { Id64, Id64String, GuidString } from "@bentley/bentleyjs-core";
 import { EntityProps, Code, ElementProps, RelatedElement } from "@bentley/imodeljs-common";
@@ -44,7 +46,7 @@ export class EntityState implements EntityProps {
    * @param _state source EntityState for clone
    */
   constructor(props: EntityProps, iModel: IModelConnection, _state?: EntityState) {
-    this.classFullName = props.classFullName;
+    this.classFullName = props.classFullName ? props.classFullName : this._ctor.classFullName;
     this.iModel = iModel;
     this.id = Id64.fromJSON(props.id);
     this.jsonProperties = props.jsonProperties ? JSON.parse(JSON.stringify(props.jsonProperties)) : {}; // make sure we have our own copy
@@ -94,8 +96,10 @@ export class ElementState extends EntityState implements ElementProps {
     this.code = Code.fromJSON(props.code);
     this.model = RelatedElement.idFromJson(props.model);
     this.parent = RelatedElement.fromJSON(props.parent);
-    this.federationGuid = props.federationGuid;
-    this.userLabel = props.userLabel;
+    if (undefined !== props.federationGuid)
+      this.federationGuid = props.federationGuid;
+    if (undefined !== props.userLabel)
+      this.userLabel = props.userLabel;
   }
 
   /** @internal */

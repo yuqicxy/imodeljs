@@ -2,6 +2,300 @@
   "name": "@bentley/imodeljs-common",
   "entries": [
     {
+      "version": "1.11.0",
+      "tag": "@bentley/imodeljs-common_v1.11.0",
+      "date": "Wed, 22 Jan 2020 19:24:12 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Simplify iterator for QPoint3dList."
+          },
+          {
+            "comment": "Native apps can now cancel tile requests in progress on the backend."
+          },
+          {
+            "comment": "Remove echo test function from devTools"
+          },
+          {
+            "comment": "Clean up documentation modules; add PlanProjectionSettings for display styles."
+          },
+          {
+            "comment": "Allow outline fill to be specified by subcategory appearance."
+          },
+          {
+            "comment": "Upgrade to TypeScript 3.7.2."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.10.0",
+      "tag": "@bentley/imodeljs-common_v1.10.0",
+      "date": "Tue, 07 Jan 2020 19:44:01 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Added support for embedding images in a GeometryStream."
+          },
+          {
+            "comment": "Moving data-holder structures used during the LinearElement.queryLinearLocations API to imodeljs-common."
+          },
+          {
+            "comment": "Allow events to be sent from backend to frontend"
+          },
+          {
+            "comment": "Renamed EventSourceRpcInterface to NativeAppRpcInterface"
+          },
+          {
+            "comment": "Moved tile IO-related APIs from frontend to common."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.9.0",
+      "tag": "@bentley/imodeljs-common_v1.9.0",
+      "date": "Tue, 10 Dec 2019 18:08:56 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Added Tween.js code"
+          },
+          {
+            "comment": "Added AliCloud tile cache service"
+          },
+          {
+            "comment": "Code quality report fixes"
+          },
+          {
+            "comment": "fix warnings from static analysis"
+          },
+          {
+            "comment": "Add PropertyMetaData.isNavigation"
+          },
+          {
+            "comment": "Addressing typo in a couple of members, making them match the schema properly."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.8.0",
+      "tag": "@bentley/imodeljs-common_v1.8.0",
+      "date": "Fri, 22 Nov 2019 14:03:34 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Option to include part references in GeometrySummary output."
+          },
+          {
+            "comment": "Added missing topic descriptions"
+          },
+          {
+            "comment": "Fix defect where isMobileBackend return true on windows"
+          },
+          {
+            "comment": "Change terrain lighting default to off."
+          },
+          {
+            "comment": "Change SectionLocationProps.clipGeometry type to string. Add get/set ClipVector methods on SectionLocation."
+          },
+          {
+            "comment": "mark bias as alpha"
+          },
+          {
+            "comment": "Update to allow Node 12"
+          },
+          {
+            "comment": "Add support for view-independent display of geometry streams."
+          },
+          {
+            "comment": "Fixed camera.equals"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.7.0",
+      "tag": "@bentley/imodeljs-common_v1.7.0",
+      "date": "Fri, 01 Nov 2019 13:28:37 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Anisotropic filtering of draped map tiles."
+          },
+          {
+            "comment": "Tweaks to ambient occlusion settings."
+          },
+          {
+            "comment": "Callout clip is now local to placement. Only show marker for active clip."
+          },
+          {
+            "comment": "Cleanup AO settings."
+          },
+          {
+            "comment": "Remove @deprecated tags in GeometryStreamIteratorEntry"
+          },
+          {
+            "comment": "Fix comparison of classification properties ignoring the 'volume' flag."
+          },
+          {
+            "comment": "Fixes for making volume classifiers work."
+          },
+          {
+            "comment": "New wip plugin for hypermodeling support."
+          },
+          {
+            "comment": "Add CommonLoggerCategory.Geometry"
+          },
+          {
+            "comment": "Add Placement2d.multiplyTransform, Placement3d.multiplyTransform"
+          },
+          {
+            "comment": "Add RelatedElement.none for nulling out existing navigation relationships"
+          },
+          {
+            "comment": "Reacting to iPadOS change in user agent of safari"
+          },
+          {
+            "comment": "Remove limit for binary data for mobile"
+          },
+          {
+            "comment": "Expose FrustumPlanes.planes"
+          },
+          {
+            "comment": "Convenience methods for overriding aspects of hidden line styles."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.6.0",
+      "tag": "@bentley/imodeljs-common_v1.6.0",
+      "date": "Wed, 09 Oct 2019 20:28:42 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add GeometricModel3dProps"
+          },
+          {
+            "comment": "Add SectionLocationProps"
+          },
+          {
+            "comment": "Remove no-longer-needed mobile RPC chunk size workaround for mobile backends."
+          },
+          {
+            "comment": "Fixed multiple viewport shadows"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.5.0",
+      "tag": "@bentley/imodeljs-common_v1.5.0",
+      "date": "Mon, 30 Sep 2019 22:28:48 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "added support for blank IModelConnections"
+          },
+          {
+            "comment": "Fixed reporting of errors when the ClientRequestContext is established at the backend. "
+          },
+          {
+            "comment": "Add DisplayStyleSettings.subCategoryOverrides"
+          },
+          {
+            "comment": "Make ExternalSourceAspectProps.checksum optional"
+          },
+          {
+            "comment": "Added geometry primitive typing and geometry summary types"
+          },
+          {
+            "comment": "Support animation of models within RenderSchedule."
+          },
+          {
+            "comment": "Refine planar projection frustum calculation"
+          },
+          {
+            "comment": "upgrade to TypeScript 3.6.2"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.4.0",
+      "tag": "@bentley/imodeljs-common_v1.4.0",
+      "date": "Tue, 10 Sep 2019 12:09:49 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add documentation for RenderSchedule"
+          },
+          {
+            "comment": "fix casing of displayStyle.contextRealityModels"
+          },
+          {
+            "comment": "Fixed reporting of errors when the ClientRequestContext is established at the backend. "
+          },
+          {
+            "comment": "Electron IPC transport fix for large messages."
+          },
+          {
+            "comment": "Added ability to clear individual overridden flags in ViewFlag.Overrides."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.3.0",
+      "tag": "@bentley/imodeljs-common_v1.3.0",
+      "date": "Tue, 13 Aug 2019 20:25:53 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add optional arguments to EcefLocation.createFromCartographicOrigin"
+          },
+          {
+            "comment": "Allow custom tile cache services."
+          },
+          {
+            "comment": "Add CodeSpec.isManagedWithIModel, CodeSpec.scopeType, deprecate CodeSpec.specScopeType"
+          },
+          {
+            "comment": "Add CodeSpec.create"
+          },
+          {
+            "comment": "Add terrain settings."
+          },
+          {
+            "comment": "Require electron without eval trick."
+          },
+          {
+            "comment": "Log more information during RPC trace/info request logging."
+          },
+          {
+            "comment": "Changed the transfer chunk size for mobile RPC transport."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.2.0",
+      "tag": "@bentley/imodeljs-common_v1.2.0",
+      "date": "Wed, 24 Jul 2019 11:47:26 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Added option to restrict tile cache URLs by client IP address."
+          },
+          {
+            "comment": "Added method to get element mass properties."
+          }
+        ]
+      }
+    },
+    {
       "version": "1.1.0",
       "tag": "@bentley/imodeljs-common_v1.1.0",
       "date": "Mon, 01 Jul 2019 19:04:29 GMT",

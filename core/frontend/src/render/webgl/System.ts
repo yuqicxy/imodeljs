@@ -1,27 +1,55 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
-import { IModelError, RenderTexture, RenderMaterial, Gradient, ImageBuffer, ElementAlignedBox3d, ColorDef, QPoint3dList, QParams3d, QPoint3d, SpatialClassificationProps, Frustum, SolarShadows } from "@bentley/imodeljs-common";
 import {
-  ClipVector, Transform, Point3d, ClipUtilities, PolyfaceBuilder, Point2d, IndexedPolyface, Range3d,
-  IndexedPolyfaceVisitor, Triangulator, StrokeOptions, HalfEdgeGraph, HalfEdge, HalfEdgeMask, Vector3d,
+  ColorDef,
+  ElementAlignedBox3d,
+  Gradient,
+  IModelError,
+  ImageBuffer,
+  PackedFeatureTable,
+  QParams3d,
+  QPoint3d,
+  QPoint3dList,
+  RenderMaterial,
+  RenderTexture,
+} from "@bentley/imodeljs-common";
+import {
+  ClipUtilities,
+  ClipVector,
+  HalfEdge,
+  HalfEdgeGraph,
+  HalfEdgeMask,
+  IndexedPolyface,
+  IndexedPolyfaceVisitor,
+  Point2d,
+  Point3d,
+  PolyfaceBuilder,
+  Range3d,
+  StrokeOptions,
+  Transform,
+  Triangulator,
 } from "@bentley/geometry-core";
 import {
-  InstancedGraphicParams,
-  RenderGraphic,
+  GLTimerResultCallback,
   GraphicBranch,
-  RenderSystem,
-  RenderDiagnostics,
-  RenderTarget,
-  RenderClipVolume,
-  RenderPlanarClassifier,
+  GraphicBranchOptions,
   GraphicList,
-  PackedFeatureTable,
+  InstancedGraphicParams,
+  RenderClipVolume,
+  RenderDiagnostics,
+  RenderGraphic,
+  RenderGraphicOwner,
+  RenderMemory,
+  RenderSystem,
+  RenderSystemDebugControl,
+  RenderTarget,
   WebGLExtensionName,
-  RenderSolarShadowMap,
 } from "../System";
 import { SkyBox } from "../../DisplayStyleState";
 import { OnScreenTarget, OffScreenTarget } from "./Target";
@@ -30,38 +58,37 @@ import { PrimitiveBuilder } from "../primitives/geometry/GeometryListBuilder";
 import { PointCloudArgs } from "../primitives/PointCloudPrimitive";
 import { PointStringParams, MeshParams, PolylineParams } from "../primitives/VertexTable";
 import { MeshArgs } from "../primitives/mesh/MeshPrimitives";
-import { Branch, Batch, GraphicsArray } from "./Graphic";
+import { Branch, Batch, Graphic, GraphicOwner, GraphicsArray } from "./Graphic";
 import { IModelConnection } from "../../IModelConnection";
-import { assert, BentleyStatus, Dictionary, IDisposable, dispose, Id64String } from "@bentley/bentleyjs-core";
+import { assert, BentleyStatus, Dictionary, dispose, Id64String } from "@bentley/bentleyjs-core";
 import { Techniques } from "./Technique";
 import { IModelApp } from "../../IModelApp";
-import { ViewRect, Viewport } from "../../Viewport";
+import { Viewport } from "../../Viewport";
+import { ViewRect } from "../../ViewRect";
 import { WebGLFeature, WebGLRenderCompatibilityInfo, WebGLRenderCompatibilityStatus } from "../../RenderCompatibility";
 import { RenderState } from "./RenderState";
 import { FrameBufferStack, DepthBuffer } from "./FrameBuffer";
 import { RenderBuffer } from "./RenderBuffer";
 import { TextureHandle, Texture } from "./Texture";
 import { GL } from "./GL";
+import { GLTimer } from "./GLTimer";
 import { PolylineGeometry } from "./Polyline";
 import { PointStringGeometry } from "./PointString";
 import { MeshGraphic } from "./Mesh";
 import { PointCloudGeometry } from "./PointCloud";
 import { LineCode } from "./EdgeOverrides";
 import { Material } from "./Material";
-import { SkyBoxQuadsGeometry, SkySphereViewportQuadGeometry } from "./CachedGeometry";
+import { CachedGeometry, SkyBoxQuadsGeometry, SkySphereViewportQuadGeometry } from "./CachedGeometry";
 import { SkyCubePrimitive, SkySpherePrimitive, Primitive } from "./Primitive";
 import { ClipPlanesVolume, ClipMaskVolume } from "./ClipVolume";
-import { SolarShadowMap } from "./SolarShadowMap";
 import { TextureUnit } from "./RenderFlags";
 import { UniformHandle } from "./Handle";
 import { Debug } from "./Diagnostics";
-import { PlanarClassifier } from "./PlanarClassifier";
-import { TextureDrape } from "./TextureDrape";
 import { TileTree } from "../../tile/TileTree";
-import { SceneContext } from "../../ViewContext";
-import { SpatialViewState } from "../../ViewState";
 import { BackgroundMapDrape } from "./BackgroundMapDrape";
 import { BackgroundMapTileTreeReference } from "../../tile/WebMapTileTree";
+import { ToolAdmin } from "../../tools/ToolAdmin";
+import { WebGLDisposable } from "./Disposable";
 
 // tslint:disable:no-const-enum
 
@@ -100,11 +127,18 @@ const knownExtensions: WebGLExtensionName[] = [
   "WEBGL_draw_buffers",
   "OES_element_index_uint",
   "OES_texture_float",
+  "OES_texture_float_linear",
   "OES_texture_half_float",
+  "OES_texture_half_float_linear",
+  "EXT_texture_filter_anisotropic",
   "WEBGL_depth_texture",
   "EXT_color_buffer_float",
   "EXT_shader_texture_lod",
+  "EXT_frag_depth",
   "ANGLE_instanced_arrays",
+  "OES_vertex_array_object",
+  "WEBGL_lose_context",
+  "EXT_disjoint_timer_query",
 ];
 
 /** Describes the rendering capabilities of the host system.
@@ -122,6 +156,7 @@ export class Capabilities {
   private _maxVertUniformVectors: number = 0;
   private _maxVaryingVectors: number = 0;
   private _maxFragUniformVectors: number = 0;
+  private _canRenderDepthWithoutColor: boolean = false;
 
   private _extensionMap: { [key: string]: any } = {}; // Use this map to store actual extension objects retrieved from GL.
   private _presentFeatures: WebGLFeature[] = []; // List of features the system can support (not necessarily dependent on extensions)
@@ -144,20 +179,47 @@ export class Capabilities {
   public get supportsInstancing(): boolean { return this.queryExtensionObject<ANGLE_instanced_arrays>("ANGLE_instanced_arrays") !== undefined; }
   public get supports32BitElementIndex(): boolean { return this.queryExtensionObject<OES_element_index_uint>("OES_element_index_uint") !== undefined; }
   public get supportsTextureFloat(): boolean { return this.queryExtensionObject<OES_texture_float>("OES_texture_float") !== undefined; }
+  public get supportsTextureFloatLinear(): boolean { return this.queryExtensionObject<OES_texture_float_linear>("OES_texture_float_linear") !== undefined; }
   public get supportsTextureHalfFloat(): boolean { return this.queryExtensionObject<OES_texture_half_float>("OES_texture_half_float") !== undefined; }
+  public get supportsTextureHalfFloatLinear(): boolean { return this.queryExtensionObject<OES_texture_half_float_linear>("OES_texture_half_float_linear") !== undefined; }
+  public get supportsTextureFilterAnisotropic(): boolean { return this.queryExtensionObject<EXT_texture_filter_anisotropic>("EXT_texture_filter_anisotropic") !== undefined; }
   public get supportsShaderTextureLOD(): boolean { return this.queryExtensionObject<EXT_shader_texture_lod>("EXT_shader_texture_lod") !== undefined; }
+  public get supportsVertexArrayObjects(): boolean { return this.queryExtensionObject<OES_vertex_array_object>("OES_vertex_array_object") !== undefined; }
+  public get supportsFragDepth(): boolean { return this.queryExtensionObject<EXT_frag_depth>("EXT_frag_depth") !== undefined; }
+  public get supportsDisjointTimerQuery(): boolean { return this.queryExtensionObject<any>("EXT_disjoint_timer_query") !== undefined; }
 
   public get supportsMRTTransparency(): boolean { return this.maxColorAttachments >= 2; }
   public get supportsMRTPickShaders(): boolean { return this.maxColorAttachments >= 3; }
 
-  /** Queries an extension object if available.  This is necessary for other parts of the system to access some constants within extensions. */
-  public queryExtensionObject<T>(ext: WebGLExtensionName): T | undefined {
-    const extObj: any = this._extensionMap[ext];
-    return (null !== extObj) ? extObj as T : undefined;
+  public get canRenderDepthWithoutColor(): boolean { return this._canRenderDepthWithoutColor; }
+
+  public get supportsShadowMaps(): boolean {
+    return (undefined !== this.findExtension("OES_texture_float") || undefined !== this.findExtension("OES_texture_half_float"));
   }
 
-  public static readonly optionalFeatures: WebGLFeature[] = [WebGLFeature.MrtTransparency, WebGLFeature.MrtPick, WebGLFeature.DepthTexture, WebGLFeature.FloatRendering, WebGLFeature.Instancing];
-  public static readonly requiredFeatures: WebGLFeature[] = [WebGLFeature.UintElementIndex, WebGLFeature.MinimalTextureUnits];
+  private findExtension(name: WebGLExtensionName): any {
+    const ext = this._extensionMap[name];
+    return null !== ext ? ext : undefined;
+  }
+
+  /** Queries an extension object if available.  This is necessary for other parts of the system to access some constants within extensions. */
+  public queryExtensionObject<T>(ext: WebGLExtensionName): T | undefined {
+    return this.findExtension(ext) as T;
+  }
+
+  public static readonly optionalFeatures: WebGLFeature[] = [
+    WebGLFeature.MrtTransparency,
+    WebGLFeature.MrtPick,
+    WebGLFeature.DepthTexture,
+    WebGLFeature.FloatRendering,
+    WebGLFeature.Instancing,
+    WebGLFeature.ShadowMaps,
+    WebGLFeature.FragDepth,
+  ];
+  public static readonly requiredFeatures: WebGLFeature[] = [
+    WebGLFeature.UintElementIndex,
+    WebGLFeature.MinimalTextureUnits,
+  ];
 
   private get _hasRequiredTextureUnits(): boolean { return this.maxFragTextureUnits >= 4 && this.maxVertTextureUnits >= 5; }
 
@@ -185,14 +247,18 @@ export class Capabilities {
       features.push(WebGLFeature.MrtTransparency);
     if (this.supportsMRTPickShaders)
       features.push(WebGLFeature.MrtPick);
+    if (this.supportsShadowMaps)
+      features.push(WebGLFeature.ShadowMaps);
     if (this._hasRequiredTextureUnits)
       features.push(WebGLFeature.MinimalTextureUnits);
+    if (this.supportsFragDepth)
+      features.push(WebGLFeature.FragDepth);
 
     if (DepthType.TextureUnsignedInt24Stencil8 === this._maxDepthType)
       features.push(WebGLFeature.DepthTexture);
 
-    // check if full float rendering is available based on maximum discovered renderable target
-    if (RenderType.TextureFloat === this._maxRenderType)
+    // check if at least half-float rendering is available based on maximum discovered renderable target
+    if (RenderType.TextureUnsignedByte !== this._maxRenderType)
       features.push(WebGLFeature.FloatRendering);
 
     return features;
@@ -250,6 +316,8 @@ export class Capabilities {
     // this._maxDepthType = this.queryExtensionObject("WEBGL_depth_texture") !== undefined ? DepthType.TextureUnsignedInt32 : DepthType.RenderBufferUnsignedShort16;
     this._maxDepthType = this.queryExtensionObject("WEBGL_depth_texture") !== undefined ? DepthType.TextureUnsignedInt24Stencil8 : DepthType.RenderBufferUnsignedShort16;
 
+    this._canRenderDepthWithoutColor = this._maxDepthType === DepthType.TextureUnsignedInt24Stencil8 ? this.isDepthRenderableWithoutColor(gl) : false;
+
     this._presentFeatures = this._gatherFeatures();
     const missingRequiredFeatures = this._findMissingFeatures(Capabilities.requiredFeatures);
     const missingOptionalFeatures = this._findMissingFeatures(Capabilities.optionalFeatures);
@@ -298,64 +366,92 @@ export class Capabilities {
     return fbStatus === gl.FRAMEBUFFER_COMPLETE;
   }
 
+  /** Determines if depth textures can be rendered without also having a color attachment bound on the host system. */
+  private isDepthRenderableWithoutColor(gl: WebGLRenderingContext): boolean {
+    const dtExt = this.queryExtensionObject<WEBGL_depth_texture>("WEBGL_depth_texture");
+    if (dtExt === undefined)
+      return false;
+
+    const tex: WebGLTexture | null = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_STENCIL, 1, 1, 0, gl.DEPTH_STENCIL, dtExt.UNSIGNED_INT_24_8_WEBGL, null);
+
+    const fb: WebGLFramebuffer | null = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
+
+    const fbStatus: number = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fb);
+    gl.deleteTexture(tex);
+
+    gl.getError(); // clear any errors
+
+    return fbStatus === gl.FRAMEBUFFER_COMPLETE;
+  }
+
   private debugPrint(gl: WebGLRenderingContext, missingRequiredFeatures: WebGLFeature[], _missingOptionalFeatures: WebGLFeature[]) {
     if (!Debug.printEnabled)
       return;
 
     Debug.print(() => "GLES Capabilities Information:");
-    Debug.print(() => "     hasRequiredFeatures : " + (0 === missingRequiredFeatures.length ? "yes" : "no"));
-    Debug.print(() => " missingOptionalFeatures : " + (missingRequiredFeatures.length > 0 ? "yes" : "no"));
-    Debug.print(() => " hasRequiredTextureUnits : " + this._hasRequiredTextureUnits);
-    Debug.print(() => "              GL_VERSION : " + gl.getParameter(gl.VERSION));
-    Debug.print(() => "               GL_VENDOR : " + gl.getParameter(gl.VENDOR));
-    Debug.print(() => "             GL_RENDERER : " + gl.getParameter(gl.RENDERER));
-    Debug.print(() => "          maxTextureSize : " + this.maxTextureSize);
-    Debug.print(() => "     maxColorAttachments : " + this.maxColorAttachments);
-    Debug.print(() => "          maxDrawBuffers : " + this.maxDrawBuffers);
-    Debug.print(() => "     maxFragTextureUnits : " + this.maxFragTextureUnits);
-    Debug.print(() => "     maxVertTextureUnits : " + this.maxVertTextureUnits);
-    Debug.print(() => "     nonPowerOf2Textures : " + (this.supportsNonPowerOf2Textures ? "yes" : "no"));
-    Debug.print(() => "             drawBuffers : " + (this.supportsDrawBuffers ? "yes" : "no"));
-    Debug.print(() => "              instancing : " + (this.supportsInstancing ? "yes" : "no"));
-    Debug.print(() => "       32BitElementIndex : " + (this.supports32BitElementIndex ? "yes" : "no"));
-    Debug.print(() => "            textureFloat : " + (this.supportsTextureFloat ? "yes" : "no"));
-    Debug.print(() => "        textureHalfFloat : " + (this.supportsTextureHalfFloat ? "yes" : "no"));
-    Debug.print(() => "        shaderTextureLOD : " + (this.supportsShaderTextureLOD ? "yes" : "no"));
+    Debug.print(() => "       hasRequiredFeatures : " + (0 === missingRequiredFeatures.length ? "yes" : "no"));
+    Debug.print(() => "   missingOptionalFeatures : " + (missingRequiredFeatures.length > 0 ? "yes" : "no"));
+    Debug.print(() => "   hasRequiredTextureUnits : " + this._hasRequiredTextureUnits);
+    Debug.print(() => "                GL_VERSION : " + gl.getParameter(gl.VERSION));
+    Debug.print(() => "                 GL_VENDOR : " + gl.getParameter(gl.VENDOR));
+    Debug.print(() => "               GL_RENDERER : " + gl.getParameter(gl.RENDERER));
+    Debug.print(() => "            maxTextureSize : " + this.maxTextureSize);
+    Debug.print(() => "       maxColorAttachments : " + this.maxColorAttachments);
+    Debug.print(() => "            maxDrawBuffers : " + this.maxDrawBuffers);
+    Debug.print(() => "       maxFragTextureUnits : " + this.maxFragTextureUnits);
+    Debug.print(() => "       maxVertTextureUnits : " + this.maxVertTextureUnits);
+    Debug.print(() => "       nonPowerOf2Textures : " + (this.supportsNonPowerOf2Textures ? "yes" : "no"));
+    Debug.print(() => "               drawBuffers : " + (this.supportsDrawBuffers ? "yes" : "no"));
+    Debug.print(() => "                instancing : " + (this.supportsInstancing ? "yes" : "no"));
+    Debug.print(() => "         32BitElementIndex : " + (this.supports32BitElementIndex ? "yes" : "no"));
+    Debug.print(() => "              textureFloat : " + (this.supportsTextureFloat ? "yes" : "no"));
+    Debug.print(() => "          textureHalfFloat : " + (this.supportsTextureHalfFloat ? "yes" : "no"));
+    Debug.print(() => "          shaderTextureLOD : " + (this.supportsShaderTextureLOD ? "yes" : "no"));
+    Debug.print(() => "                 fragDepth : " + (this.supportsFragDepth ? "yes" : "no"));
+    Debug.print(() => "        disjointTimerQuery : " + (this.supportsDisjointTimerQuery ? "yes" : "no"));
 
     switch (this.maxRenderType) {
       case RenderType.TextureUnsignedByte:
-        Debug.print(() => "           maxRenderType : TextureUnsigedByte");
+        Debug.print(() => "             maxRenderType : TextureUnsigedByte");
         break;
       case RenderType.TextureHalfFloat:
-        Debug.print(() => "           maxRenderType : TextureHalfFloat");
+        Debug.print(() => "             maxRenderType : TextureHalfFloat");
         break;
       case RenderType.TextureFloat:
-        Debug.print(() => "           maxRenderType : TextureFloat");
+        Debug.print(() => "             maxRenderType : TextureFloat");
         break;
       default:
-        Debug.print(() => "           maxRenderType : Unknown");
+        Debug.print(() => "             maxRenderType : Unknown");
     }
 
     switch (this.maxDepthType) {
       case DepthType.RenderBufferUnsignedShort16:
-        Debug.print(() => "            maxDepthType : RenderBufferUnsignedShort16");
+        Debug.print(() => "              maxDepthType : RenderBufferUnsignedShort16");
         break;
       case DepthType.TextureUnsignedInt24Stencil8:
-        Debug.print(() => "            maxDepthType : TextureUnsignedInt24Stencil8");
+        Debug.print(() => "              maxDepthType : TextureUnsignedInt24Stencil8");
         break;
       case DepthType.TextureUnsignedInt32:
-        Debug.print(() => "            maxDepthType : TextureUnsignedInt32");
+        Debug.print(() => "              maxDepthType : TextureUnsignedInt32");
         break;
       default:
-        Debug.print(() => "            maxDepthType : Unknown");
+        Debug.print(() => "              maxDepthType : Unknown");
     }
+
+    Debug.print(() => "canRenderDepthWithoutColor : " + (this.canRenderDepthWithoutColor ? "yes" : "no"));
   }
 }
 
 /** Id map holds key value pairs for both materials and textures, useful for caching such objects.
  * @internal
  */
-export class IdMap implements IDisposable {
+export class IdMap implements WebGLDisposable {
   /** Mapping of materials by their key values. */
   public readonly materials: Map<string, RenderMaterial>;
   /** Mapping of textures by their key values. */
@@ -363,16 +459,18 @@ export class IdMap implements IDisposable {
   /** Mapping of textures using gradient symbology. */
   public readonly gradients: Dictionary<Gradient.Symb, RenderTexture>;
   /** Solar shadow map (one for IModel) */
-  private _solarShadowMap?: RenderSolarShadowMap;
   public constructor() {
     this.materials = new Map<string, RenderMaterial>();
     this.textures = new Map<string, RenderTexture>();
     this.gradients = new Dictionary<Gradient.Symb, RenderTexture>(Gradient.Symb.compareSymb);
   }
 
+  public get isDisposed(): boolean { return 0 === this.textures.size && 0 === this.gradients.size; }
+
   public dispose() {
     const textureArr = Array.from(this.textures.values());
     const gradientArr = this.gradients.extractArrays().values;
+
     for (const texture of textureArr)
       dispose(texture);
 
@@ -381,7 +479,7 @@ export class IdMap implements IDisposable {
 
     this.textures.clear();
     this.gradients.clear();
-    this._solarShadowMap = dispose(this._solarShadowMap);
+    this.materials.clear();
   }
 
   /** Add a material to this IdMap, given that it has a valid key. */
@@ -481,14 +579,14 @@ export class IdMap implements IDisposable {
     return texture;
   }
 
-  /** @internal */
-  /** Get solar shadow map */
-  public getSolarShadowMap(frustum: Frustum, direction: Vector3d, settings: SolarShadows.Settings, view: SpatialViewState) {
-    if (undefined === this._solarShadowMap)
-      this._solarShadowMap = new SolarShadowMap();
+  public collectStatistics(stats: RenderMemory.Statistics): void {
+    for (const texture of this.textures.values())
+      if (texture instanceof Texture)
+        stats.addTexture(texture.bytesUsed);
 
-    (this._solarShadowMap as SolarShadowMap)!.set(frustum, direction, settings, view);
-    return this._solarShadowMap;
+    for (const gradient of this.gradients)
+      if (gradient instanceof Texture)
+        stats.addTexture(gradient.bytesUsed);
   }
 }
 
@@ -501,18 +599,25 @@ const enum VertexAttribState {
   InstancedEnabled = Instanced | Enabled,
 }
 
+function createPrimitive(createGeom: (viOrigin: Point3d | undefined) => CachedGeometry | undefined, instancesOrVIOrigin: InstancedGraphicParams | Point3d | undefined): RenderGraphic | undefined {
+  const viOrigin = instancesOrVIOrigin instanceof Point3d ? instancesOrVIOrigin : undefined;
+  const instances = undefined === viOrigin ? instancesOrVIOrigin as InstancedGraphicParams : undefined;
+  return Primitive.create(() => createGeom(viOrigin), instances);
+}
+
 /** @internal */
-export class System extends RenderSystem {
+export class System extends RenderSystem implements RenderSystemDebugControl, RenderMemory.Consumer, WebGLDisposable {
   public readonly canvas: HTMLCanvasElement;
   public readonly currentRenderState = new RenderState();
   public readonly context: WebGLRenderingContext;
   public readonly frameBufferStack = new FrameBufferStack();  // frame buffers are not owned by the system
   public readonly capabilities: Capabilities;
   public readonly resourceCache: Map<IModelConnection, IdMap>;
-  public readonly enableOptimizedSurfaceShaders: boolean;
+  public readonly glTimer: GLTimer;
   private readonly _drawBuffersExtension?: WEBGL_draw_buffers;
   private readonly _instancingExtension?: ANGLE_instanced_arrays;
   private readonly _textureBindings: TextureBinding[] = [];
+  private _removeEventListener?: () => void;
 
   // NB: Increase the size of these arrays when the maximum number of attributes used by any one shader increases.
   private readonly _curVertexAttribStates: VertexAttribState[] = [
@@ -551,7 +656,7 @@ export class System extends RenderSystem {
   public static createContext(canvas: HTMLCanvasElement, contextAttributes?: WebGLContextAttributes): WebGLRenderingContext | undefined {
     let context = canvas.getContext("webgl", contextAttributes);
     if (null === context) {
-      context = canvas.getContext("experimental-webgl", contextAttributes); // IE, Edge...
+      context = canvas.getContext("experimental-webgl", contextAttributes) as WebGLRenderingContext | null; // IE, Edge...
       if (null === context) {
         return undefined;
       }
@@ -575,7 +680,13 @@ export class System extends RenderSystem {
       hasMajorPerformanceCaveat = true;
       context = System.createContext(canvas); // try to create context without black-listed GPU
       if (undefined === context)
-        return { status: WebGLRenderCompatibilityStatus.CannotCreateContext, missingOptionalFeatures: [], missingRequiredFeatures: [], userAgent: navigator.userAgent };
+        return {
+          status: WebGLRenderCompatibilityStatus.CannotCreateContext,
+          missingOptionalFeatures: [],
+          missingRequiredFeatures: [],
+          userAgent: navigator.userAgent,
+          contextErrorMessage: errorMessage,
+        };
     }
 
     const capabilities = new Capabilities();
@@ -606,7 +717,21 @@ export class System extends RenderSystem {
     // set actual gl state to match desired state defaults
     context.depthFunc(GL.DepthFunc.Default);  // LessOrEqual
 
+    if (!capabilities.supportsShadowMaps)
+      options.displaySolarShadows = false;
+    if (!capabilities.supportsFragDepth)
+      options.logarithmicDepthBuffer = false;
+    if (!capabilities.supportsTextureFilterAnisotropic) {
+      options.filterMapTextures = false;
+      options.filterMapDrapeTextures = false;
+    }
     return new System(canvas, context, capabilities, options);
+  }
+
+  public get isDisposed(): boolean {
+    return undefined === this._techniques
+      && undefined === this._lineCodeTexture
+      && undefined === this._noiseTexture;
   }
 
   // Note: FrameBuffers inside of the FrameBufferStack are not owned by the System, and are only used as a central storage device
@@ -621,7 +746,10 @@ export class System extends RenderSystem {
     });
 
     this.resourceCache.clear();
-    IModelConnection.onClose.removeListener(this.removeIModelMap);
+    if (undefined !== this._removeEventListener) {
+      this._removeEventListener();
+      this._removeEventListener = undefined;
+    }
   }
 
   public onInitialized(): void {
@@ -640,14 +768,25 @@ export class System extends RenderSystem {
   public createOffscreenTarget(rect: ViewRect): RenderTarget { return new OffScreenTarget(rect); }
   public createGraphicBuilder(placement: Transform, type: GraphicType, viewport: Viewport, pickableId?: Id64String): GraphicBuilder { return new PrimitiveBuilder(this, type, viewport, placement, pickableId); }
 
-  public createMesh(params: MeshParams, instances?: InstancedGraphicParams): RenderGraphic | undefined { return MeshGraphic.create(params, instances); }
-  public createPolyline(params: PolylineParams, instances?: InstancedGraphicParams): RenderGraphic | undefined { return Primitive.create(() => PolylineGeometry.create(params), instances); }
-  public createPointString(params: PointStringParams, instances?: InstancedGraphicParams): RenderGraphic | undefined { return Primitive.create(() => PointStringGeometry.create(params), instances); }
+  public createMesh(params: MeshParams, instances?: InstancedGraphicParams | Point3d): RenderGraphic | undefined { return MeshGraphic.create(params, instances); }
+  public createPolyline(params: PolylineParams, instances?: InstancedGraphicParams | Point3d): RenderGraphic | undefined {
+    return createPrimitive((viOrigin) => PolylineGeometry.create(params, viOrigin), instances);
+  }
+  public createPointString(params: PointStringParams, instances?: InstancedGraphicParams | Point3d): RenderGraphic | undefined {
+    return createPrimitive((viOrigin) => PointStringGeometry.create(params, viOrigin), instances);
+  }
   public createPointCloud(args: PointCloudArgs): RenderGraphic | undefined { return Primitive.create(() => new PointCloudGeometry(args)); }
 
   public createGraphicList(primitives: RenderGraphic[]): RenderGraphic { return new GraphicsArray(primitives); }
-  public createGraphicBranch(branch: GraphicBranch, transform: Transform, clips?: ClipPlanesVolume | ClipMaskVolume, classifierOrDrape?: PlanarClassifier | TextureDrape): RenderGraphic { return new Branch(branch, transform, clips, undefined, classifierOrDrape); }
-  public createBatch(graphic: RenderGraphic, features: PackedFeatureTable, range: ElementAlignedBox3d): RenderGraphic { return new Batch(graphic, features, range); }
+  public createGraphicBranch(branch: GraphicBranch, transform: Transform, options?: GraphicBranchOptions): RenderGraphic {
+    return new Branch(branch, transform, undefined, options);
+  }
+
+  public createBatch(graphic: RenderGraphic, features: PackedFeatureTable, range: ElementAlignedBox3d, tileId?: string): RenderGraphic { return new Batch(graphic, features, range, tileId); }
+
+  public createGraphicOwner(owned: RenderGraphic): RenderGraphicOwner {
+    return new GraphicOwner(owned as Graphic);
+  }
 
   public createSkyBox(params: SkyBox.CreateParams): RenderGraphic | undefined {
     if (undefined !== params.cube) {
@@ -760,9 +899,9 @@ export class System extends RenderSystem {
 
     return clipVolume;
   }
-  public createPlanarClassifier(properties: SpatialClassificationProps.Classifier, tileTree: TileTree, classifiedTree: TileTree, sceneContext: SceneContext): RenderPlanarClassifier | undefined { return PlanarClassifier.create(properties, tileTree, classifiedTree, sceneContext); }
-  public createBackgroundMapDrape(drapedTree: TileTree, mapTree: BackgroundMapTileTreeReference) { return BackgroundMapDrape.create(drapedTree, mapTree); }
-  public getSolarShadowMap(frustum: Frustum, direction: Vector3d, settings: SolarShadows.Settings, view: SpatialViewState): RenderSolarShadowMap | undefined { return this.getIdMap(view.iModel).getSolarShadowMap(frustum, direction, settings, view); }
+  public createBackgroundMapDrape(drapedTree: TileTree, mapTree: BackgroundMapTileTreeReference) {
+    return BackgroundMapDrape.create(drapedTree, mapTree);
+  }
 
   private constructor(canvas: HTMLCanvasElement, context: WebGLRenderingContext, capabilities: Capabilities, options: RenderSystem.Options) {
     super(options);
@@ -772,10 +911,17 @@ export class System extends RenderSystem {
     this._drawBuffersExtension = capabilities.queryExtensionObject<WEBGL_draw_buffers>("WEBGL_draw_buffers");
     this._instancingExtension = capabilities.queryExtensionObject<ANGLE_instanced_arrays>("ANGLE_instanced_arrays");
     this.resourceCache = new Map<IModelConnection, IdMap>();
-    this.enableOptimizedSurfaceShaders = undefined !== options && true === options.enableOptimizedSurfaceShaders;
+    this.glTimer = GLTimer.create(this);
 
     // Make this System a subscriber to the the IModelConnection onClose event
-    IModelConnection.onClose.addListener(this.removeIModelMap.bind(this));
+    this._removeEventListener = IModelConnection.onClose.addListener((imodel) => this.removeIModelMap(imodel));
+
+    canvas.addEventListener("webglcontextlost", () => this.handleContextLoss(), false);
+  }
+
+  private async handleContextLoss(): Promise<void> {
+    const msg = IModelApp.i18n.translate("iModelJs:Errors.WebGLContextLost");
+    return ToolAdmin.exceptionHandler(msg);
   }
 
   private getIdMap(imodel: IModelConnection): IdMap {
@@ -906,18 +1052,28 @@ export class System extends RenderSystem {
     return sheetTileGraphics;
   }
 
-  private bindTexture(unit: TextureUnit, target: GL.Texture.Target, texture: TextureBinding): void {
+  private bindTexture(unit: TextureUnit, target: GL.Texture.Target, texture: TextureBinding, makeActive: boolean): void {
     const index = unit - TextureUnit.Zero;
-    if (this._textureBindings[index] === texture)
+    if (this._textureBindings[index] === texture) {
+      if (makeActive)
+        this.context.activeTexture(unit);
+
       return;
+    }
 
     this._textureBindings[index] = texture;
     this.context.activeTexture(unit);
     this.context.bindTexture(target, undefined !== texture ? texture : null);
   }
 
-  public bindTexture2d(unit: TextureUnit, texture: TextureBinding) { this.bindTexture(unit, GL.Texture.Target.TwoDee, texture); }
-  public bindTextureCubeMap(unit: TextureUnit, texture: TextureBinding) { this.bindTexture(unit, GL.Texture.Target.CubeMap, texture); }
+  /** Bind the specified texture to the specified unit. This may *or may not* make the texture *active* */
+  public bindTexture2d(unit: TextureUnit, texture: TextureBinding) { this.bindTexture(unit, GL.Texture.Target.TwoDee, texture, false); }
+  /** Bind the specified texture to the specified unit. This may *or may not* make the texture *active* */
+  public bindTextureCubeMap(unit: TextureUnit, texture: TextureBinding) { this.bindTexture(unit, GL.Texture.Target.CubeMap, texture, false); }
+  /** Bind the specified texture to the specified unit. This *always* makes the texture *active* */
+  public activateTexture2d(unit: TextureUnit, texture: TextureBinding) { this.bindTexture(unit, GL.Texture.Target.TwoDee, texture, true); }
+  /** Bind the specified texture to the specified unit. This *always* makes the texture *active* */
+  public activateTextureCubeMap(unit: TextureUnit, texture: TextureBinding) { this.bindTexture(unit, GL.Texture.Target.CubeMap, texture, true); }
 
   // Ensure *something* is bound to suppress 'no texture assigned to unit x' warnings.
   public ensureSamplerBound(uniform: UniformHandle, unit: TextureUnit): void {
@@ -969,8 +1125,7 @@ export class System extends RenderSystem {
           const wasInstanced = 0 !== (VertexAttribState.Instanced & oldState);
           const nowInstanced = 0 !== (VertexAttribState.Instanced & newState);
           if (wasInstanced !== nowInstanced) {
-            assert(undefined !== this._instancingExtension);
-            this._instancingExtension!.vertexAttribDivisorANGLE(i, nowInstanced ? 1 : 0);
+            this.vertexAttribDivisor(i, nowInstanced ? 1 : 0);
           }
         }
 
@@ -980,6 +1135,11 @@ export class System extends RenderSystem {
       // Set the attribute back to disabled, but preserve the divisor.
       next[i] &= ~VertexAttribState.Enabled;
     }
+  }
+
+  public vertexAttribDivisor(index: number, divisor: number) {
+    assert(undefined !== this._instancingExtension);
+    this._instancingExtension!.vertexAttribDivisorANGLE(index, divisor);
   }
 
   public drawArrays(type: GL.PrimitiveType, first: number, count: number, numInstances: number): void {
@@ -994,5 +1154,39 @@ export class System extends RenderSystem {
   public enableDiagnostics(enable: RenderDiagnostics): void {
     Debug.printEnabled = RenderDiagnostics.None !== (enable & RenderDiagnostics.DebugOutput);
     Debug.evaluateEnabled = RenderDiagnostics.None !== (enable & RenderDiagnostics.WebGL);
+  }
+
+  // RenderSystemDebugControl
+  public get debugControl(): RenderSystemDebugControl { return this; }
+  private _drawSurfacesAsWiremesh = false;
+  public get drawSurfacesAsWiremesh() { return this._drawSurfacesAsWiremesh; }
+  public set drawSurfacesAsWiremesh(asWiremesh: boolean) { this._drawSurfacesAsWiremesh = asWiremesh; }
+  public loseContext(): boolean {
+    const ext = this.capabilities.queryExtensionObject<WEBGL_lose_context>("WEBGL_lose_context");
+    if (undefined === ext)
+      return false;
+
+    ext.loseContext();
+    return true;
+  }
+
+  public compileAllShaders(): boolean {
+    return this.techniques.compileShaders();
+  }
+
+  public get isGLTimerSupported(): boolean { return this.glTimer.isSupported; }
+  public set resultsCallback(callback: GLTimerResultCallback | undefined) {
+    this.glTimer.resultsCallback = callback;
+  }
+
+  public collectStatistics(stats: RenderMemory.Statistics): void {
+    if (undefined !== this._lineCodeTexture)
+      stats.addTexture(this._lineCodeTexture.bytesUsed);
+
+    if (undefined !== this._noiseTexture)
+      stats.addTexture(this._noiseTexture.bytesUsed);
+
+    for (const idMap of this.resourceCache.values())
+      idMap.collectStatistics(stats);
   }
 }

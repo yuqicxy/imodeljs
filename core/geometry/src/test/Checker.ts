@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Geometry } from "../Geometry";
 import { Angle } from "../geometry3d/Angle";
@@ -11,7 +11,7 @@ import { Transform } from "../geometry3d/Transform";
 import { Matrix3d } from "../geometry3d/Matrix3d";
 
 import { GrowableFloat64Array } from "../geometry3d/GrowableFloat64Array";
-import { Range2d, Range3d } from "../geometry3d/Range";
+import { Range2d, Range3d, Range1d } from "../geometry3d/Range";
 import { GeometryQuery } from "../curve/GeometryQuery";
 import { Arc3d } from "../curve/Arc3d";
 import { LineString3d } from "../curve/LineString3d";
@@ -21,6 +21,8 @@ import { Complex } from "../numerics/Complex";
 
 import { GeometryCoreTestIO } from "./GeometryCoreTestIO";
 import { prettyPrint } from "./testFunctions";
+import { MomentData } from "../geometry4d/MomentData";
+import { LongitudeLatitudeNumber } from "../geometry3d/LongitudeLatitudeAltitude";
 
 /* tslint:disable:variable-name no-console*/
 
@@ -38,6 +40,7 @@ export class Checker {
     factorPerpendicularColumns: false,
     symmetricEigenvalues: false,
     momentData: false,
+    matrixMultiplyAliasing: false,
     checkpoint: false,
     flatbufferRoundTrip: false,
     bsplineEvaluation: false,
@@ -66,6 +69,10 @@ export class Checker {
     RaggedViewMatrix: false,
     ReportRoundTripFileNames: false,
     ConvexSetCorners: false,
+    PolygonOffset: false,
+    UnionFind: false,
+    Ellipsoid: false,
+    regionBoolean: false,
   };
   public constructor() { this._numErrors = 0; this._numOK = 0; this._savedErrors = 0; this._savedOK = 0; }
   public getNumErrors(): number { return this._savedErrors + this._numErrors; }
@@ -184,6 +191,12 @@ export class Checker {
     this.announceError("expect same Range3d", dataA, dataB, params);
     return false;
   }
+  public testRange1d(dataA: Range1d, dataB: Range1d, ...params: any[]): boolean {
+    if (dataA.isAlmostEqual(dataB))
+      return this.announceOK();
+    this.announceError("expect same Range1d", dataA, dataB, params);
+    return false;
+  }
 
   public testRange2d(dataA: Range2d, dataB: Range2d, ...params: any[]): boolean {
     if (dataA.isAlmostEqual(dataB))
@@ -235,6 +248,14 @@ export class Checker {
     return false;
   }
 
+  public testDefined(dataA: any, ...params: any[]): boolean {
+    if (dataA !== undefined)
+      return this.announceOK();
+    this.announceError("Expect defined", dataA, params);
+
+    return false;
+  }
+
   public testIsFinite(dataA: any, ...params: any[]): boolean {
     if (Number.isFinite(dataA))
       return this.announceOK();
@@ -273,6 +294,12 @@ export class Checker {
     return this.announceError(" expect same Vector3d", dataA, dataB, params);
   }
 
+  public testLongitudeLatitudeNumber(dataA: LongitudeLatitudeNumber, dataB: LongitudeLatitudeNumber, ...params: any[]): boolean {
+    if (dataA.isAlmostEqual(dataB))
+      return this.announceOK();
+    return this.announceError(" expect same LongitudeLatitudeNumber", dataA, dataB, params);
+  }
+
   public testVector2d(dataA: Vector2d, dataB: Vector2d, ...params: any[]): boolean {
     if (Geometry.isSameVector2d(dataA, dataB))
       return this.announceOK();
@@ -300,6 +327,17 @@ export class Checker {
     if (Geometry.isSmallMetricDistance(dataA.maxDiff(dataB)))
       return this.announceOK();
     return this.announceError(" expect same Matrix4d", dataA, dataB, params);
+  }
+  /**
+   * Test these components of MomentData:
+   * * centroid
+   * * radiiOfGyration
+   * * principal directions
+   */
+  public testCentroidAndRadii(dataA: MomentData, dataB: MomentData, ...params: any[]): boolean {
+    if (MomentData.areEquivalentPrincipalAxes(dataA, dataB))
+      return this.announceOK();
+    return this.announceError("Fail areEquivalentPrincipalAxes", dataA, dataB, params);
   }
 
   public testMatrix3d(dataA: Matrix3d, dataB: Matrix3d, ...params: any[]): boolean {
@@ -501,36 +539,5 @@ export class SaveAndRestoreCheckTransform {
     Checker.setTransform(this.baseTransform);
     Checker.shift(this.finalShift.x, this.finalShift.y, this.finalShift.z);
     this.baseTransform = Checker.getTransform();
-  }
-}
-
-/**
- * Accumulate given values. Return the mean, standard deviation.
- */
-export class UsageSums {
-  public sums: Float64Array = new Float64Array(3);
-  public min: number;
-  public max: number;
-
-  public constructor() {
-    this.min = Number.MAX_VALUE; this.max = -Number.MAX_VALUE;
-    this.clearSums();
-  }
-
-  public get count(): number { return this.sums[0]; }
-  public get mean(): number { return this.sums[0] > 0 ? this.sums[1] / this.sums[0] : 0.0; }
-
-  public clearSums() {
-    this.sums[0] = this.sums[1] = this.sums[2] = 0;
-    this.min = Number.MAX_VALUE;
-    this.max = -Number.MAX_VALUE;
-  }
-
-  public accumulate(x: number) {
-    this.sums[0] += 1;
-    this.sums[1] += x;
-    this.sums[2] += x * x;
-    if (x > this.max) this.max = x;
-    if (x < this.min) this.min = x;
   }
 }

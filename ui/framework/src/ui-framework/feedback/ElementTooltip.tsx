@@ -1,14 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Notification */
+/** @packageDocumentation
+ * @module Notification
+ */
 
 import * as React from "react";
 import * as classnames from "classnames";
 
-import { UiEvent, CommonProps } from "@bentley/ui-core";
-import { Tooltip, offsetAndContainInContainer, PointProps, SizeProps, Rectangle, Point } from "@bentley/ui-ninezone";
+import { UiEvent, CommonProps, PointProps, SizeProps, Rectangle, Point } from "@bentley/ui-core";
+import { Tooltip, offsetAndContainInContainer } from "@bentley/ui-ninezone";
 import { XAndY } from "@bentley/geometry-core";
 import { ToolTipOptions } from "@bentley/imodeljs-frontend";
 
@@ -134,16 +136,17 @@ export class ElementTooltip extends React.Component<CommonProps, ElementTooltipS
     this.setState((prevState) => {
       if (!this._element)
         return null;
+      // istanbul ignore next
       if (!this._position)
         return null;
 
       const containerBounds = Rectangle.create(this._element.getBoundingClientRect());
       const relativeBounds = Rectangle.createFromSize(this._size).offset(this._position);
-      const adjustedPosition = offsetAndContainInContainer(relativeBounds, containerBounds.getSize(), { x: 8, y: 8 });
+      const adjustedPosition: Point = offsetAndContainInContainer(relativeBounds, containerBounds.getSize(), { x: 8, y: 8 });
       const position = adjustedPosition.offset(containerBounds.topLeft());
 
       // istanbul ignore else
-      if (Point.create(position).equals(prevState.position))
+      if (position.equals(prevState.position))
         return null;
 
       return {

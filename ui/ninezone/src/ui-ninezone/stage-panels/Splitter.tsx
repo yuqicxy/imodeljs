@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module StagePanels */
+/** @packageDocumentation
+ * @module StagePanels
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
@@ -50,23 +52,21 @@ export class Splitter extends React.PureComponent<SplitterProps, SplitterState> 
   }
 
   public componentDidMount() {
-    document.addEventListener("mouseup", this._handleDocumentMouseUp);
-    document.addEventListener("mousemove", this._handleDocumentMouseMove);
+    document.addEventListener("pointerup", this._handleDocumentPointerUp);
+    document.addEventListener("pointermove", this._handleDocumentPointerMove);
   }
 
   public componentDidUpdate(prevProps: SplitterProps) {
     const prevCount = React.Children.count(prevProps.children);
     const count = React.Children.count(this.props.children);
     if (prevCount !== count) {
-      this.setState(() => ({
-        sizeByPaneId: this.getInitialPaneSizes(),
-      }));
+      this.setState({ sizeByPaneId: this.getInitialPaneSizes() });
     }
   }
 
   public componentWillUnmount() {
-    document.removeEventListener("mouseup", this._handleDocumentMouseUp);
-    document.removeEventListener("mousemove", this._handleDocumentMouseMove);
+    document.removeEventListener("pointerup", this._handleDocumentPointerUp);
+    document.removeEventListener("pointermove", this._handleDocumentPointerMove);
   }
 
   public render() {
@@ -102,7 +102,7 @@ export class Splitter extends React.PureComponent<SplitterProps, SplitterState> 
             <div
               className="nz-grip"
               key={order}
-              onMouseDown={(e) => this._handleMouseDown(e, index)}
+              onPointerDown={(e) => this._handlePointerDown(e, index)}
               ref={this.getGripRef(index)}
               style={{ order }}
             />
@@ -131,17 +131,17 @@ export class Splitter extends React.PureComponent<SplitterProps, SplitterState> 
     return sizeByPaneId;
   }
 
-  private _handleMouseDown = (e: React.MouseEvent, id: number) => {
+  private _handlePointerDown = (e: React.PointerEvent, id: number) => {
     e.preventDefault();
     this._draggedGrip = id;
   }
 
-  private _handleDocumentMouseUp = (_: MouseEvent) => {
+  private _handleDocumentPointerUp = (_: PointerEvent) => {
     this._draggedGrip = undefined;
   }
 
-  private _handleDocumentMouseMove = (e: MouseEvent) => {
-    this.setState((prevState) => {
+  private _handleDocumentPointerMove = (e: PointerEvent) => {
+    this.setState((prevState, props) => {
       const gripRef = this._draggedGrip === undefined ? undefined : this.getGripRef(this._draggedGrip);
       if (this._draggedGrip === undefined ||
         !this._splitterRef.current ||
@@ -150,12 +150,12 @@ export class Splitter extends React.PureComponent<SplitterProps, SplitterState> 
 
       const gripId = this._draggedGrip;
       const splitterBounds = this._splitterRef.current.getBoundingClientRect();
-      const splitterSize = this.props.isVertical ? splitterBounds.height : splitterBounds.width;
+      const splitterSize = props.isVertical ? splitterBounds.height : splitterBounds.width;
 
       const gripBounds = gripRef.current.getBoundingClientRect();
-      const gripCenterPosition = this.props.isVertical ? gripBounds.top + gripBounds.height / 2 : gripBounds.left + gripBounds.width / 2;
-      const mousePosition = this.props.isVertical ? e.clientY : e.clientX;
-      const resizeByPx = mousePosition - gripCenterPosition;
+      const gripCenterPosition = props.isVertical ? gripBounds.top + gripBounds.height / 2 : gripBounds.left + gripBounds.width / 2;
+      const pointerPosition = props.isVertical ? e.clientY : e.clientX;
+      const resizeByPx = pointerPosition - gripCenterPosition;
 
       const resizeBy = resizeByPx / splitterSize * 100;
       const shrinkPaneId = resizeBy < 0 ? gripId : gripId + 1;

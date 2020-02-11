@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tools */
+/** @packageDocumentation
+ * @module Tools
+ */
 
-import { BeDuration, BeEvent, BeTimePoint, AbandonedError, Logger } from "@bentley/bentleyjs-core";
+import { BeEvent, AbandonedError, Logger } from "@bentley/bentleyjs-core";
 import { Matrix3d, Point2d, Point3d, Transform, Vector3d, XAndY } from "@bentley/geometry-core";
-import { GeometryStreamProps, NpcCenter } from "@bentley/imodeljs-common";
+import { GeometryStreamProps, NpcCenter, Easing } from "@bentley/imodeljs-common";
 import { AccuSnap, TentativeOrAccuSnap } from "../AccuSnap";
 import { LocateOptions } from "../ElementLocateManager";
 import { HitDetail } from "../HitDetail";
@@ -15,16 +17,18 @@ import { ToolSettingsPropertySyncItem, ToolSettingsPropertyItem, ToolSettingsVal
 import { CanvasDecoration } from "../render/System";
 import { IconSprites } from "../Sprites";
 import { DecorateContext, DynamicsContext } from "../ViewContext";
-import { linePlaneIntersect, ScreenViewport, Viewport } from "../Viewport";
-import { ViewState3d, ViewStatus } from "../ViewState";
+import { linePlaneIntersect, ScreenViewport, Viewport, ViewChangeOptions } from "../Viewport";
+import { ViewStatus } from "../ViewState";
 import { IdleTool } from "./IdleTool";
 import { PrimitiveTool } from "./PrimitiveTool";
 import {
   BeButton, BeButtonEvent, BeButtonState, BeModifierKeys, BeTouchEvent, BeWheelEvent, CoordSource, EventHandled,
-  InputCollector, InputSource, InteractiveTool, Tool, CoordinateLockOverrides, ToolSettings,
+  InputCollector, InputSource, InteractiveTool, Tool, CoordinateLockOverrides,
 } from "./Tool";
+import { ToolSettings } from "./ToolSettings";
 import { ViewTool } from "./ViewTool";
 import { MessageBoxType, MessageBoxIconType } from "../NotificationManager";
+import { FrontendLoggerCategory } from "../FrontendLoggerCategory";
 
 /** @public */
 export enum StartOrResume { Start = 1, Resume = 2 }
@@ -117,11 +121,10 @@ export class SuspendedToolState {
 
 /** @internal */
 export class CurrentInputState {
-  private _rawPoint: Point3d = new Point3d();
-  private _uorPoint: Point3d = new Point3d();
-  private _viewPoint: Point3d = new Point3d();
+  private readonly _rawPoint: Point3d = new Point3d();
+  private readonly _point: Point3d = new Point3d();
+  private readonly _viewPoint: Point3d = new Point3d();
   public qualifiers = BeModifierKeys.None;
-  public motionTime = 0;
   public viewport?: ScreenViewport;
   public button: BeButtonState[] = [new BeButtonState(), new BeButtonState(), new BeButtonState()];
   public lastButton: BeButton = BeButton.Data;
@@ -134,18 +137,17 @@ export class CurrentInputState {
 
   public get rawPoint() { return this._rawPoint; }
   public set rawPoint(pt: Point3d) { this._rawPoint.setFrom(pt); }
-  public get uorPoint() { return this._uorPoint; }
-  public set uorPoint(pt: Point3d) { this._uorPoint.setFrom(pt); }
+  public get point() { return this._point; }
+  public set point(pt: Point3d) { this._point.setFrom(pt); }
   public get viewPoint() { return this._viewPoint; }
   public set viewPoint(pt: Point3d) { this._viewPoint.setFrom(pt); }
-  public get wasMotion() { return 0 !== this.motionTime; }
   public get isShiftDown() { return 0 !== (this.qualifiers & BeModifierKeys.Shift); }
   public get isControlDown() { return 0 !== (this.qualifiers & BeModifierKeys.Control); }
   public get isAltDown() { return 0 !== (this.qualifiers & BeModifierKeys.Alt); }
 
   public isDragging(button: BeButton) { return this.button[button].isDragging; }
   public onStartDrag(button: BeButton) { this.button[button].isDragging = true; }
-  public onInstallTool() { this.clearKeyQualifiers(); if (undefined !== this.lastWheelEvent) this.lastWheelEvent.invalidate(); this.lastTouchStart = this.touchTapTimer = this.touchTapCount = undefined; }
+  public onInstallTool() { this.clearKeyQualifiers(); this.lastWheelEvent = undefined; this.lastTouchStart = this.touchTapTimer = this.touchTapCount = undefined; }
   public clearKeyQualifiers() { this.qualifiers = BeModifierKeys.None; }
   public clearViewport(vp: Viewport) { if (vp === this.viewport) this.viewport = undefined; }
   private isAnyDragging() { return this.button.some((button) => button.isDragging); }
@@ -158,25 +160,8 @@ export class CurrentInputState {
   }
 
   public onMotion(pt2d: XAndY) {
-    this.motionTime = Date.now();
     this.lastMotion.x = pt2d.x;
     this.lastMotion.y = pt2d.y;
-  }
-
-  public get hasMotionStopped(): boolean {
-    const result = this.hasEventInputStopped(this.motionTime, ToolSettings.noMotionTimeout);
-    if (result.stopped)
-      this.motionTime = result.eventTimer;
-    return result.stopped;
-  }
-
-  private hasEventInputStopped(timer: number, eventTimeout: BeDuration) {
-    let isStopped = false;
-    if (0 !== timer && ((Date.now() - timer) >= eventTimeout.milliseconds)) {
-      isStopped = true;
-      timer = 0;
-    }
-    return { eventTimer: timer, stopped: isStopped };
   }
 
   public changeButtonToDownPoint(ev: BeButtonEvent) {
@@ -197,7 +182,7 @@ export class CurrentInputState {
     const now = Date.now();
     const isDoubleClick = ((now - this.button[button].downTime) < ToolSettings.doubleClickTimeout.milliseconds) && (viewPt.distance(this.viewPoint) < this.viewport!.pixelsFromInches(ToolSettings.doubleClickToleranceInches));
 
-    this.button[button].init(this.uorPoint, this.rawPoint, now, true, isDoubleClick, false, this.inputSource);
+    this.button[button].init(this.point, this.rawPoint, now, true, isDoubleClick, false, this.inputSource);
     this.lastButton = button;
   }
 
@@ -209,7 +194,7 @@ export class CurrentInputState {
 
   public toEvent(ev: BeButtonEvent, useSnap: boolean) {
     let coordsFrom = CoordSource.User;
-    const point = this.uorPoint.clone();
+    const point = this.point.clone();
     let viewport = this.viewport;
 
     if (useSnap) {
@@ -245,7 +230,7 @@ export class CurrentInputState {
     const state = this.button[BeButton.Data];
     const point = state.downUorPt;
     const rawPoint = state.downRawPt;
-    const viewPoint = this.viewport!.worldToView(rawPoint);
+    const viewPoint = this.viewport ? this.viewport.worldToView(rawPoint) : Point3d.create(); // BeButtonEvent is invalid when viewport is undefined
     ev.init({
       point, rawPoint, viewPoint, viewport: this.viewport!, coordsFrom: CoordSource.User,
       keyModifiers: this.qualifiers, button: BeButton.Data, isDown: state.isDown,
@@ -259,7 +244,7 @@ export class CurrentInputState {
     this._viewPoint.y = pt.y;
     this._viewPoint.z = vp.npcToView(NpcCenter).z;
     vp.viewToWorld(this._viewPoint, this._rawPoint);
-    this._uorPoint = this._rawPoint.clone();
+    this.point = this._rawPoint;
     this.inputSource = source;
   }
 
@@ -272,7 +257,7 @@ export class CurrentInputState {
         IModelApp.toolAdmin.adjustSnapPoint();
       return;
     }
-    IModelApp.toolAdmin.adjustPoint(this._uorPoint, vp, true, applyLocks);
+    IModelApp.toolAdmin.adjustPoint(this._point, vp, true, applyLocks);
   }
 
   public isStartDrag(button: BeButton): boolean {
@@ -321,33 +306,21 @@ export class ToolAdmin {
   private _inputCollector?: InputCollector;
   private _saveCursor?: string;
   private _saveLocateCircle = false;
-  private _modifierKeyWentDown = false;
   private _defaultToolId = "Select";
   private _defaultToolArgs?: any[];
-  private _modifierKey = BeModifierKeys.None;
-  private static _tileTreePurgeTime?: BeTimePoint;
-  private static _tileTreePurgeInterval?: BeDuration;
-  /** Return the name of the [[PrimitiveTool]] to use as the default tool, if any.
+  /** The name of the [[PrimitiveTool]] to use as the default tool. Defaults to "Select".
    * @see [[startDefaultTool]]
    * @internal
    */
   public get defaultToolId(): string { return this._defaultToolId; }
-  /** Set the name of the [[PrimitiveTool]] to use as the default tool, if any.
-   * @see [[startDefaultTool]]
-   * @internal
-   */
   public set defaultToolId(toolId: string) { this._defaultToolId = toolId; }
   /** Return the default arguments to pass in when starting the default tool, if any.
    * @see [[startDefaultTool]]
    * @internal
    */
   public get defaultToolArgs(): any[] | undefined { return this._defaultToolArgs; }
-
-  /** Set the default arguments to pass in when starting the default tool, if any.
-   * @see [[startDefaultTool]]
-   * @internal
-   */
   public set defaultToolArgs(args: any[] | undefined) { this._defaultToolArgs = args; }
+
   /** Apply operations such as transform, copy or delete to all members of an assembly. */
   public assemblyLock = false;
   /** If Grid Lock is on, project data points to grid. */
@@ -384,7 +357,7 @@ export class ToolAdmin {
     const opts = ToolAdmin.exceptionOptions;
     const msg: string = undefined !== exception.stack ? exception.stack : exception.toString();
     if (opts.log)
-      Logger.logError("imodeljs-frontend.unhandledException", msg);
+      Logger.logError(FrontendLoggerCategory.Package + ".unhandledException", msg);
 
     if (opts.launchDebugger) // this does nothing if the debugger window is not already opened
       debugger; // tslint:disable-line:no-debugger
@@ -404,42 +377,25 @@ export class ToolAdmin {
     return IModelApp.notifications.openMessageBox(MessageBoxType.MediumAlert, div, MessageBoxIconType.Critical);
   }
 
-  private static _wantEventLoop = false;
   private static readonly _removals: VoidFunction[] = [];
-
-  // Workaround for Edge Bug.
-  private static _keysCurrentlyDown = new Set<string>(); // The (small) set of keys that are currently pressed.
 
   /** Handler that wants to process synching latest tool setting properties with UI.
    *  @internal
    */
   private _toolSettingsChangeHandler: ((toolId: string, syncProperties: ToolSettingsPropertySyncItem[]) => void) | undefined = undefined;
 
-  /** @internal */
-  /** Set by object that will be provide UI for tool settings properties. */
+  /** Set by object that will be provide UI for tool settings properties.
+   * @internal
+   */
+  public get toolSettingsChangeHandler() { return this._toolSettingsChangeHandler; }
   public set toolSettingsChangeHandler(handler: ((toolId: string, syncProperties: ToolSettingsPropertySyncItem[]) => void) | undefined) {
     this._toolSettingsChangeHandler = handler;
   }
 
-  /** @internal */
-  public get toolSettingsChangeHandler() { return this._toolSettingsChangeHandler; }
-
   /** Handler for keyboard events. */
   private static _keyEventHandler = (ev: KeyboardEvent) => {
-    if (ev.repeat) // we don't want repeated keyboard events. If we keep them they interfere with replacing mouse motion events, since they come as a stream.
-      return;
-
-    // Workaround for Edge Bug. Edge doesn't correctly set the "repeat" flag for keyboard events. We therefore have to implement it
-    // ourselves. Keep the test above since it will be faster for other browsers. We can delete this entire block of code when Edge works correctly.
-    if (ev.type === "keydown") {
-      if (ToolAdmin._keysCurrentlyDown.has(ev.code)) // if we've already received a keydown for this key, its a repeat. Skip it
-        return;
-      ToolAdmin._keysCurrentlyDown.add(ev.code);
-    } else {
-      ToolAdmin._keysCurrentlyDown.delete(ev.code);
-    }
-
-    IModelApp.toolAdmin.addEvent(ev);
+    if (!ev.repeat) // we don't want repeated keyboard events. If we keep them they interfere with replacing mouse motion events, since they come as a stream.
+      ToolAdmin.addEvent(ev);
   }
 
   /** @internal */
@@ -454,30 +410,13 @@ export class ToolAdmin {
       ToolAdmin._removals.push(() => { document.removeEventListener(type, ToolAdmin._keyEventHandler as EventListener, false); });
     });
 
-    // the list of currently down keys can get out of sync if a key goes down and then we lose focus. Clear the list every time we get focus.
-    window.onfocus = () => { ToolAdmin._keysCurrentlyDown.clear(); };
     ToolAdmin._removals.push(() => { window.onfocus = null; });
-  }
-
-  /** @internal */
-  public startEventLoop() {
-    if (!ToolAdmin._wantEventLoop) {
-      ToolAdmin._wantEventLoop = true;
-      const treeExpirationTime = IModelApp.tileAdmin.tileTreeExpirationTime;
-      if (undefined !== treeExpirationTime) {
-        ToolAdmin._tileTreePurgeInterval = treeExpirationTime;
-        ToolAdmin._tileTreePurgeTime = BeTimePoint.now().plus(treeExpirationTime);
-      }
-
-      requestAnimationFrame(ToolAdmin.eventLoop);
-    }
   }
 
   /** @internal */
   public onShutDown() {
     this._idleTool = undefined;
     IconSprites.emptyAll(); // clear cache of icon sprites
-    ToolAdmin._wantEventLoop = false;
     ToolAdmin._removals.forEach((remove) => remove());
     ToolAdmin._removals.length = 0;
   }
@@ -485,32 +424,23 @@ export class ToolAdmin {
   /** Get the ScreenViewport where the cursor is currently, if any. */
   public get cursorView(): ScreenViewport | undefined { return this.currentInputState.viewport; }
 
-  /** A first-in-first-out queue of ToolEvents. */
-  private readonly _toolEvents: ToolEvent[] = [];
-  private tryReplace(event: ToolEvent): boolean {
-    if (this._toolEvents.length < 1)
-      return false;
-    const last = this._toolEvents[this._toolEvents.length - 1];
-    if ((last.ev.type !== "mousemove" && last.ev.type !== "touchmove") || last.ev.type !== event.ev.type)
-      return false; // only mousemove and touchmove can replace previous
-    last.ev = event.ev; // sequential moves are not important. Replace the previous one with this one.
-    last.vp = event.vp;
-    return true;
-  }
-
-  /** Called from HTML event listeners. Events are processed in the order they're received in ToolAdmin.eventLoop
+  /** Called from ViewManager.dropViewport to prevent tools from continuing to operate on the dropped viewport.
    * @internal
    */
-  public addEvent(ev: Event, vp?: ScreenViewport): void {
-    const event = { ev, vp };
-    if (!this.tryReplace(event)) // see if this event replaces the last event in the queue
-      this._toolEvents.push(event); // otherwise put it at the end of the queue.
+  public forgetViewport(vp: ScreenViewport): void {
+    // make sure tools don't think the cursor is still in this viewport.
+    this.onMouseLeave(vp);
+
+    // Remove any events associated with this viewport.
+    ToolAdmin._toolEvents = ToolAdmin._toolEvents.filter((ev) => ev.vp !== vp);
   }
 
   private getMousePosition(event: ToolEvent): XAndY {
-    const ev = event.ev as MouseEvent;
-    const rect = event.vp!.getClientRect();
-    return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+    return event.vp!.mousePosFromEvent(event.ev as MouseEvent);
+  }
+
+  private getMouseMovement(event: ToolEvent): XAndY {
+    return event.vp!.mouseMovementFromEvent(event.ev as MouseEvent);
   }
 
   private getMouseButton(button: number) {
@@ -557,7 +487,7 @@ export class ToolAdmin {
 
     const pt2d = this.getMousePosition(event);
 
-    vp.removeAnimator();
+    vp.setAnimator();
     current.fromButton(vp, pt2d, InputSource.Mouse, true);
     const wheelEvent = new BeWheelEvent();
     wheelEvent.wheelDelta = delta;
@@ -573,19 +503,55 @@ export class ToolAdmin {
     return EventHandled.Yes;
   }
 
+  private async sendTapEvent(touchEv: BeTouchEvent): Promise<EventHandled> {
+    touchEv.viewport!.setAnimator();
+    const overlayHit = this.pickCanvasDecoration(touchEv);
+    if (undefined !== overlayHit && undefined !== overlayHit.onMouseButton && overlayHit.onMouseButton(touchEv))
+      return EventHandled.Yes;
+
+    if (await IModelApp.accuSnap.onTouchTap(touchEv))
+      return EventHandled.Yes;
+
+    const tool = this.activeTool;
+    if (undefined !== tool && EventHandled.Yes === await tool.onTouchTap(touchEv))
+      return EventHandled.Yes;
+
+    return this.idleTool.onTouchTap(touchEv);
+  }
+
+  private async doubleTapTimeout(): Promise<void> {
+    const current = this.currentInputState;
+    if (undefined === current.touchTapTimer)
+      return;
+
+    const touchEv = current.lastTouchStart;
+    const numTouches = (undefined !== current.lastTouchStart ? current.lastTouchStart.touchCount : 0);
+    const numTaps = (undefined !== current.touchTapCount ? current.touchTapCount : 0);
+
+    current.touchTapTimer = current.touchTapCount = current.lastTouchStart = undefined;
+    if (undefined === touchEv || 0 > numTouches || 0 > numTaps)
+      return;
+
+    touchEv.tapCount = numTaps;
+    await this.sendTapEvent(touchEv);
+  }
+
   private async onTouch(event: ToolEvent): Promise<void> {
     const touchEvent = event.ev as TouchEvent;
     const vp = event.vp!;
     if (this.filterViewport(vp))
       return;
 
-    vp.removeAnimator();
     const ev = new BeTouchEvent({ touchEvent });
     const current = this.currentInputState;
     const pos = BeTouchEvent.getTouchListCentroid(0 !== touchEvent.targetTouches.length ? touchEvent.targetTouches : touchEvent.changedTouches, vp);
 
     switch (touchEvent.type) {
       case "touchstart":
+        if (touchEvent.changedTouches.length === touchEvent.targetTouches.length)
+          vp.setAnimator(); // Clear viewport animator on start of new touch input (first contact point added)...
+        current.setKeyQualifiers(touchEvent);
+        break;
       case "touchend":
         current.setKeyQualifiers(touchEvent);
         break;
@@ -615,6 +581,9 @@ export class ToolAdmin {
         if (undefined === current.lastTouchStart)
           return;
 
+        if (ev.touchEvent.timeStamp - current.lastTouchStart.touchEvent.timeStamp > (2.0 * ToolSettings.doubleTapTimeout.milliseconds))
+          return; // Too much time has passed from touchstart to be considered a tap...
+
         // tslint:disable-next-line:prefer-for-of
         for (let i = 0; i < ev.touchEvent.changedTouches.length; i++) {
           const currTouch = ev.touchEvent.changedTouches[i];
@@ -639,6 +608,7 @@ export class ToolAdmin {
         if (undefined === current.touchTapTimer) {
           current.touchTapTimer = Date.now();
           current.touchTapCount = 1;
+          ToolSettings.doubleTapTimeout.executeAfter(this.doubleTapTimeout, this); // tslint:disable-line: no-floating-promises
         } else if (undefined !== current.touchTapCount) {
           current.touchTapCount++;
         }
@@ -664,7 +634,7 @@ export class ToolAdmin {
           return;
 
         // tslint:disable-next-line:prefer-for-of
-        for (let i = 0; i < ev.touchEvent.changedTouches.length; i++) {
+        for (let i = 0; i < ev.touchEvent.changedTouches.length; ++i) {
           const currTouch = ev.touchEvent.changedTouches[i];
           const startTouch = BeTouchEvent.findTouchById(current.lastTouchStart.touchEvent.targetTouches, currTouch.identifier);
 
@@ -692,9 +662,41 @@ export class ToolAdmin {
     }
   }
 
+  /** A first-in-first-out queue of ToolEvents. */
+  private static _toolEvents: ToolEvent[] = [];
+  private static tryReplace(ev: Event, vp?: ScreenViewport): boolean {
+    if (ToolAdmin._toolEvents.length < 1)
+      return false;
+    const last = ToolAdmin._toolEvents[ToolAdmin._toolEvents.length - 1];
+    const lastType = last.ev.type;
+    if (lastType !== ev.type || (lastType !== "mousemove" && lastType !== "touchmove"))
+      return false; // only mousemove and touchmove can replace previous
+    last.ev = ev; // sequential moves are not important. Replace the previous one with this one.
+    last.vp = vp;
+    return true;
+  }
+
+  /** @internal */
+  private static getNextEvent(): ToolEvent | undefined {
+    if (ToolAdmin._toolEvents.length > 1) // if there is more than one event, we're going to need another animation frame to process it.
+      IModelApp.requestNextAnimation();
+
+    return ToolAdmin._toolEvents.shift(); // pull first event from the queue
+  }
+
+  /** Called from HTML event listeners. Events are processed in the order they're received in ToolAdmin.eventLoop
+   * @internal
+   */
+  public static addEvent(ev: Event, vp?: ScreenViewport): void {
+    if (!ToolAdmin.tryReplace(ev, vp)) // see if this event replaces the last event in the queue
+      this._toolEvents.push({ ev, vp }); // otherwise put it at the end of the queue.
+
+    IModelApp.requestNextAnimation(); // wake up event loop, if
+  }
+
   /** Process the next event in the event queue, if any. */
   private async processNextEvent(): Promise<any> {
-    const event = this._toolEvents.shift(); // pull first event from the queue
+    const event = ToolAdmin.getNextEvent(); // pull first event from the queue
     if (undefined === event)
       return; // nothing in queue
 
@@ -702,20 +704,8 @@ export class ToolAdmin {
       case "mousedown": return this.onMouseButton(event, true);
       case "mouseup": return this.onMouseButton(event, false);
       case "mousemove": return this.onMouseMove(event);
-      case "mouseover": {
-        // handle the mouseover (which is similar to mouseenter) only if the target is our canvas.
-        if (event.ev.target === event.vp!.canvas) {
-          return this.onMouseEnter(event.vp!);
-        }
-        return;
-      }
-      case "mouseout": {
-        // handle the mouseout (which is similar to mouseleave) only if the target is our canvas.
-        if (event.ev.target === event.vp!.canvas) {
-          return this.onMouseLeave(event.vp!);
-        }
-        return;
-      }
+      case "mouseover": return this.onMouseEnter(event.vp!);
+      case "mouseout": return this.onMouseLeave(event.vp!);
       case "wheel": return this.onWheel(event);
       case "keydown": return this.onKeyTransition(event, true);
       case "keyup": return this.onKeyTransition(event, false);
@@ -729,14 +719,14 @@ export class ToolAdmin {
   private _processingEvent = false;
   /**
    * Process a single event, plus timer events. Don't start work on new events if the previous one has not finished.
+   * @internal
    */
-  private async processEvent(): Promise<void> {
+  public async processEvent(): Promise<void> {
     if (this._processingEvent)
       return; // we're still working on the previous event.
 
     try {
       this._processingEvent = true;  // we can't allow any further event processing until the current event completes.
-      await this.onTimerEvent();     // timer events are also suspended by asynchronous tool events. That's necessary since they can be asynchronous too.
       await this.processNextEvent();
     } catch (exception) {
       await ToolAdmin.exceptionHandler(exception); // we don't attempt to exit here
@@ -745,38 +735,14 @@ export class ToolAdmin {
     }
   }
 
-  /** The main event processing loop for Tools (and rendering). */
-  private static eventLoop() {
-    if (!ToolAdmin._wantEventLoop) // flag turned on at startup
-      return;
-
-    try {
-      IModelApp.toolAdmin.processEvent(); // tslint:disable-line:no-floating-promises
-      IModelApp.viewManager.renderLoop();
-      IModelApp.tileAdmin.process();
-
-      if (undefined !== ToolAdmin._tileTreePurgeTime && ToolAdmin._tileTreePurgeTime.milliseconds < Date.now()) {
-        const now = BeTimePoint.now();
-        ToolAdmin._tileTreePurgeTime = now.plus(ToolAdmin._tileTreePurgeInterval!);
-        IModelApp.viewManager.purgeTileTrees(now.minus(ToolAdmin._tileTreePurgeInterval!));
-      }
-    } catch (exception) {
-      ToolAdmin.exceptionHandler(exception).then(() => { // tslint:disable-line:no-floating-promises
-        close(); // this does nothing in a web browser, closes electron.
-      });
-      return; // unrecoverable after exception, don't request any further frames.
-    }
-
-    requestAnimationFrame(ToolAdmin.eventLoop);
-  }
-
   /** The idleTool handles events that are not otherwise processed. */
   public get idleTool(): IdleTool { return this._idleTool!; }
 
   /** Return true to filter (ignore) events to the given viewport */
-  protected filterViewport(vp: Viewport) {
-    if (undefined === vp)
+  protected filterViewport(vp: ScreenViewport) {
+    if (undefined === vp || vp.isDisposed)
       return true;
+
     const tool = this.activeTool;
     return (undefined !== tool ? !tool.isCompatibleViewport(vp, false) : false);
   }
@@ -816,7 +782,7 @@ export class ToolAdmin {
   private async onMouseEnter(vp: ScreenViewport): Promise<void> { this.currentInputState.viewport = vp; }
 
   /** @internal */
-  public async onMouseLeave(vp: ScreenViewport): Promise<void> {
+  public onMouseLeave(vp: ScreenViewport): void {
     IModelApp.accuSnap.clear();
     this.currentInputState.clearViewport(vp);
     this.setCanvasDecoration(vp);
@@ -846,57 +812,6 @@ export class ToolAdmin {
     const context = new DynamicsContext(ev.viewport);
     this.activeTool.onDynamicFrame(ev, context);
     context.changeDynamics();
-  }
-
-  /** This is invoked on a timer to update  input state and forward events to tools.
-   * @internal
-   */
-  private async onTimerEvent(): Promise<void> {
-    const tool = this.activeTool;
-    const current = this.currentInputState;
-
-    if (undefined !== current.touchTapTimer) {
-      const now = Date.now();
-      if ((now - current.touchTapTimer) >= ToolSettings.doubleTapTimeout.milliseconds) {
-        const touchEv = current.lastTouchStart;
-        const numTouches = (undefined !== current.lastTouchStart ? current.lastTouchStart.touchCount : 0);
-        const numTaps = (undefined !== current.touchTapCount ? current.touchTapCount : 0);
-
-        current.touchTapTimer = current.touchTapCount = current.lastTouchStart = undefined;
-
-        if (undefined !== touchEv && numTouches > 0 && numTaps > 0) {
-          touchEv.tapCount = numTaps;
-          const overlayHit = this.pickCanvasDecoration(touchEv);
-          if (undefined !== overlayHit && undefined !== overlayHit.onMouseButton && overlayHit.onMouseButton(touchEv))
-            return;
-          if (await IModelApp.accuSnap.onTouchTap(touchEv))
-            return;
-          if ((undefined !== tool && EventHandled.Yes === await tool.onTouchTap(touchEv)) || EventHandled.Yes === await this.idleTool.onTouchTap(touchEv))
-            return;
-        }
-      }
-    }
-
-    const ev = new BeButtonEvent();
-    current.toEvent(ev, true);
-
-    const wasMotion = current.wasMotion;
-    if (!wasMotion) {
-      if (tool)
-        await tool.onMouseNoMotion(ev);
-
-      if (InputSource.Mouse === current.inputSource && this.currentInputState.viewport) {
-        await IModelApp.accuSnap.onNoMotion(ev);
-      }
-    }
-
-    if (current.hasMotionStopped) {
-      if (tool)
-        await tool.onMouseMotionStopped(ev);
-      if (InputSource.Mouse === current.inputSource) {
-        IModelApp.accuSnap.onMotionStopped(ev);
-      }
-    }
   }
 
   public async sendEndDragEvent(ev: BeButtonEvent): Promise<any> {
@@ -936,7 +851,7 @@ export class ToolAdmin {
     return decoration;
   }
 
-  private async onMotion(vp: ScreenViewport, pt2d: XAndY, inputSource: InputSource, forceStartDrag: boolean = false): Promise<any> {
+  private async onMotion(vp: ScreenViewport, pt2d: XAndY, inputSource: InputSource, forceStartDrag: boolean = false, movement?: XAndY): Promise<any> {
     const current = this.currentInputState;
     current.onMotion(pt2d);
 
@@ -965,6 +880,7 @@ export class ToolAdmin {
 
     current.fromButton(vp, pt2d, inputSource, true);
     current.toEvent(ev, true);
+    ev.movement = movement;
 
     IModelApp.accuDraw.onMotion(ev);
 
@@ -998,6 +914,7 @@ export class ToolAdmin {
   private async onMouseMove(event: ToolEvent): Promise<any> {
     const vp = event.vp!;
     const pos = this.getMousePosition(event);
+    const mov = this.getMouseMovement(event);
 
     // Sometimes the mouse goes down in a view, but we lose focus while its down so we never receive the up event.
     // That makes it look like the motion is a drag. Fix that by clearing the "isDown" based on the buttons member of the MouseEvent.
@@ -1005,7 +922,7 @@ export class ToolAdmin {
     if (!(buttonMask & 1))
       this.currentInputState.button[BeButton.Data].isDown = false;
 
-    return this.onMotion(vp, pos, InputSource.Mouse);
+    return this.onMotion(vp, pos, InputSource.Mouse, false, mov);
   }
 
   public adjustPointToACS(pointActive: Point3d, vp: Viewport, perpendicular: boolean): void {
@@ -1180,7 +1097,7 @@ export class ToolAdmin {
     if (filtered)
       return;
 
-    vp.removeAnimator();
+    vp.setAnimator();
     const ev = new BeButtonEvent();
     const current = this.currentInputState;
     current.fromButton(vp, pt2d, inputSource, true);
@@ -1211,14 +1128,8 @@ export class ToolAdmin {
 
   /** Called when any *modifier* (Shift, Alt, or Control) key is pressed or released. */
   private async onModifierKeyTransition(wentDown: boolean, modifier: BeModifierKeys, event: KeyboardEvent): Promise<void> {
-    if (wentDown === this._modifierKeyWentDown && modifier === this._modifierKey)
-      return;
-
     const activeTool = this.activeTool;
     const changed = activeTool ? await activeTool.onModifierKeyTransition(wentDown, modifier, event) : EventHandled.No;
-
-    this._modifierKey = modifier;
-    this._modifierKeyWentDown = wentDown;
 
     if (changed === EventHandled.Yes) {
       IModelApp.viewManager.invalidateDecorationsAllViews();
@@ -1495,7 +1406,7 @@ export class ToolAdmin {
     this.fillEventFromCursorLocation(ev);
 
     const hit = IModelApp.accuDraw.isActive ? undefined : IModelApp.accuSnap.currHit; // NOTE: Show surface normal until AccuDraw becomes active
-    viewport.drawLocateCursor(context, ev.point, viewport.pixelsFromInches(IModelApp.locateManager.apertureInches), this.isLocateCircleOn, hit);
+    viewport.drawLocateCursor(context, ev.viewPoint, viewport.pixelsFromInches(IModelApp.locateManager.apertureInches), this.isLocateCircleOn, hit);
   }
 
   public get isLocateCircleOn(): boolean { return this.toolState.locateCircleOn && this.currentInputState.inputSource === InputSource.Mouse && this._canvasDecoration === undefined; }
@@ -1609,8 +1520,8 @@ export class ToolAdmin {
   }
 
   public setLocateCursor(enableLocate: boolean): void {
-    const { viewManager } = IModelApp;
-    this.setCursor(viewManager.inDynamicsMode ? IModelApp.viewManager.dynamicsCursor : IModelApp.viewManager.crossHairCursor);
+    const viewManager = IModelApp.viewManager;
+    this.setCursor(viewManager.inDynamicsMode ? viewManager.dynamicsCursor : viewManager.crossHairCursor);
     this.setLocateCircleOn(enableLocate);
     viewManager.invalidateDecorationsAllViews();
   }
@@ -1637,8 +1548,6 @@ export class WheelEventProcessor {
     await this.doZoom(ev);
 
     if (doUpdate) {
-      vp.synchWithView(true);
-
       // AccuSnap hit won't be invalidated without cursor motion (closes info window, etc.).
       IModelApp.accuSnap.clear();
     }
@@ -1667,61 +1576,63 @@ export class WheelEventProcessor {
       target.setFrom(isSnapOrPrecision ? ev.point : ev.rawPoint);
     }
 
+    const animationOptions: ViewChangeOptions = {
+      animateFrustumChange: true,
+      cancelOnAbort: true,
+      animationTime: ScreenViewport.animation.time.wheel.milliseconds,
+      easingFunction: Easing.Cubic.Out,
+    };
+
+    const view = vp.view;
+    const currentInputState = IModelApp.toolAdmin.currentInputState;
     let status: ViewStatus;
-    if (vp.view.is3d() && vp.isCameraOn) {
-      let lastEventWasValid: boolean = false;
+    const now = Date.now();
+    if (view.is3d() && view.isCameraOn) {
       if (!isSnapOrPrecision) {
-        const targetNpc = vp.worldToNpc(target);
-        const newTarget = new Point3d();
-        const lastEvent = IModelApp.toolAdmin.currentInputState.lastWheelEvent;
-        if (lastEvent && lastEvent.viewport && lastEvent.viewport.view.equals(vp.view) && lastEvent.viewPoint.distanceSquaredXY(ev.viewPoint) < 10) {
-          vp.worldToNpc(lastEvent.point, newTarget);
-          targetNpc.z = newTarget.z;
-          lastEventWasValid = true;
-        } else if (undefined !== vp.pickNearestVisibleGeometry(target, vp.pixelsFromInches(ToolSettings.viewToolPickRadiusInches), true, newTarget)) {
-          vp.worldToNpc(newTarget, newTarget);
-          targetNpc.z = newTarget.z;
+        let lastEvent = currentInputState.lastWheelEvent;
+        if (undefined !== lastEvent && lastEvent.viewport &&
+          now - lastEvent.time < ToolSettings.doubleClickTimeout.milliseconds &&
+          lastEvent.viewport.view.equals(view) && lastEvent.viewPoint.distanceSquaredXY(ev.viewPoint) < 10) {
+          target.setFrom(lastEvent.point);
+          lastEvent.time = now;
         } else {
-          vp.view.getTargetPoint(newTarget);
-          vp.worldToNpc(newTarget, newTarget);
-          targetNpc.z = newTarget.z;
+          const newTarget = vp.pickNearestVisibleGeometry(target);
+          if (undefined !== newTarget) {
+            target.setFrom(newTarget);
+          } else {
+            view.getTargetPoint(target);
+          }
+          currentInputState.lastWheelEvent = lastEvent = ev.clone();
+          lastEvent.point.setFrom(target);
         }
-        vp.npcToWorld(targetNpc, target);
       }
 
-      const cameraView: ViewState3d = vp.view;
       const transform = Transform.createFixedPointAndMatrix(target, Matrix3d.createScale(zoomRatio, zoomRatio, zoomRatio));
-      const oldCameraPos = cameraView.getEyePoint();
-      const newCameraPos = transform.multiplyPoint3d(oldCameraPos);
-      const offset = Vector3d.createStartEnd(oldCameraPos, newCameraPos);
+      const eye = view.getEyePoint();
+      const newEye = transform.multiplyPoint3d(eye);
+      const offset = eye.vectorTo(newEye);
 
       // when you're too close to an object, the wheel zoom operation will stop. We set a "bump distance" so you can blast through obstacles.
-      if (!isSnapOrPrecision && offset.magnitude() < ToolSettings.wheelZoomBumpDistance) {
-        offset.scaleToLength(ToolSettings.wheelZoomBumpDistance / 3.0, offset); // move 1/3 of the bump distance, just to get to the other side.
-        lastEventWasValid = false;
+      const bumpDist = Math.max(ToolSettings.wheelZoomBumpDistance, view.minimumFrontDistance());
+      if (offset.magnitude() < bumpDist) {
+        offset.scaleToLength(bumpDist, offset); // move bump distance, just to get to the other side.
         target.addInPlace(offset);
+        newEye.setFrom(eye.plus(offset));
+        currentInputState.lastWheelEvent = undefined; // we need to search on the "other side" of what we were bumping into
       }
 
-      const viewTarget = cameraView.getTargetPoint().clone();
-      viewTarget.addInPlace(offset);
-      newCameraPos.setFrom(oldCameraPos.plus(offset));
+      const zDir = view.getZVector();
+      target.setFrom(newEye.plusScaled(zDir, zDir.dotProduct(newEye.vectorTo(target))));
 
-      if (!lastEventWasValid) {
-        const thisEvent = ev.clone();
-        thisEvent.point.setFrom(target);
-        IModelApp.toolAdmin.currentInputState.lastWheelEvent = thisEvent;
-      }
-
-      status = cameraView.lookAt(newCameraPos, viewTarget, cameraView.getYVector());
-      vp.synchWithView(false);
+      status = view.lookAtUsingLensAngle(newEye, target, view.getYVector(), view.camera.lens);
+      vp.synchWithView(animationOptions);
     } else {
       const targetNpc = vp.worldToNpc(target);
       const trans = Transform.createFixedPointAndMatrix(targetNpc, Matrix3d.createScale(zoomRatio, zoomRatio, 1));
-      const viewCenter = Point3d.create(.5, .5, .5);
 
-      trans.multiplyPoint3d(viewCenter, viewCenter);
+      const viewCenter = trans.multiplyPoint3d(Point3d.create(.5, .5, .5));
       vp.npcToWorld(viewCenter, viewCenter);
-      vp.zoom(viewCenter, zoomRatio, { saveInUndo: false, animateFrustumChange: false });
+      vp.zoom(viewCenter, zoomRatio, animationOptions);
       status = ViewStatus.Success;
     }
 

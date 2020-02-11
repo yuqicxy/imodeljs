@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 // tslint:disable:variable-name
 // tslint:disable:no-var-requires
 // tslint:disable:no-console
 import * as path from "path";
+
+const fs = require("fs-extra")
 const { logBuildWarning, logBuildError, failBuild } = require("../scripts/rush/utils");
 
 const Base = require("mocha/lib/reporters/base");
@@ -55,13 +57,23 @@ class BentleyMochaReporter extends Spec {
       }
     }
 
+    if (!this.stats.pending)
+      return;
+
     // Also log warnings in CI builds when tests have been skipped.
-    if (this.stats.pending) {
-      const currentPackage = require(path.join(process.cwd(), "package.json")).name;
+    const currentPkgJson = path.join(process.cwd(), "package.json");
+
+    if (fs.existsSync(currentPkgJson)) {
+      const currentPackage = require(currentPkgJson).name;
       if (this.stats.pending === 1)
         logBuildWarning(`1 test skipped in ${currentPackage}`);
       else
         logBuildWarning(`${this.stats.pending} tests skipped in ${currentPackage}`);
+    } else {
+      if (this.stats.pending === 1)
+        logBuildWarning(`1 test skipped`);
+      else
+        logBuildWarning(`${this.stats.pending} tests skipped`);
     }
   }
 }

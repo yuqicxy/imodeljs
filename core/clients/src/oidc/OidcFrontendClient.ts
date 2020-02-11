@@ -1,8 +1,12 @@
 
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Authentication
+ */
+
 import { IDisposable, BeEvent, ClientRequestContext } from "@bentley/bentleyjs-core";
 import { AccessToken } from "../Token";
 import { IAuthorizationClient } from "../AuthorizationClient";
@@ -40,7 +44,7 @@ export interface IOidcFrontendClient extends IDisposable, IAuthorizationClient {
 }
 
 /**
- * Client configuration to generate OIDC/OAuth tokens for browser, desktop and mobile applications
+ * Client configuration to generate OIDC/OAuth tokens for browser applications
  * @beta
  */
 export interface OidcFrontendClientConfiguration {
@@ -48,7 +52,6 @@ export interface OidcFrontendClientConfiguration {
   clientId: string;
   /**
    * Upon signing in, the client application receives a response from the Bentley IMS OIDC/OAuth2 provider at this URI
-   * For mobile/desktop applications, must be `http://127.0.0.1:${redirectPort}`
    */
   redirectUri: string;
   /** List of space separated scopes to request access to various resources. */
@@ -58,4 +61,34 @@ export interface OidcFrontendClientConfiguration {
    * Not specified/used in the case of mobile/desktop applications
    */
   postSignoutRedirectUri?: string;
+  /**
+   * The type(s) of response(s) desired from the OIDC/OAuth2 provider.
+   * Assumes the server does allow CORS on the metadata endpoint.
+   * Pass "id_token token" for use with implicit flow, and "code" for use in
+   * authorization code flows.
+   * @internal
+   */
+  responseType?: string;
+  /**
+   * The URL of the OIDC/OAuth2 provider - if unspecified this defaults to the Bentley provider.
+   * @internal
+   */
+  authority?: string;
+
+  /**
+   * The authority URL setting is used to make HTTP requests to discover more information about the
+   * OIDC/OAuth2 provider and populate a metadata property on the settings. Need not be specified
+   * if accessing the Bentley authorization provider. It's only useful when authorization requests
+   * are made to providers that do NOT allow CORS on the metadata endpoint, and allows these end points
+   * to be manually configured. The metadata can include issuer, authorization_endpoint, userinfo_endpoint,
+   * end_session_endpoint, jwks_uri
+   * @internal
+   */
+  metadata?: any;
+  /**
+   * The window of time (in seconds) to allow the current time to deviate when validating id_token
+   * Defaults to 300 seconds
+   * @internal
+   */
+  clockSkew?: number;
 }

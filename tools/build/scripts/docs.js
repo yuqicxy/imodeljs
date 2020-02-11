@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
@@ -47,8 +47,8 @@ const options = [
   "--excludeExternals",
   "--excludeNotExported",
   "--ignoreCompilerErrors",
-  "--hideGenerator"
-]
+  "--hideGenerator",
+];
 
 if (argv.name) options.push("--name", argv.name);
 
@@ -67,7 +67,7 @@ const args = [
   "--internal-aliases", "UNUSED",
   ...baseUrlOptions,
   ...includeOptions
-]
+];
 
 console.log("Arguments to TypeDoc: " + JSON.stringify(args, null, 2));
 

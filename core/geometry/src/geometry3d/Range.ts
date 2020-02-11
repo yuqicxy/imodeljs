@@ -1,17 +1,21 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module CartesianGeometry */
+/** @packageDocumentation
+ * @module CartesianGeometry
+ */
 
-import { BeJSONFunctions, Geometry } from "../Geometry";
+import { BeJSONFunctions, Geometry, AxisIndex } from "../Geometry";
 import { GrowableXYZArray } from "./GrowableXYZArray";
 import { Matrix3d } from "./Matrix3d";
 import { Point2d, Vector2d } from "./Point2dVector2d";
 import { Point3d, Vector3d } from "./Point3dVector3d";
 import { Transform } from "./Transform";
 import { LowAndHighXY, LowAndHighXYZ, Range1dProps, Range2dProps, Range3dProps, XAndY, XYAndZ } from "./XYZProps";
+import { PointStreamRangeCollector, VariantPointDataStream } from "./PointStreaming";
+import { MultiLineStringDataVariant } from "../topology/Triangulation";
 /**
  * Base class for Range1d, Range2d, Range3d.
  * @public
@@ -99,7 +103,7 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
   public toFloat64Array(): Float64Array { return Range3d.toFloat64Array(this); }
   /**
    * Construct a Range3d from an array of double-precision values
-   * @param f64 the array, which should contain exactly 6 values in this order: lowx, lowy, lowz, highx, highy, highz
+   * @param f64 the array, which should contain exactly 6 values in this order: lowX, lowY, lowZ, highX, highY, highZ
    * @return a new Range3d object
    */
   public static fromFloat64Array<T extends Range3d>(f64: Float64Array): T {
@@ -115,11 +119,11 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
   public static fromArrayBuffer<T extends Range3d>(buffer: ArrayBuffer): T { return this.fromFloat64Array(new Float64Array(buffer)); }
 
   // explicit ctor - no enforcement of value relationships
-  public constructor(lowx: number = RangeBase._EXTREME_POSITIVE, lowy: number = RangeBase._EXTREME_POSITIVE, lowz: number = RangeBase._EXTREME_POSITIVE,
-    highx: number = RangeBase._EXTREME_NEGATIVE, highy: number = RangeBase._EXTREME_NEGATIVE, highz: number = RangeBase._EXTREME_NEGATIVE) {
+  public constructor(lowX: number = RangeBase._EXTREME_POSITIVE, lowY: number = RangeBase._EXTREME_POSITIVE, lowZ: number = RangeBase._EXTREME_POSITIVE,
+    highX: number = RangeBase._EXTREME_NEGATIVE, highY: number = RangeBase._EXTREME_NEGATIVE, highZ: number = RangeBase._EXTREME_NEGATIVE) {
     super();
-    this.low = Point3d.create(lowx, lowy, lowz);
-    this.high = Point3d.create(highx, highy, highz);
+    this.low = Point3d.create(lowX, lowY, lowZ);
+    this.high = Point3d.create(highX, highY, highZ);
   }
 
   /** Returns true if this and other have equal low and high parts, or both are null ranges. */
@@ -191,6 +195,16 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
     result.setDirect(this.low.x, this.low.y, this.low.z, this.high.x, this.high.y, this.high.z, false);
     return result;
   }
+  /** Return a copy, translated by adding `shift` components in all directions.
+   * * The translate of a null range is also a null range.
+   */
+  public cloneTranslated(shift: XYAndZ, result?: this): this {
+    result = result ? result : new (this.constructor as any)() as this;
+    if (!this.isNull)
+      result.setDirect(this.low.x + shift.x, this.low.y + shift.y, this.low.z + shift.z, this.high.x + shift.x, this.high.y + shift.y, this.high.z + shift.z, false);
+    return result;
+  }
+
   /** Return a range initialized to have no content. */
   public static createNull<T extends Range3d>(result?: T): T {
     result = result ? result : new this() as T;
@@ -212,6 +226,12 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
       result.extendPoint(p);
     return result;
   }
+  /** Create a range from freely structured MultiLineStringDataVariant. */
+  public static createFromVariantData(data: MultiLineStringDataVariant): Range3d {
+    const collector = new PointStreamRangeCollector();
+    VariantPointDataStream.streamXYZ(data, collector);
+    return collector.claimResult();
+  }
   /** create a Range3d enclosing the transformed points. */
   public static createTransformed<T extends Range3d>(transform: Transform, ...point: Point3d[]): T {
     const result = this.createNull<T>();
@@ -221,14 +241,14 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
     return result;
   }
   /** create a Range3d enclosing the transformed points. */
-  public static createTransformedArray<T extends Range3d>(transform: Transform, points: Point3d[]): T {
+  public static createTransformedArray<T extends Range3d>(transform: Transform, points: Point3d[] | GrowableXYZArray): T {
     const result = this.createNull<T>();
     result.extendArray(points, transform);
     return result;
   }
 
   /** create a Range3d enclosing the points after inverse transform. */
-  public static createInverseTransformedArray<T extends Range3d>(transform: Transform, points: Point3d[]): T {
+  public static createInverseTransformedArray<T extends Range3d>(transform: Transform, points: Point3d[] | GrowableXYZArray): T {
     const result = this.createNull<T>();
     result.extendInverseTransformedArray(points, transform);
     return result;
@@ -297,10 +317,10 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
     else  // growable array -- this should be implemented without point extraction !!!
       if (transform)
         for (let i = 0; i < points.length; i++)
-          this.extendTransformedXYZ(transform, points.getPoint3dAtUncheckedPointIndex(i).x, points.getPoint3dAtUncheckedPointIndex(i).y, points.getPoint3dAtUncheckedPointIndex(i).z);
+          this.extendTransformedXYZ(transform, points.getXAtUncheckedPointIndex(i), points.getYAtUncheckedPointIndex(i), points.getZAtUncheckedPointIndex(i));
       else
         for (let i = 0; i < points.length; i++)
-          this.extendXYZ(points.getPoint3dAtUncheckedPointIndex(i).x, points.getPoint3dAtUncheckedPointIndex(i).y, points.getPoint3dAtUncheckedPointIndex(i).z);
+          this.extendXYZ(points.getXAtUncheckedPointIndex(i), points.getYAtUncheckedPointIndex(i), points.getZAtUncheckedPointIndex(i));
   }
 
   /** extend a range around an array of points (optionally transformed) */
@@ -310,7 +330,7 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
         this.extendInverseTransformedXYZ(transform, point.x, point.y, point.z);
     else  // growable array -- this should be implemented without point extraction !!!
       for (let i = 0; i < points.length; i++)
-        this.extendInverseTransformedXYZ(transform, points.getPoint3dAtUncheckedPointIndex(i).x, points.getPoint3dAtUncheckedPointIndex(i).y, points.getPoint3dAtUncheckedPointIndex(i).z);
+        this.extendInverseTransformedXYZ(transform, points.getXAtUncheckedPointIndex(i), points.getYAtUncheckedPointIndex(i), points.getZAtUncheckedPointIndex(i));
   }
 
   /** multiply the point x,y,z by transform and use the coordinate to extend this range.
@@ -347,9 +367,9 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
     const yy = y - origin.y;
     const zz = z - origin.z;
     this.extendXYZ(
-      coffs[0] * xx + coffs[3] * yy + coffs[6] * zz,
-      coffs[1] * xx + coffs[4] * yy + coffs[7] * zz,
-      coffs[2] * xx + coffs[5] * yy + coffs[8] * zz);
+      coffs[0] * xx + coffs[1] * yy + coffs[2] * zz,
+      coffs[3] * xx + coffs[4] * yy + coffs[5] * zz,
+      coffs[6] * xx + coffs[7] * yy + coffs[8] * zz);
     return true;
   }
 
@@ -472,8 +492,23 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
     return true;
   }
 
-  /** Return an array with the 8 corners on order wth "x varies fastest, then y, then z" */
-  public corners(): Point3d[] {
+  /** Return an array with the 8 corners on order wth "x varies fastest, then y, then z"
+   * * points preallocated in `result` are reused if result.length >= 8.
+   * * in reuse case, result.length is trimmed to 8
+   */
+  public corners(result?: Point3d[]): Point3d[] {
+    if (result !== undefined && result.length >= 8) {
+      result[0].set(this.low.x, this.low.y, this.low.z);
+      result[1].set(this.high.x, this.low.y, this.low.z);
+      result[2].set(this.low.x, this.high.y, this.low.z);
+      result[3].set(this.high.x, this.high.y, this.low.z);
+      result[4].set(this.low.x, this.low.y, this.high.z);
+      result[5].set(this.high.x, this.low.y, this.high.z);
+      result[6].set(this.low.x, this.high.y, this.high.z);
+      result[7].set(this.high.x, this.high.y, this.high.z);
+      result.length = 8;
+      return result;
+    }
     return [
       Point3d.create(this.low.x, this.low.y, this.low.z),
       Point3d.create(this.high.x, this.low.y, this.low.z),
@@ -533,6 +568,13 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
       && z <= this.high.z;
   }
 
+  /** Test if a point given as x,y is within the range.  (Ignoring z of range) */
+  public containsXY(x: number, y: number): boolean {
+    return x >= this.low.x
+      && y >= this.low.y
+      && x <= this.high.x
+      && y <= this.high.y;
+  }
   /** Test if a point is within the range. */
   public containsPoint(point: Point3d): boolean { return this.containsXYZ(point.x, point.y, point.z); }
 
@@ -605,6 +647,30 @@ export class Range3d extends RangeBase implements LowAndHighXYZ, BeJSONFunctions
     if (z > this.high.z) this.high.z = z;
   }
 
+  /** Expand this range by distances a in only the x direction.  */
+  public extendXOnly(x: number): void {
+    if (x < this.low.x) this.low.x = x;
+    if (x > this.high.x) this.high.x = x;
+  }
+  /** Expand this range by distances a in only the x direction.  */
+  public extendYOnly(y: number): void {
+    if (y < this.low.y) this.low.y = y;
+    if (y > this.high.y) this.high.y = y;
+  }
+  /** Expand this range by distances a in only the x direction.  */
+  public extendZOnly(z: number): void {
+    if (z < this.low.z) this.low.z = z;
+    if (z > this.high.z) this.high.z = z;
+  }
+  /** Expand one component of this range  */
+  public extendSingleAxis(a: number, axisIndex: AxisIndex) {
+    if (axisIndex === AxisIndex.X)
+      this.extendXOnly(a);
+    if (axisIndex === AxisIndex.Y)
+      this.extendYOnly(a);
+    if (axisIndex === AxisIndex.Z)
+      this.extendZOnly(a);
+  }
   /** Expand this range by distances a (weighted and possibly signed) in all directions */
   public extendXYZW(x: number, y: number, z: number, w: number): void {
     if (!Geometry.isSmallMetricDistance(w))
@@ -782,8 +848,7 @@ export class Range1d extends RangeBase {
         if (Number.isFinite(value))
           this.extendX(value);
       }
-    } else if (json.low && json.low && json.high && json.high) {
-      this.setNull();
+    } else if (json.low !== undefined && Number.isFinite(json.low) && json.high !== undefined && Number.isFinite(json.high)) {
       this.extendX(json.low);
       this.extendX(json.high);
     }
@@ -826,6 +891,18 @@ export class Range1d extends RangeBase {
   public static createNull<T extends Range1d>(result?: T): T {
     result = result ? result : new this() as T;
     result.setNull();
+    return result;
+  }
+
+  /** create a range with `delta` added to low and high
+   * * If `this` is a null range, return a null range.
+   */
+  public cloneTranslated(delta: number, result?: Range1d): Range1d {
+    result = result ? result : this.clone();
+    if (!result.isNull) {
+      result.low += delta;
+      result.high += delta;
+    }
     return result;
   }
 
@@ -1017,6 +1094,55 @@ export class Range1d extends RangeBase {
       this.low - delta,
       this.high + delta, true);
   }
+  /**
+   * clip this range to a linear half space condition
+   * * if `limitA > limitB` the limit space is empty
+   *   * make this range null
+   *   * return false;
+   * * otherwise (i.e `limitA <= limitB`)
+   *   * solve `a + u * f = limitA' and `a + u * f = limitA`
+   *   * if unable to solve (i.e. u near zero), `a` alone determines whether to (a) leave this interval unchanged or (b) reduce to nothing.
+   *   * the `f` values are an interval in the space of this `Range1d`
+   *   * restrict the range to that interval (i.e intersect existing (low,high) with the fraction interval.
+   *   * return true if the range is non-null after the clip.
+   * @param a constant of linear map
+   * @param u coefficient of linear map
+   * @param limitA crossing value, assumed in range relation with limitB
+   * @param limitB crossing value, assumed in range relation with limitB
+   * @param limitIsHigh true if the limit is an upper limit on mapped values.
+   *
+   */
+  public clipLinearMapToInterval(a: number, u: number, limitA: number, limitB: number): boolean {
+    // f = (limit - a) / u
+    if (limitB < limitA || this.high < this.low)
+      return false;
+    const fractionA = Geometry.conditionalDivideFraction(limitA - a, u);
+    const fractionB = Geometry.conditionalDivideFraction(limitB - a, u);
+    // single point case
+    if (fractionA === undefined || fractionB === undefined) {
+      if (limitA <= a && a <= limitB)
+        return true;
+      this.setNull();
+      return false;
+    }
+
+    if (fractionA < fractionB) {
+      if (fractionA > this.low)
+        this.low = fractionA;
+      if (fractionB < this.high)
+        this.high = fractionB;
+    } else {
+      if (fractionA < this.high)
+        this.high = fractionA;
+      if (fractionB > this.low)
+        this.low = fractionB;
+    }
+    if (this.high < this.low) {
+      this.setNull();
+      return false;
+    }
+    return true;
+  }
 }
 
 /**
@@ -1044,7 +1170,7 @@ export class Range2d extends RangeBase implements LowAndHighXY {
   public toFloat64Array(): Float64Array { return Range2d.toFloat64Array(this); }
   /**
    * Construct a Range2d from an array of double-precision values
-   * @param f64 the array, which should contain exactly 4 values in this order: lowx, lowy, highx, highy
+   * @param f64 the array, which should contain exactly 4 values in this order: lowX, lowY, highX, highY
    * @return a new Range2d object
    */
   public static fromFloat64Array<T extends Range2d>(f64: Float64Array): T {
@@ -1060,10 +1186,10 @@ export class Range2d extends RangeBase implements LowAndHighXY {
   public static fromArrayBuffer<T extends Range2d>(buffer: ArrayBuffer): T { return this.fromFloat64Array(new Float64Array(buffer)); }
 
   // explicit ctor - no enforcement of value relationships
-  public constructor(lowx = Range2d._EXTREME_POSITIVE, lowy = Range2d._EXTREME_POSITIVE, highx = Range2d._EXTREME_NEGATIVE, highy = Range2d._EXTREME_NEGATIVE) {
+  public constructor(lowX = Range2d._EXTREME_POSITIVE, lowY = Range2d._EXTREME_POSITIVE, highX = Range2d._EXTREME_NEGATIVE, highY = Range2d._EXTREME_NEGATIVE) {
     super();
-    this.low = Point2d.create(lowx, lowy);
-    this.high = Point2d.create(highx, highy);
+    this.low = Point2d.create(lowX, lowY);
+    this.high = Point2d.create(highX, highY);
   }
   /** Returns true if this and other have equal low and high parts, or both are null ranges. */
   public isAlmostEqual(other: Range2d): boolean {
@@ -1218,6 +1344,26 @@ export class Range2d extends RangeBase implements LowAndHighXY {
   public fractionToPoint(fractionX: number, fractionY: number, result?: Point2d): Point2d {
     return this.low.interpolateXY(fractionX, fractionY, this.high, result);
   }
+  /** Return an array with the 4 corners.
+   * * if asLoop is false, 4 corners are "x varies fastest, then y"
+   * * if asLoop is true, 5 corners are in CCW order WITH CLOSURE
+   */
+  public corners3d(asLoop: boolean = false, z: number = 0): Point3d[] {
+    if (asLoop)
+      return [
+        Point3d.create(this.low.x, this.low.y, z),
+        Point3d.create(this.high.x, this.low.y, z),
+        Point3d.create(this.high.x, this.high.y, z),
+        Point3d.create(this.low.x, this.high.y, z),
+        Point3d.create(this.low.x, this.low.y, z)];
+
+    return [
+      Point3d.create(this.low.x, this.low.y, z),
+      Point3d.create(this.high.x, this.low.y, z),
+      Point3d.create(this.low.x, this.high.y, z),
+      Point3d.create(this.high.x, this.high.y, z)];
+  }
+
   /** Largest absolute value among any coordinates in the box corners. */
   public maxAbs(): number {
     if (this.isNull)
@@ -1357,4 +1503,5 @@ export class Range2d extends RangeBase implements LowAndHighXY {
       this.low.x - delta, this.low.y - delta,
       this.high.x + delta, this.high.y + delta, true);
   }
+
 }

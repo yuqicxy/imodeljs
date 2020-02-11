@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 
@@ -20,15 +20,18 @@ import {
   FrontstageProps,
   ZoneLocation,
   ActionItemButton,
+  CoreTools,
+  UiFramework,
+  IModelViewportControl,
 } from "@bentley/ui-framework";
 
-import { AppStatusBarWidgetControl } from "../statusbars/AppStatusBar";
+import { Toolbar, Direction } from "@bentley/ui-ninezone";
+import { SmallStatusBarWidgetControl } from "../statusbars/SmallStatusBar";
 import { NavigationTreeWidgetControl } from "../widgets/NavigationTreeWidget";
 import { VerticalPropertyGridWidgetControl, HorizontalPropertyGridWidgetControl } from "../widgets/PropertyGridDemoWidget";
 import { TableDemoWidgetControl } from "../widgets/TableDemoWidget";
-
-import { Toolbar, Direction } from "@bentley/ui-ninezone";
 import { AppTools } from "../../tools/ToolSpecifications";
+import { IModelViewportControl as App_IModelViewport } from "../contentviews/IModelViewport";
 
 export class Frontstage3 extends FrontstageProvider {
 
@@ -38,8 +41,9 @@ export class Frontstage3 extends FrontstageProvider {
         descriptionKey: "SampleApp:ContentLayoutDef.ThreeRightStacked",
         verticalSplit: {
           percentage: 0.50,
+          minSizeLeft: 100, minSizeRight: 100,
           left: 0,
-          right: { horizontalSplit: { percentage: 0.50, top: 1, bottom: 2 } },
+          right: { horizontalSplit: { percentage: 0.50, top: 1, bottom: 2, minSizeTop: 100, minSizeBottom: 100 } },
         },
       },
     );
@@ -48,12 +52,12 @@ export class Frontstage3 extends FrontstageProvider {
       {
         contents: [
           {
-            classId: "IModelViewport",
-            applicationData: { label: "Content 1a", bgColor: "black" },
+            classId: IModelViewportControl.id,
+            applicationData: { viewState: UiFramework.getDefaultViewState, iModelConnection: UiFramework.getIModelConnection },
           },
           {
-            classId: "IModelViewport",
-            applicationData: { label: "Content 2a", bgColor: "black" },
+            classId: App_IModelViewport.id,
+            applicationData: { label: "Content 2a", bgColor: "blue" },
           },
           {
             classId: "TableExampleContent",
@@ -66,7 +70,7 @@ export class Frontstage3 extends FrontstageProvider {
     return (
       <Frontstage
         id="Test3"
-        defaultTool={AppTools.appSelectElementCommand}
+        defaultTool={CoreTools.selectElementCommand}
         defaultLayout={contentLayoutDef}
         contentGroup={myContentGroup}
         isInFooterMode={true}
@@ -109,7 +113,7 @@ export class Frontstage3 extends FrontstageProvider {
         bottomCenter={
           <Zone defaultState={ZoneState.Open}
             widgets={[
-              <Widget isStatusBar={true} iconSpec="icon-placeholder" labelKey="SampleApp:widgets.StatusBar" control={AppStatusBarWidgetControl} />,
+              <Widget isStatusBar={true} control={SmallStatusBarWidgetControl} />,
             ]}
           />
         }
@@ -139,10 +143,10 @@ export class Frontstage3 extends FrontstageProvider {
             <GroupButton
               labelKey="SampleApp:buttons.toolGroup"
               iconSpec="icon-placeholder"
-              items={[AppTools.tool1, AppTools.tool2, AppTools.infoMessageCommand, AppTools.warningMessageCommand, AppTools.errorMessageCommand,
-              AppTools.item6, AppTools.item7, AppTools.item8]}
+              items={[AppTools.tool1, AppTools.tool2, AppTools.infoMessageCommand, AppTools.warningMessageCommand, AppTools.errorMessageCommand, AppTools.noIconMessageCommand,
+                AppTools.item6, AppTools.item7, AppTools.item8]}
               direction={Direction.Bottom}
-              itemsInColumn={4}
+              itemsInColumn={5}
             />
           </>
         }
@@ -159,7 +163,7 @@ export class Frontstage3 extends FrontstageProvider {
               labelKey="SampleApp:buttons.toolGroup"
               iconSpec="icon-placeholder"
               items={[AppTools.successMessageBoxCommand, AppTools.informationMessageBoxCommand, AppTools.questionMessageBoxCommand,
-              AppTools.warningMessageBoxCommand, AppTools.errorMessageBoxCommand, AppTools.openMessageBoxCommand, AppTools.openMessageBoxCommand2]}
+                AppTools.warningMessageBoxCommand, AppTools.errorMessageBoxCommand, AppTools.openMessageBoxCommand, AppTools.openMessageBoxCommand2]}
               direction={Direction.Right}
               itemsInColumn={7}
             />

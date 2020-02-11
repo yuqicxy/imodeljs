@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Content */
+/** @packageDocumentation
+ * @module Content
+ */
 
 import { InstanceKey, InstanceKeyJSON } from "../EC";
 import { ValuesDictionary } from "../Utils";
@@ -63,6 +65,7 @@ export interface ValuesArray extends Array<Value> { }
  * @public
  */
 export type DisplayValue = string | undefined | DisplayValuesMap | DisplayValuesArray;
+/** @public */
 export namespace DisplayValue {
   /** Is the value a primitive */
   export function isPrimitive(value: DisplayValue): value is string | undefined { return isPrimitiveValue(value); }

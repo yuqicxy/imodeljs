@@ -1,42 +1,35 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-import * as fs from "fs";
+import { IModelJsFs } from "@bentley/imodeljs-backend";
+import * as path from "path";
 
 export function createFilePath(filePath: string) {
+  // ###TODO: Make this function platform independent
   const files = filePath.split(/\/|\\/); // /\.[^/.]+$/ // /\/[^\/]+$/
   let curFile = "";
   for (const file of files) {
     if (file === "") break;
     curFile += file + "\\";
-    if (!fs.existsSync(curFile)) fs.mkdirSync(curFile);
+    if (!IModelJsFs.existsSync(curFile)) IModelJsFs.mkdirSync(curFile);
   }
 }
 
 export function createNewCsvFile(filePath: string, fileName: string, data: Map<string, number | string>): boolean {
-  let fd;
-  let file = filePath;
-  const lastChar = filePath[filePath.length - 1];
-  if (lastChar !== "/" && lastChar !== "\\")
-    file += "\\";
-  file += fileName;
-  if (!fs.existsSync(filePath)) createFilePath(filePath);
-  if (!fs.existsSync(file)) {
+  const file = path.join(filePath, fileName);
+  if (!IModelJsFs.existsSync(filePath)) createFilePath(filePath);
+  if (!IModelJsFs.existsSync(file)) {
     try {
-      fd = fs.openSync(file, "a");
       let colNames = "";
       data.forEach((_value, colName) => {
         colNames += colName + ",";
       });
       colNames += "\r\n";
-      fs.writeFileSync(fd, colNames, "utf8");
+      IModelJsFs.writeFileSync(file, colNames);
     } catch (err) {
       /* Handle the error */
-    } finally {
-      if (fd !== undefined)
-        fs.closeSync(fd);
     }
     return true;
   } else {
@@ -64,7 +57,7 @@ function addColumn(origFile: string, newName: string, columnsIndex: number): str
 }
 
 export function addColumnsToCsvFile(filePath: string, rowData: Map<string, number | string>) {
-  let origFile = fs.readFileSync(filePath).toString();
+  let origFile = IModelJsFs.readFileSync(filePath).toString();
   const columns = origFile.split(/[\r\n]+/)[0].split(",");
   const opNamesIter = rowData.keys();
   const opNames: string[] = [];
@@ -104,14 +97,12 @@ export function addColumnsToCsvFile(filePath: string, rowData: Map<string, numbe
       columnsIndex++;
     }
   }
-  fs.writeFileSync(filePath, origFile);
+  IModelJsFs.writeFileSync(filePath, origFile);
 }
 
 export function addDataToCsvFile(file: string, data: Map<string, number | string>) {
-  let fd;
   try {
-    const columns = fs.readFileSync(file).toString().split(/[\r\n]+/)[0].split(",");
-    fd = fs.openSync(file, "a");
+    const columns = IModelJsFs.readFileSync(file).toString().split(/[\r\n]+/)[0].split(",");
     let stringData = "";
     columns.forEach((colName, index) => {
       let value = data.get(colName);
@@ -127,24 +118,16 @@ export function addDataToCsvFile(file: string, data: Map<string, number | string
         stringData += value + ",";
     });
     stringData += "\r\n";
-    fs.appendFileSync(fd, stringData, "utf8");
+    IModelJsFs.appendFileSync(file, stringData);
   } catch (err) {
     /* Handle the error */
-  } finally {
-    if (fd !== undefined)
-      fs.closeSync(fd);
   }
 }
 
 export function addEndOfTestToCsvFile(data: string, file: string) {
-  let fd;
   try {
-    fd = fs.openSync(file, "a");
-    fs.appendFileSync(fd, data, "utf8");
+    IModelJsFs.appendFileSync(file, data);
   } catch (err) {
     /* Handle the error */
-  } finally {
-    if (fd !== undefined)
-      fs.closeSync(fd);
   }
 }

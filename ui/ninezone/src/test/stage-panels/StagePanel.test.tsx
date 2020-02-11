@@ -1,14 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { mount, shallow } from "enzyme";
 import * as React from "react";
 import * as sinon from "sinon";
-import { StagePanel, StagePanelType, ResizeGrip } from "../../ui-ninezone";
+import { Rectangle, Point } from "@bentley/ui-core";
+import { StagePanel, StagePanelType, ResizeGrip, SafeAreaInsets } from "../../ui-ninezone";
 import { StagePanelTypeHelpers } from "../../ui-ninezone/stage-panels/StagePanel";
-import { Rectangle } from "../../ui-ninezone/utilities/Rectangle";
-import { Point } from "../../ui-ninezone/utilities/Point";
 
 describe("<StagePanel />", () => {
   it("should render", () => {
@@ -29,6 +28,13 @@ describe("<StagePanel />", () => {
 
   it("renders horizontally with size correctly", () => {
     shallow(<StagePanel type={StagePanelType.Top} size={1000} />).should.matchSnapshot();
+  });
+
+  it("renders safe area aware correctly", () => {
+    shallow(<StagePanel
+      safeAreaInsets={SafeAreaInsets.All}
+      type={StagePanelType.Left}
+    />).should.matchSnapshot();
   });
 
   it("should invoke onResize handler", () => {

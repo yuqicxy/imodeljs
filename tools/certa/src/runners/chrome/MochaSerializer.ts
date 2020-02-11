@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 // NB: This file is not a CommonJs module - it needs to run in the browser. Do not import or export modules here!
 
@@ -45,6 +45,10 @@ class MochaSerializer {
     const isMochaObj = (obj: any): obj is MochaObj => (obj instanceof Mocha.Runnable || obj instanceof Mocha.Suite);
 
     const replacer = (key: string, value: any): any => {
+      // Some pretty important properties of Errors are not enumerable, so we need to special handle them here:
+      if (value instanceof Error)
+        return { ...value, name: value.name, message: value.message, stack: value.stack };
+
       if (key === "" || !isMochaObj(value))
         return value;
 

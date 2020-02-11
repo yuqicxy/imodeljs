@@ -1,14 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import { IModelConnection, SpatialModelState } from "@bentley/imodeljs-frontend";
-import { AccessToken } from "@bentley/imodeljs-clients";
 import { ModelQueryParams, ModelProps } from "@bentley/imodeljs-common";
 import { Id64String } from "@bentley/bentleyjs-core";
-import { CheckBoxState, LoadingSpinner } from "@bentley/ui-core";
-import { CheckListBox, CheckListBoxItem, CheckBox } from "./CheckListBox";
+import { CheckBoxState, LoadingSpinner, Checkbox } from "@bentley/ui-core";
+import { CheckListBox, CheckListBoxItem } from "./CheckListBox";
 import { Presentation } from "@bentley/presentation-frontend";
 import { RegisteredRuleset, NodeKey } from "@bentley/presentation-common";
 import { Tree, TreeNodeItem, DelayLoadedTreeNodeItem } from "@bentley/ui-components";
@@ -100,8 +99,6 @@ class DocumentProperty {
 export interface ModelsProps {
   /** IModelConnection */
   iModelConnection: IModelConnection;
-  /** AccessToken */
-  accessToken: AccessToken;
   /** If doccodes do not exist, show flat list of models instead of presentation tree */
   showFlatList?: boolean;
   /** Callback to display "loading" when entering an imodel */
@@ -161,7 +158,7 @@ export class ModelsTab extends React.Component<ModelsProps, ModelsState> {
       }
     }
 
-    this.setState({ initialized: true, models: _models, showToast: !this.state.docCodes });
+    this.setState((prevState) => ({ initialized: true, models: _models, showToast: !prevState.docCodes }));
   }
 
   public componentWillUnmount() {
@@ -548,7 +545,7 @@ export class ModelsTab extends React.Component<ModelsProps, ModelsState> {
           {this.state.docCodes!.map((pair: DocCodeCategory) => (
             <div className="dc-table" >
               <div className="dc-table-header">
-                <CheckBox checked={pair.checked} onClick={this._onDocCodeCheckedStatesChanged.bind(this, pair)} />
+                <Checkbox checked={pair.checked} onClick={this._onDocCodeCheckedStatesChanged.bind(this, pair)} />
                 <span className="dc-table-title">{pair.name}</span>
               </div>
               <div className="dc-table-content">
@@ -568,7 +565,7 @@ export class ModelsTab extends React.Component<ModelsProps, ModelsState> {
           <button className="showtree-button" onClick={this._onShowTree}>Show Tree</button>
           <CheckListBox>
             {this.state.models.map((model: ModelInfo, i: number) => (
-              <CheckListBoxItem key={i} label={model.name} checked={model.checked} onClick={this._onModelCheckboxClick.bind(this, model)} />
+              <CheckListBoxItem key={i} label={model.name} checked={model.checked} onClick={() => this._onModelCheckboxClick(model)} />
             ))}
           </CheckListBox>
         </div>

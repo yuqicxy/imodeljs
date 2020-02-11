@@ -1,13 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ElementAspects */
+/** @packageDocumentation
+ * @module ElementAspects
+ */
 
-import { DbResult, Id64, Id64String } from "@bentley/bentleyjs-core";
 import { ElementAspectProps, ExternalSourceAspectProps, RelatedElement } from "@bentley/imodeljs-common";
-import { ECSqlStatement } from "./ECSqlStatement";
-import { Element } from "./Element";
 import { Entity } from "./Entity";
 import { IModelDb } from "./IModelDb";
 
@@ -33,6 +32,37 @@ export class ElementAspect extends Entity implements ElementAspectProps {
     val.element = this.element;
     return val;
   }
+
+  /** Called before a new ElementAspect is inserted.
+   * @throws [[IModelError]] if there is a problem
+   * @beta
+   */
+  protected static onInsert(_props: ElementAspectProps, _iModel: IModelDb): void { }
+  /** Called before an ElementAspect is updated.
+   * @throws [[IModelError]] if there is a problem
+   * @beta
+   */
+  protected static onUpdate(_props: ElementAspectProps, _iModel: IModelDb): void { }
+  /** Called before an ElementAspect is deleted.
+   * @throws [[IModelError]] if there is a problem
+   * @beta
+   */
+  protected static onDelete(_props: ElementAspectProps, _iModel: IModelDb): void { }
+  /** Called after a new ElementAspect was inserted.
+   * @throws [[IModelError]] if there is a problem
+   * @beta
+   */
+  protected static onInserted(_props: ElementAspectProps, _iModel: IModelDb): void { }
+  /** Called after an ElementAspect was updated.
+   * @throws [[IModelError]] if there is a problem
+   * @beta
+   */
+  protected static onUpdated(_props: ElementAspectProps, _iModel: IModelDb): void { }
+  /** Called after an ElementAspect was deleted.
+   * @throws [[IModelError]] if there is a problem
+   * @beta
+   */
+  protected static onDeleted(_props: ElementAspectProps, _iModel: IModelDb): void { }
 }
 
 /** An Element Unique Aspect is an ElementAspect where there can be only zero or one instance of the Element Aspect class per Element.
@@ -52,6 +82,7 @@ export class ElementMultiAspect extends ElementAspect {
 }
 
 /** An ElementMultiAspect that stores synchronization information for an Element originating from an external source.
+ * @note The associated ECClass was added to the BisCore schema in version 1.0.2
  * @public
  */
 export class ExternalSourceAspect extends ElementMultiAspect implements ExternalSourceAspectProps {
@@ -64,15 +95,15 @@ export class ExternalSourceAspect extends ElementMultiAspect implements External
   public identifier: string;
   /** The kind of object within the source repository. */
   public kind: string;
-  /** The cryptographic hash (any algorithm) of the source object's content. It must be guaranteed to change when the source object's content changes. */
-  public checksum: string;
-  /** An optional value that is typically a version number or a psuedo version number like last modified time.
+  /** The cryptographic hash (any algorithm) of the source object's content. If defined, it must be guaranteed to change when the source object's content changes. */
+  public checksum?: string;
+  /** An optional value that is typically a version number or a pseudo version number like last modified time.
    * It will be used by the synchronization process to detect that a source object is unchanged so that computing a cryptographic hash can be avoided.
    * If present, this value must be guaranteed to change when any of the source object's content changes.
    */
   public version?: string;
   /** A place where additional JSON properties can be stored. For example, provenance information or properties relating to the synchronization process. */
-  public jsonProperties: { [key: string]: any };
+  public jsonProperties?: string;
 
   /** @internal */
   constructor(props: ExternalSourceAspectProps, iModel: IModelDb) {
@@ -82,7 +113,7 @@ export class ExternalSourceAspect extends ElementMultiAspect implements External
     this.kind = props.kind;
     this.checksum = props.checksum;
     this.version = props.version;
-    this.jsonProperties = Object.assign({}, props.jsonProperties); // make sure we have our own copy
+    this.jsonProperties = props.jsonProperties;
   }
 
   /** @internal */
@@ -92,48 +123,9 @@ export class ExternalSourceAspect extends ElementMultiAspect implements External
     val.identifier = this.identifier;
     val.kind = this.kind;
     val.checksum = this.checksum;
-    if (this.version)
-      val.version = this.version;
-    if (Object.keys(this.jsonProperties).length > 0)
-      val.jsonProperties = this.jsonProperties;
+    val.version = this.version;
+    val.jsonProperties = this.jsonProperties;
     return val;
-  }
-
-  /** Create an ExternalSourceAspectProps in a standard way for an Element in an iModel --> iModel transformation.
-   * @param sourceElement The new ExternalSourceAspectProps will be tracking this Element from the source iModel.
-   * @param targetScopeElementId The Id of an Element in the target iModel that provides a scope for source Ids.
-   * @param targetElementId The optional Id of the Element that will own the ExternalSourceAspect. If not provided, it will be set to Id64.invalid.
-   * @alpha
-   */
-  public static initPropsForElement(sourceElement: Element, targetScopeElementId: Id64String, targetElementId: Id64String = Id64.invalid): ExternalSourceAspectProps {
-    const sourceElementHash: string = sourceElement.computeHash();
-    const aspectProps: ExternalSourceAspectProps = {
-      classFullName: this.classFullName,
-      element: { id: targetElementId },
-      scope: { id: targetScopeElementId },
-      identifier: sourceElement.id,
-      kind: ExternalSourceAspect.Kind.Element,
-      checksum: sourceElementHash,
-      version: sourceElement.iModel.elements.queryLastModifiedTime(sourceElement.id),
-    };
-    return aspectProps;
-  }
-
-  /** Delete matching ExternalSourceAspects. Must match Kind, Scope, and owning ElementId.
-   * @param targetDb The IModelDb
-   * @param targetScopeElementId Only consider ExternalSourceAspects from a particular source (scoped by this Element in the target IModelDb).
-   * @param targetElementId Only consider ExternalSourceAspects owned by this Element.
-   * @alpha
-   */
-  public static deleteForElement(targetDb: IModelDb, targetScopeElementId: Id64String, targetElementId: Id64String): void {
-    const sql = `SELECT ECInstanceId FROM ${this.classFullName} aspect WHERE aspect.Element.Id=:elementId AND aspect.Scope.Id=:scopeId AND aspect.Kind='${ExternalSourceAspect.Kind.Element}'`;
-    targetDb.withPreparedStatement(sql, (statement: ECSqlStatement) => {
-      statement.bindId("elementId", targetElementId);
-      statement.bindId("scopeId", targetScopeElementId);
-      while (DbResult.BE_SQLITE_ROW === statement.step()) {
-        targetDb.elements.deleteAspect(statement.getValue(0).getId());
-      }
-    });
   }
 }
 
@@ -144,5 +136,6 @@ export namespace ExternalSourceAspect {
    */
   export enum Kind {
     Element = "Element",
+    Relationship = "Relationship",
   }
 }

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Inputs */
+/** @packageDocumentation
+ * @module Inputs
+ */
 
 import * as React from "react";
 import * as classnames from "classnames";
@@ -34,7 +36,7 @@ export class LabeledTextarea extends React.PureComponent<LabeledTextareaProps> {
         this.props.className,
       )}>
         {label &&
-          <div className={classnames("label", labelClassName)}> {label} </div>
+          <div className={classnames("label", labelClassName)} style={labelStyle}> {label} </div>
         }
         <Textarea disabled={this.props.disabled} className={inputClassName} style={inputStyle} {...props} />
         {message &&

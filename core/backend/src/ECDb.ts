@@ -1,17 +1,18 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ECDb */
+/** @packageDocumentation
+ * @module ECDb
+ */
 
 import { assert, DbResult, IDisposable, Logger, OpenMode } from "@bentley/bentleyjs-core";
 import { IModelError, IModelStatus, QueryLimit, QueryPriority, QueryResponse, QueryResponseStatus, QueryQuota } from "@bentley/imodeljs-common";
 import { ECSqlStatement, ECSqlStatementCache } from "./ECSqlStatement";
 import { IModelHost } from "./IModelHost";
-import { IModelJsNative } from "./IModelJsNative";
+import { IModelJsNative } from "@bentley/imodeljs-native";
 import { BackendLoggerCategory } from "./BackendLoggerCategory";
 import { CachedSqliteStatement, SqliteStatement, SqliteStatementCache } from "./SqliteStatement";
-import { PostStatus, PollStatus } from "./ConcurrentQuery";
 
 const loggerCategory: string = BackendLoggerCategory.ECDb;
 
@@ -348,7 +349,7 @@ export class ECDb implements IDisposable {
     };
     return new Promise<QueryResponse>((resolve) => {
       const postrc = this.nativeDb.postConcurrentQuery(ecsql, JSON.stringify(bindings, replacer), limit!, quota!, priority!);
-      if (postrc.status !== PostStatus.Done)
+      if (postrc.status !== IModelJsNative.ConcurrentQuery.PostStatus.Done)
         resolve({ status: QueryResponseStatus.PostError, rows: [] });
 
       const poll = () => {
@@ -356,13 +357,13 @@ export class ECDb implements IDisposable {
           resolve({ status: QueryResponseStatus.Done, rows: [] });
         } else {
           const pollrc = this.nativeDb.pollConcurrentQuery(postrc.taskId);
-          if (pollrc.status === PollStatus.Done)
+          if (pollrc.status === IModelJsNative.ConcurrentQuery.PollStatus.Done)
             resolve({ status: QueryResponseStatus.Done, rows: JSON.parse(pollrc.result, reviver) });
-          else if (pollrc.status === PollStatus.Partial)
+          else if (pollrc.status === IModelJsNative.ConcurrentQuery.PollStatus.Partial)
             resolve({ status: QueryResponseStatus.Partial, rows: JSON.parse(pollrc.result, reviver) });
-          else if (pollrc.status === PollStatus.Timeout)
+          else if (pollrc.status === IModelJsNative.ConcurrentQuery.PollStatus.Timeout)
             resolve({ status: QueryResponseStatus.Timeout, rows: [] });
-          else if (pollrc.status === PollStatus.Pending)
+          else if (pollrc.status === IModelJsNative.ConcurrentQuery.PollStatus.Pending)
             setTimeout(() => { poll(); }, IModelHost.configuration!.concurrentQuery.pollInterval);
           else
             resolve({ status: QueryResponseStatus.Error, rows: [pollrc.result] });
@@ -404,8 +405,13 @@ export class ECDb implements IDisposable {
         result = await this.queryRows(ecsql, bindings, { maxRowAllowed: rowsToGet, startRowOffset: offset }, quota, priority);
       }
 
-      if (result.status === QueryResponseStatus.Error)
-        throw new IModelError(DbResult.BE_SQLITE_ERROR, result.rows.length > 0 ? result.rows[0] : "Failed to execute ECSQL");
+      if (result.status === QueryResponseStatus.Error) {
+        if (result.rows[0] === undefined) {
+          throw new IModelError(DbResult.BE_SQLITE_ERROR, "Invalid ECSql");
+        } else {
+          throw new IModelError(DbResult.BE_SQLITE_ERROR, result.rows[0]);
+        }
+      }
 
       if (rowsToGet > 0) {
         rowsToGet -= result.rows.length;

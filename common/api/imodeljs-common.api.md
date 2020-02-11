@@ -6,12 +6,14 @@
 
 import { Angle } from '@bentley/geometry-core';
 import { AngleProps } from '@bentley/geometry-core';
+import { AnyGeometryQuery } from '@bentley/geometry-core';
 import { AuthorizedClientRequestContext } from '@bentley/imodeljs-clients';
 import { AuthStatus } from '@bentley/bentleyjs-core';
 import { BeEvent } from '@bentley/bentleyjs-core';
 import { BentleyError } from '@bentley/bentleyjs-core';
 import { BentleyStatus } from '@bentley/bentleyjs-core';
 import { BriefcaseStatus } from '@bentley/bentleyjs-core';
+import { ByteStream } from '@bentley/bentleyjs-core';
 import { ChangeSetStatus } from '@bentley/bentleyjs-core';
 import { ClientRequestContext } from '@bentley/bentleyjs-core';
 import { ClipPlane } from '@bentley/geometry-core';
@@ -20,6 +22,7 @@ import { DbResult } from '@bentley/bentleyjs-core';
 import { GeometryQuery } from '@bentley/geometry-core';
 import { GetMetaDataFunction } from '@bentley/bentleyjs-core';
 import { GuidString } from '@bentley/bentleyjs-core';
+import { Id64 } from '@bentley/bentleyjs-core';
 import { Id64Array } from '@bentley/bentleyjs-core';
 import { Id64String } from '@bentley/bentleyjs-core';
 import { IDisposable } from '@bentley/bentleyjs-core';
@@ -68,30 +71,33 @@ export namespace AmbientOcclusion {
         // (undocumented)
         readonly blurTexelStepSize?: number;
         readonly intensity?: number;
+        readonly maxDistance?: number;
         readonly texelStepSize?: number;
         readonly zLengthCap?: number;
     }
     export class Settings implements Props {
         // (undocumented)
-        readonly bias?: number;
+        readonly bias: number;
         // (undocumented)
-        readonly blurDelta?: number;
+        readonly blurDelta: number;
         // (undocumented)
-        readonly blurSigma?: number;
+        readonly blurSigma: number;
         // (undocumented)
-        readonly blurTexelStepSize?: number;
+        readonly blurTexelStepSize: number;
         // (undocumented)
         static defaults: Settings;
         // (undocumented)
         static fromJSON(json?: Props): Settings;
         // (undocumented)
-        readonly intensity?: number;
+        readonly intensity: number;
         // (undocumented)
-        readonly texelStepSize?: number;
+        readonly maxDistance: number;
+        // (undocumented)
+        readonly texelStepSize: number;
         // (undocumented)
         toJSON(): Props;
         // (undocumented)
-        readonly zLengthCap?: number;
+        readonly zLengthCap: number;
     }
 }
 
@@ -269,6 +275,27 @@ export type AxisAlignedBox3d = Range3d;
 // @public
 export type AxisAlignedBox3dProps = Range3dProps;
 
+// @internal
+export class B3dmHeader extends TileHeader {
+    constructor(stream: ByteStream);
+    // (undocumented)
+    readonly batchTableBinaryLength: number;
+    // (undocumented)
+    readonly batchTableJson: any;
+    // (undocumented)
+    readonly batchTableJsonLength: number;
+    // (undocumented)
+    readonly featureTableBinaryLength: number;
+    // (undocumented)
+    readonly featureTableJson: any;
+    // (undocumented)
+    readonly featureTableJsonLength: number;
+    // (undocumented)
+    get isValid(): boolean;
+    // (undocumented)
+    readonly length: number;
+}
+
 // @public (undocumented)
 export class BackendError extends IModelError {
     constructor(errorNumber: number, name: string, message: string, log?: LogFunction, category?: string, getMetaData?: GetMetaDataFunction);
@@ -289,6 +316,10 @@ export interface BackgroundMapProps {
         mapType?: BackgroundMapType;
     };
     providerName?: string;
+    // @alpha
+    terrainSettings?: TerrainProps;
+    transparency?: number | false;
+    useDepthBuffer?: boolean;
 }
 
 // @beta
@@ -296,7 +327,6 @@ export type BackgroundMapProviderName = "BingProvider" | "MapBoxProvider";
 
 // @beta
 export class BackgroundMapSettings {
-    constructor(providerName?: BackgroundMapProviderName, mapType?: BackgroundMapType, groundBias?: number, applyTerrain?: boolean);
     readonly applyTerrain: boolean;
     clone(changedProps?: BackgroundMapProps): BackgroundMapSettings;
     // (undocumented)
@@ -306,8 +336,13 @@ export class BackgroundMapSettings {
     readonly groundBias: number;
     readonly mapType: BackgroundMapType;
     readonly providerName: BackgroundMapProviderName;
+    // @alpha
+    readonly terrainSettings: TerrainSettings;
     // (undocumented)
     toJSON(): BackgroundMapProps;
+    readonly transparency: number | false;
+    get transparencyOverride(): number | undefined;
+    readonly useDepthBuffer: boolean;
 }
 
 // @public
@@ -428,6 +463,12 @@ export enum BisCodeSpec {
     viewDefinition = "bis:ViewDefinition"
 }
 
+// @internal (undocumented)
+export function bisectTileRange2d(range: Range3d, takeUpper: boolean): void;
+
+// @internal (undocumented)
+export function bisectTileRange3d(range: Range3d, takeUpper: boolean): void;
+
 // @internal
 export class BoundingSphere {
     constructor(center?: Point3d, radius?: number);
@@ -489,11 +530,11 @@ export class Camera implements CameraProps {
     // (undocumented)
     invalidateFocus(): void;
     // (undocumented)
-    readonly isFocusValid: boolean;
+    get isFocusValid(): boolean;
     // (undocumented)
-    readonly isLensValid: boolean;
+    get isLensValid(): boolean;
     // (undocumented)
-    readonly isValid: boolean;
+    get isValid(): boolean;
     // (undocumented)
     static isValidLensAngle(val: Angle): boolean;
     // (undocumented)
@@ -551,7 +592,7 @@ export class CartographicRange {
     }
 
 // @public
-export interface CategoryProps extends ElementProps {
+export interface CategoryProps extends DefinitionElementProps {
     // (undocumented)
     description?: string;
     // (undocumented)
@@ -564,14 +605,32 @@ export interface CategorySelectorProps extends DefinitionElementProps {
     categories: Id64Array;
 }
 
-// @beta (undocumented)
+// @internal (undocumented)
+export interface ChangeData {
+    // (undocumented)
+    changedElements: ChangedElements;
+    // (undocumented)
+    changedModels: ChangedModels;
+}
+
+// @internal (undocumented)
 export interface ChangedElements {
     // (undocumented)
     classIds: Id64String[];
     // (undocumented)
     elements: Id64String[];
     // (undocumented)
+    modelIds?: Id64String[];
+    // (undocumented)
     opcodes: number[];
+}
+
+// @internal (undocumented)
+export interface ChangedModels {
+    // (undocumented)
+    bboxes: AxisAlignedBox3dProps[];
+    // (undocumented)
+    modelIds: Id64String[];
 }
 
 // @public
@@ -601,9 +660,21 @@ export { ChangeSetStatus }
 // @internal (undocumented)
 export const CHANNEL = "@bentley/imodeljs-mobilegateway";
 
+// @internal
+export interface ClassifierTileTreeId {
+    // (undocumented)
+    animationId?: Id64String;
+    // (undocumented)
+    expansion: number;
+    // (undocumented)
+    type: BatchType.VolumeClassifier | BatchType.PlanarClassifier;
+}
+
 // @beta (undocumented)
 export abstract class CloudStorageCache<TContentId, TContentType> {
     constructor();
+    // (undocumented)
+    protected formContainerKey(id: TContentId): string;
     // (undocumented)
     abstract formContainerName(id: TContentId): string;
     // (undocumented)
@@ -614,6 +685,8 @@ export abstract class CloudStorageCache<TContentId, TContentType> {
     protected abstract instantiateResource(response: Response): Promise<TContentType | undefined>;
     // (undocumented)
     protected abstract obtainContainerUrl(id: TContentId, descriptor: CloudStorageContainerDescriptor): Promise<CloudStorageContainerUrl>;
+    // (undocumented)
+    provider: CloudStorageProvider;
     // (undocumented)
     protected requestResource(container: CloudStorageContainerUrl, id: TContentId): Promise<Response>;
     // (undocumented)
@@ -628,10 +701,14 @@ export interface CloudStorageContainerDescriptor {
     name: string;
     // (undocumented)
     provider?: CloudStorageProvider;
+    // (undocumented)
+    resource?: string;
 }
 
 // @beta (undocumented)
 export interface CloudStorageContainerUrl {
+    // (undocumented)
+    bound?: boolean;
     // (undocumented)
     descriptor: CloudStorageContainerDescriptor;
     // (undocumented)
@@ -659,11 +736,18 @@ export enum CloudStorageProvider {
     // (undocumented)
     Amazon = 1,
     // (undocumented)
-    Azure = 0
+    Azure = 0,
+    // (undocumented)
+    External = 3,
+    // (undocumented)
+    Unknown = 4
 }
 
 // @beta (undocumented)
 export class CloudStorageTileCache extends CloudStorageCache<TileContentIdentifier, Uint8Array> {
+    protected constructor();
+    // (undocumented)
+    protected formContainerKey(id: TileContentIdentifier): string;
     // (undocumented)
     formContainerName(id: TileContentIdentifier): string;
     // (undocumented)
@@ -722,19 +806,27 @@ export namespace CodeScopeSpec {
 
 // @public
 export class CodeSpec {
-    constructor(iModel: IModel, id: Id64String, name: string, specScopeType: CodeScopeSpec.Type, scopeReq?: CodeScopeSpec.ScopeRequirement, properties?: any);
+    // @internal @deprecated
+    constructor(iModel: IModel, id: Id64String, name: string, scopeType?: CodeScopeSpec.Type, scopeReq?: CodeScopeSpec.ScopeRequirement, properties?: any);
+    static create(iModel: IModel, name: string, scopeType: CodeScopeSpec.Type, scopeReq?: CodeScopeSpec.ScopeRequirement): CodeSpec;
+    // @internal
+    static createFromJson(iModel: IModel, id: Id64String, name: string, properties: any): CodeSpec;
     id: Id64String;
     iModel: IModel;
-    // (undocumented)
-    readonly isValid: boolean;
-    // (undocumented)
+    // @beta
+    get isManagedWithIModel(): boolean;
+    set isManagedWithIModel(value: boolean);
+    get isValid(): boolean;
     name: string;
-    // (undocumented)
+    // @internal
     properties: any;
-    // (undocumented)
-    scopeReq: CodeScopeSpec.ScopeRequirement;
-    // (undocumented)
-    specScopeType: CodeScopeSpec.Type;
+    get scopeReq(): CodeScopeSpec.ScopeRequirement;
+    set scopeReq(req: CodeScopeSpec.ScopeRequirement);
+    get scopeType(): CodeScopeSpec.Type;
+    set scopeType(scopeType: CodeScopeSpec.Type);
+    // @deprecated
+    get specScopeType(): CodeScopeSpec.Type;
+    set specScopeType(scopeType: CodeScopeSpec.Type);
 }
 
 // @public
@@ -1047,8 +1139,8 @@ export class ColorDef {
     adjustForContrast(other: ColorDef, alpha?: number): ColorDef;
     static readonly black: ColorDef;
     static readonly blue: ColorDef;
-    clone(): ColorDef;
-    readonly colors: {
+    clone(result?: ColorDef): ColorDef;
+    get colors(): {
         b: number;
         g: number;
         r: number;
@@ -1062,17 +1154,19 @@ export class ColorDef {
     getAbgr(): number;
     getAlpha(): number;
     getRgb(): number;
+    getTransparency(): number;
     static readonly green: ColorDef;
     invert(): ColorDef;
-    readonly isOpaque: boolean;
+    get isOpaque(): boolean;
     lerp(color2: ColorDef, weight: number, result?: ColorDef): ColorDef;
-    readonly name: string | undefined;
+    get name(): string | undefined;
     static readonly red: ColorDef;
     static rgb2bgr(val: number): number;
     setAlpha(alpha: number): void;
     setFrom(other: ColorDef): void;
     setTransparency(transparency: number): void;
-    tbgr: number;
+    get tbgr(): number;
+    set tbgr(tbgr: number);
     toHexString(): string;
     toHSL(opt?: HSLColor): HSLColor;
     toHSV(out?: HSVColor): HSVColor;
@@ -1088,28 +1182,84 @@ export type ColorDefProps = number | ColorDef;
 export class ColorIndex {
     constructor();
     // (undocumented)
-    readonly hasAlpha: boolean;
+    get hasAlpha(): boolean;
     // (undocumented)
     initNonUniform(colors: Uint32Array, indices: number[], hasAlpha: boolean): void;
     // (undocumented)
     initUniform(color: ColorDef | number): void;
     // (undocumented)
-    readonly isUniform: boolean;
+    get isUniform(): boolean;
     // (undocumented)
-    readonly nonUniform: NonUniformColor | undefined;
+    get nonUniform(): NonUniformColor | undefined;
     // (undocumented)
-    readonly numColors: number;
+    get numColors(): number;
     // (undocumented)
     reset(): void;
     // (undocumented)
-    readonly uniform: ColorDef | undefined;
+    get uniform(): ColorDef | undefined;
 }
 
 // @public
 export enum CommonLoggerCategory {
     ElementProps = "imodeljs-common.ElementProps",
+    Geometry = "imodeljs-common.Geometry",
     RpcInterfaceBackend = "imodeljs-backend.RpcInterface",
     RpcInterfaceFrontend = "imodeljs-frontend.RpcInterface"
+}
+
+// @internal
+export function compareIModelTileTreeIds(lhs: IModelTileTreeId, rhs: IModelTileTreeId): number;
+
+// @beta
+export enum ComparisonOption {
+    // (undocumented)
+    Exclusive = 1,
+    // (undocumented)
+    Inclusive = 0
+}
+
+// @internal
+export class CompositeTileHeader extends TileHeader {
+    constructor(stream: ByteStream);
+    // (undocumented)
+    get isValid(): boolean;
+    // (undocumented)
+    readonly length: number;
+    // (undocumented)
+    readonly tileCount: number;
+    // (undocumented)
+    readonly tilePosition: number;
+}
+
+// @internal
+export function computeChildTileProps(parent: TileMetadata, idProvider: ContentIdProvider, root: TileTreeMetadata): {
+    children: TileProps[];
+    numEmpty: number;
+};
+
+// @internal
+export function computeChildTileRanges(tile: TileMetadata, root: TileTreeMetadata): Array<{
+    range: Range3d;
+    isEmpty: boolean;
+}>;
+
+// @internal
+export abstract class ContentIdProvider {
+    // (undocumented)
+    protected abstract computeId(depth: number, i: number, j: number, k: number, mult: number): string;
+    static create(allowInstancing: boolean, options: TileOptions, formatVersion?: number): ContentIdProvider;
+    // (undocumented)
+    idFromParentAndMultiplier(parentId: string, multiplier: number): string;
+    // (undocumented)
+    idFromSpec(spec: ContentIdSpec): string;
+    // (undocumented)
+    protected join(depth: number, i: number, j: number, k: number, mult: number): string;
+    // (undocumented)
+    get rootContentId(): string;
+    // (undocumented)
+    protected abstract get _separator(): string;
+    // (undocumented)
+    specFromId(id: string): ContentIdSpec;
 }
 
 // @public
@@ -1138,6 +1288,13 @@ export const CURRENT_INVOCATION: unique symbol;
 // @internal (undocumented)
 export const CURRENT_REQUEST: unique symbol;
 
+// @internal
+export const enum CurrentImdlVersion {
+    Combined = 458752,
+    Major = 7,
+    Minor = 0
+}
+
 // @beta
 export interface CustomAttribute {
     ecclass: string;
@@ -1155,6 +1312,9 @@ export interface DecorationGeometryProps {
     // (undocumented)
     readonly id: Id64String;
 }
+
+// @alpha
+export const defaultOidcDesktopClientExpiryBuffer: number;
 
 // @public
 export interface DefinitionElementProps extends ElementProps {
@@ -1196,11 +1356,24 @@ export class DisplayStyle3dSettings extends DisplayStyleSettings {
     constructor(jsonProperties: {
         styles?: DisplayStyle3dSettingsProps;
     });
-    ambientOcclusionSettings: AmbientOcclusion.Settings;
+    get ambientOcclusionSettings(): AmbientOcclusion.Settings;
+    set ambientOcclusionSettings(ao: AmbientOcclusion.Settings);
     // @internal (undocumented)
-    environment: EnvironmentProps;
-    hiddenLineSettings: HiddenLine.Settings;
-    solarShadowsSettings: SolarShadows.Settings;
+    get environment(): EnvironmentProps;
+    set environment(environment: EnvironmentProps);
+    // @alpha (undocumented)
+    getPlanProjectionSettings(modelId: Id64String): PlanProjectionSettings | undefined;
+    get hiddenLineSettings(): HiddenLine.Settings;
+    set hiddenLineSettings(hline: HiddenLine.Settings);
+    // @alpha (undocumented)
+    get planProjectionSettings(): Iterable<[Id64String, PlanProjectionSettings]> | undefined;
+    // @alpha (undocumented)
+    setPlanProjectionSettings(modelId: Id64String, settings: PlanProjectionSettings | undefined): void;
+    get solarShadowsSettings(): SolarShadows.Settings;
+    set solarShadowsSettings(solarShadows: SolarShadows.Settings);
+    // @internal (undocumented)
+    get sunDir(): Vector3d | undefined;
+    set sunDir(dir: Vector3d | undefined);
     // @internal (undocumented)
     toJSON(): DisplayStyle3dSettingsProps;
 }
@@ -1212,6 +1385,12 @@ export interface DisplayStyle3dSettingsProps extends DisplayStyleSettingsProps {
     environment?: EnvironmentProps;
     // @beta
     hline?: HiddenLine.SettingsProps;
+    // @alpha
+    planProjections?: {
+        [modelId: string]: PlanProjectionSettingsProps;
+    };
+    // @alpha
+    sceneLights?: SceneLightsProps;
     // @beta
     solarShadows?: SolarShadows.Props;
 }
@@ -1229,23 +1408,28 @@ export class DisplayStyleSettings {
         styles?: DisplayStyleSettingsProps;
     });
     addExcludedElements(id: Id64String): void;
-    backgroundColor: ColorDef;
+    get backgroundColor(): ColorDef;
+    set backgroundColor(color: ColorDef);
     // @alpha (undocumented)
-    backgroundMap: BackgroundMapSettings;
+    get backgroundMap(): BackgroundMapSettings;
+    set backgroundMap(map: BackgroundMapSettings);
     dropExcludedElement(id: Id64String): void;
     dropSubCategoryOverride(id: Id64String): void;
     // @internal (undocumented)
     equalSubCategoryOverrides(other: DisplayStyleSettings): boolean;
-    readonly excludedElements: Set<Id64String>;
+    get excludedElements(): Set<Id64String>;
     getSubCategoryOverride(id: Id64String): SubCategoryOverride | undefined;
-    readonly hasSubCategoryOverride: boolean;
+    get hasSubCategoryOverride(): boolean;
     // (undocumented)
     protected readonly _json: DisplayStyleSettingsProps;
-    monochromeColor: ColorDef;
+    get monochromeColor(): ColorDef;
+    set monochromeColor(color: ColorDef);
     overrideSubCategory(id: Id64String, ovr: SubCategoryOverride): void;
+    get subCategoryOverrides(): Map<Id64String, SubCategoryOverride>;
     // @internal (undocumented)
     toJSON(): DisplayStyleSettingsProps;
-    viewFlags: ViewFlags;
+    get viewFlags(): ViewFlags;
+    set viewFlags(flags: ViewFlags);
     }
 
 // @public
@@ -1254,11 +1438,11 @@ export interface DisplayStyleSettingsProps {
     analysisStyle?: AnalysisStyleProps;
     backgroundColor?: ColorDefProps;
     backgroundMap?: BackgroundMapProps;
-    ContextRealityModels?: ContextRealityModelProps[];
+    contextRealityModels?: ContextRealityModelProps[];
     excludedElements?: Id64String[];
     monochromeColor?: ColorDefProps;
     // @beta
-    scheduleScript?: RenderSchedule.ElementTimelineProps[];
+    scheduleScript?: RenderSchedule.ModelTimelineProps[];
     subCategoryOvr?: DisplayStyleSubCategoryProps[];
     // (undocumented)
     viewflags?: ViewFlagProps;
@@ -1276,18 +1460,78 @@ export interface DistanceExpressionProps {
     // (undocumented)
     distanceAlongFromStart: number;
     // (undocumented)
-    lateralOffsetFromLinearElement?: number;
+    lateralOffsetFromILinearElement?: number;
     // (undocumented)
-    verticalOffsetFromLinearElement?: number;
+    verticalOffsetFromILinearElement?: number;
 }
 
 // @beta
 export type DPoint2dProps = number[];
 
+// @beta
+export const Easing: {
+    Linear: {
+        None: (k: number) => number;
+    };
+    Quadratic: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Cubic: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Quartic: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Quintic: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Sinusoidal: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Exponential: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Circular: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Elastic: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Back: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+    Bounce: {
+        In: (k: number) => number;
+        Out: (k: number) => number;
+        InOut: (k: number) => number;
+    };
+};
+
+// @beta (undocumented)
+export type EasingFunction = (k: number) => number;
+
 // @public
 export class EcefLocation implements EcefLocationProps {
     constructor(props: EcefLocationProps);
-    static createFromCartographicOrigin(origin: Cartographic): EcefLocation;
+    static createFromCartographicOrigin(origin: Cartographic, point?: Point3d, angle?: Angle): EcefLocation;
     getTransform(): Transform;
     readonly orientation: YawPitchRollAngles;
     readonly origin: Point3d;
@@ -1376,15 +1620,15 @@ export class EdgeArgs {
     // (undocumented)
     init(meshEdges?: MeshEdges): boolean;
     // (undocumented)
-    readonly isValid: boolean;
+    get isValid(): boolean;
     // (undocumented)
-    readonly numEdges: number;
+    get numEdges(): number;
 }
 
 // @beta
 export abstract class ElectronRpcConfiguration extends RpcConfiguration {
     // (undocumented)
-    static readonly isElectron: boolean;
+    static get isElectron(): boolean;
     abstract protocol: ElectronRpcProtocol;
 }
 
@@ -1405,8 +1649,6 @@ export class ElectronRpcProtocol extends RpcProtocol {
     constructor(configuration: ElectronRpcConfiguration);
     // (undocumented)
     static instances: Map<string, ElectronRpcProtocol>;
-    // (undocumented)
-    static obtainInstance(request: SerializedRpcRequest): ElectronRpcProtocol;
     // @internal (undocumented)
     onRpcClientInitialized(definition: RpcInterfaceDefinition, _client: RpcInterface): void;
     // @internal (undocumented)
@@ -1419,6 +1661,8 @@ export class ElectronRpcProtocol extends RpcProtocol {
     requests: Map<string, ElectronRpcRequest>;
     readonly requestType: typeof ElectronRpcRequest;
     transferChunkThreshold: number;
+    // @internal (undocumented)
+    readonly transport: ElectronIpcTransport<IpcTransportMessage, IpcTransportMessage>;
 }
 
 // @beta (undocumented)
@@ -1501,10 +1745,11 @@ export interface EntityMetaDataProps {
 
 // @public
 export interface EntityProps {
-    // (undocumented)
-    [propName: string]: any;
     classFullName: string;
     id?: Id64String;
+    jsonProperties?: {
+        [key: string]: any;
+    };
 }
 
 // @public
@@ -1527,7 +1772,7 @@ export interface EnvironmentProps {
 
 // @public
 export interface ExternalSourceAspectProps extends ElementAspectProps {
-    checksum: string;
+    checksum?: string;
     identifier: string;
     jsonProperties?: any;
     kind: string;
@@ -1545,9 +1790,9 @@ export class Feature {
     // (undocumented)
     readonly geometryClass: GeometryClass;
     // (undocumented)
-    readonly isDefined: boolean;
+    get isDefined(): boolean;
     // (undocumented)
-    readonly isUndefined: boolean;
+    get isUndefined(): boolean;
     // (undocumented)
     readonly subCategoryId: string;
 }
@@ -1569,9 +1814,9 @@ export class FeatureIndex {
     // (undocumented)
     featureIDs?: Uint32Array;
     // (undocumented)
-    readonly isEmpty: boolean;
+    get isEmpty(): boolean;
     // (undocumented)
-    readonly isUniform: boolean;
+    get isUniform(): boolean;
     // (undocumented)
     reset(): void;
     // (undocumented)
@@ -1592,21 +1837,35 @@ export enum FeatureIndexType {
 export class FeatureTable extends IndexMap<Feature> {
     constructor(maxFeatures: number, modelId?: Id64String, type?: BatchType);
     // @internal (undocumented)
-    readonly anyDefined: boolean;
+    get anyDefined(): boolean;
     findFeature(index: number): Feature | undefined;
     // @internal (undocumented)
     getArray(): Array<IndexedValue<Feature>>;
     // @internal (undocumented)
     insertWithIndex(feature: Feature, index: number): void;
-    readonly isPlanarClassifier: boolean;
-    readonly isUniform: boolean;
-    readonly isVolumeClassifier: boolean;
-    readonly maxFeatures: number;
+    get isPlanarClassifier(): boolean;
+    get isUniform(): boolean;
+    get isVolumeClassifier(): boolean;
+    get maxFeatures(): number;
     // (undocumented)
     readonly modelId: Id64String;
     // (undocumented)
     readonly type: BatchType;
-    readonly uniform: Feature | undefined;
+    get uniform(): Feature | undefined;
+}
+
+// @internal
+export class FeatureTableHeader {
+    // (undocumented)
+    readonly count: number;
+    // (undocumented)
+    readonly length: number;
+    // (undocumented)
+    readonly maxFeatures: number;
+    // (undocumented)
+    static readFrom(stream: ByteStream): FeatureTableHeader | undefined;
+    // (undocumented)
+    static sizeInBytes: number;
 }
 
 // @public (undocumented)
@@ -1641,7 +1900,9 @@ export enum FillFlags {
 
 // @public
 export class FontMap {
-    constructor(props: FontMapProps);
+    constructor(props?: FontMapProps);
+    // (undocumented)
+    addFonts(fonts: FontProps[]): void;
     // (undocumented)
     readonly fonts: Map<number, FontProps>;
     getFont(arg: string | number): FontProps | undefined;
@@ -1693,7 +1954,7 @@ export class Frustum {
     getCorner(i: number): Point3d;
     getFraction(): number;
     getRangePlanes(clipFront: boolean, clipBack: boolean, expandPlaneDistance: number): ConvexClipPlaneSet;
-    readonly hasMirror: boolean;
+    get hasMirror(): boolean;
     initFromRange(range: LowAndHighXYZ | LowAndHighXY): void;
     initNpc(): this;
     invalidate(): void;
@@ -1705,7 +1966,7 @@ export class Frustum {
     toMap4d(): Map4d | undefined;
     toRange(range?: Range3d): Range3d;
     transformBy(trans: Transform, result?: Frustum): Frustum;
-    translate(offset: Vector3d): void;
+    translate(offset: XYAndZ): void;
 }
 
 // @internal
@@ -1724,7 +1985,9 @@ export class FrustumPlanes {
     // (undocumented)
     intersectsRay(origin: Point3d, direction: Vector3d): boolean;
     // (undocumented)
-    readonly isValid: boolean;
+    get isValid(): boolean;
+    // (undocumented)
+    get planes(): ClipPlane[] | undefined;
     }
 
 // @internal (undocumented)
@@ -1811,9 +2074,19 @@ export interface GeometricElementProps extends ElementProps {
 }
 
 // @public
-export interface GeometricModel2dProps extends ModelProps {
-    // (undocumented)
+export interface GeometricModel2dProps extends GeometricModelProps {
     globalOrigin?: XYProps;
+}
+
+// @public
+export interface GeometricModel3dProps extends GeometricModelProps {
+    isNotSpatiallyLocated?: boolean;
+    isPlanProjection?: boolean;
+}
+
+// @public
+export interface GeometricModelProps extends ModelProps {
+    geometryGuid?: GuidString;
 }
 
 // @public
@@ -1890,9 +2163,17 @@ export class GeometryStreamBuilder {
     appendGeometryPart2d(partId: Id64String, instanceOrigin?: Point2d, instanceRotation?: Angle, instanceScale?: number): boolean;
     appendGeometryPart3d(partId: Id64String, instanceOrigin?: Point3d, instanceRotation?: YawPitchRollAngles, instanceScale?: number): boolean;
     appendGeometryRanges(): void;
+    // @beta
+    appendImage(image: ImageGraphic): boolean;
     appendSubCategoryChange(subCategoryId: Id64String): boolean;
     appendTextString(textString: TextString): boolean;
     readonly geometryStream: GeometryStreamProps;
+    // @internal (undocumented)
+    getHeader(): GeometryStreamHeaderProps | undefined;
+    get isViewIndependent(): boolean;
+    set isViewIndependent(viewIndependent: boolean);
+    // @internal (undocumented)
+    obtainHeader(): GeometryStreamHeaderProps;
     setLocalToWorld(localToWorld?: Transform): void;
     setLocalToWorld2d(origin: Point2d, angle?: Angle): void;
     setLocalToWorld3d(origin: Point3d, angles?: YawPitchRollAngles): void;
@@ -1909,6 +2190,10 @@ export interface GeometryStreamEntryProps extends IModelJson.GeometryProps {
     // (undocumented)
     geomPart?: GeometryPartInstanceProps;
     // (undocumented)
+    header?: GeometryStreamHeaderProps;
+    // @beta (undocumented)
+    image?: ImageGraphicProps;
+    // (undocumented)
     material?: MaterialProps;
     // (undocumented)
     pattern?: AreaPattern.ParamsProps;
@@ -1921,15 +2206,29 @@ export interface GeometryStreamEntryProps extends IModelJson.GeometryProps {
 }
 
 // @public
+export enum GeometryStreamFlags {
+    None = 0,
+    ViewIndependent = 1
+}
+
+// @public
+export interface GeometryStreamHeaderProps {
+    flags: GeometryStreamFlags;
+}
+
+// @public
 export class GeometryStreamIterator implements IterableIterator<GeometryStreamIteratorEntry> {
     // (undocumented)
     [Symbol.iterator](): IterableIterator<GeometryStreamIteratorEntry>;
     constructor(geometryStream: GeometryStreamProps, category?: Id64String);
     entry: GeometryStreamIteratorEntry;
+    readonly flags: GeometryStreamFlags;
     static fromGeometricElement2d(element: GeometricElement2dProps): GeometryStreamIterator;
     static fromGeometricElement3d(element: GeometricElement3dProps): GeometryStreamIterator;
     static fromGeometryPart(geomPart: GeometryPartProps, geomParams?: GeometryParams, partTransform?: Transform): GeometryStreamIterator;
     geometryStream: GeometryStreamProps;
+    // @internal (undocumented)
+    get isViewIndependent(): boolean;
     next(): IteratorResult<GeometryStreamIteratorEntry>;
     partToWorld(): Transform | undefined;
     setLocalToWorld(localToWorld?: Transform): void;
@@ -1942,19 +2241,195 @@ export class GeometryStreamIteratorEntry {
     constructor(category?: Id64String);
     // @beta
     brep?: BRepEntity.DataProps;
-    geometryQuery?: GeometryQuery;
+    geometryQuery?: AnyGeometryQuery;
     geomParams: GeometryParams;
+    // @beta
+    image?: ImageGraphic;
     localRange?: Range3d;
     localToWorld?: Transform;
     partId?: Id64String;
     partToLocal?: Transform;
+    get primitive(): GeometryStreamIteratorEntry.Primitive;
     textString?: TextString;
+}
+
+// @public (undocumented)
+export namespace GeometryStreamIteratorEntry {
+    export interface BRepPrimitive {
+        // @beta (undocumented)
+        readonly brep: BRepEntity.DataProps;
+        // (undocumented)
+        type: "brep";
+    }
+    export interface GeometryPrimitive {
+        // (undocumented)
+        readonly geometry: AnyGeometryQuery;
+        // (undocumented)
+        type: "geometryQuery";
+    }
+    export interface ImagePrimitive {
+        // @beta (undocumented)
+        readonly image: ImageGraphic;
+        // (undocumented)
+        type: "image";
+    }
+    export interface PartReference {
+        // (undocumented)
+        part: {
+            id: Id64String;
+            readonly toLocal?: Transform;
+        };
+        // (undocumented)
+        type: "partReference";
+    }
+    export type Primitive = TextStringPrimitive | PartReference | BRepPrimitive | GeometryPrimitive | ImagePrimitive;
+    export interface TextStringPrimitive {
+        // (undocumented)
+        readonly textString: TextString;
+        // (undocumented)
+        type: "textString";
+    }
 }
 
 // @public
 export type GeometryStreamProps = GeometryStreamEntryProps[];
 
+// @alpha
+export interface GeometrySummaryOptions {
+    geometryVerbosity?: GeometrySummaryVerbosity;
+    includePartReferences?: "2d" | "3d";
+    includePlacement?: boolean;
+    verboseSymbology?: boolean;
+}
+
+// @alpha
+export interface GeometrySummaryRequestProps {
+    elementIds: Id64Array;
+    options?: GeometrySummaryOptions;
+}
+
+// @alpha
+export enum GeometrySummaryVerbosity {
+    Basic = 10,
+    Detailed = 20,
+    Full = 30
+}
+
+// @internal (undocumented)
+export function getMaximumMajorTileFormatVersion(maxMajorVersion: number, formatVersion?: number): number;
+
 export { GetMetaDataFunction }
+
+// @internal
+export class GltfBufferData {
+    constructor(buffer: GltfDataBuffer, count: number);
+    // (undocumented)
+    readonly buffer: GltfDataBuffer;
+    // (undocumented)
+    readonly count: number;
+    static create(bytes: Uint8Array, actualType: GltfDataType, expectedType: GltfDataType, count: number): GltfBufferData | undefined;
+    }
+
+// @internal
+export class GltfBufferView {
+    constructor(data: Uint8Array, count: number, type: GltfDataType, accessor: any);
+    // (undocumented)
+    readonly accessor: any;
+    // (undocumented)
+    get byteLength(): number;
+    // (undocumented)
+    readonly count: number;
+    // (undocumented)
+    readonly data: Uint8Array;
+    // (undocumented)
+    toBufferData(desiredType: GltfDataType): GltfBufferData | undefined;
+    // (undocumented)
+    readonly type: GltfDataType;
+}
+
+// @internal (undocumented)
+export const enum GltfConstants {
+    // (undocumented)
+    ArrayBuffer = 34962,
+    // (undocumented)
+    ClampToEdge = 33071,
+    // (undocumented)
+    CullFace = 2884,
+    // (undocumented)
+    DepthTest = 2929,
+    // (undocumented)
+    ElementArrayBuffer = 34963,
+    // (undocumented)
+    FragmentShader = 35632,
+    // (undocumented)
+    Linear = 9729,
+    // (undocumented)
+    LinearMipmapLinear = 9987,
+    // (undocumented)
+    Nearest = 9728,
+    // (undocumented)
+    VertexShader = 35633
+}
+
+// @internal (undocumented)
+export type GltfDataBuffer = Uint8Array | Uint16Array | Uint32Array | Float32Array;
+
+// @internal (undocumented)
+export const enum GltfDataType {
+    // (undocumented)
+    Float = 5126,
+    // (undocumented)
+    UInt32 = 5125,
+    // (undocumented)
+    UnsignedByte = 5121,
+    // (undocumented)
+    UnsignedShort = 5123
+}
+
+// @internal
+export class GltfHeader extends TileHeader {
+    constructor(stream: ByteStream);
+    // (undocumented)
+    readonly binaryPosition: number;
+    // (undocumented)
+    readonly gltfLength: number;
+    // (undocumented)
+    get isValid(): boolean;
+    // (undocumented)
+    readonly scenePosition: number;
+    // (undocumented)
+    readonly sceneStrLength: number;
+}
+
+// @internal (undocumented)
+export const enum GltfMeshMode {
+    // (undocumented)
+    Lines = 1,
+    // (undocumented)
+    LineStrip = 3,
+    // (undocumented)
+    Triangles = 4
+}
+
+// @internal (undocumented)
+export const enum GltfV2ChunkTypes {
+    // (undocumented)
+    Binary = 5130562,
+    // (undocumented)
+    JSON = 1313821514
+}
+
+// @internal
+export const enum GltfVersions {
+    // (undocumented)
+    CurrentVersion = 1,
+    // (undocumented)
+    Gltf1SceneFormat = 0,
+    // (undocumented)
+    Version1 = 1,
+    // (undocumented)
+    Version2 = 2
+}
 
 // @beta (undocumented)
 export namespace Gradient {
@@ -2005,10 +2480,11 @@ export namespace Gradient {
         static fromJSON(json?: SymbProps): Symb;
         getImage(width: number, height: number): ImageBuffer;
         // (undocumented)
-        readonly hasTranslucency: boolean;
-        readonly isOutlined: boolean;
+        get hasTranslucency(): boolean;
+        get isOutlined(): boolean;
         // (undocumented)
         keys: KeyColor[];
+        mapColor(value: number): ColorDef;
         // (undocumented)
         mode: Mode;
         // (undocumented)
@@ -2059,9 +2535,9 @@ export namespace Gradient {
         // (undocumented)
         colorScheme: number;
         // (undocumented)
-        static readonly contentMax: number;
+        static get contentMax(): number;
         // (undocumented)
-        static readonly contentRange: number;
+        static get contentRange(): number;
         // (undocumented)
         copyFrom(other: ThematicSettingsProps): void;
         // (undocumented)
@@ -2069,13 +2545,14 @@ export namespace Gradient {
         // (undocumented)
         static fromJSON(json: ThematicSettingsProps): ThematicSettings;
         // (undocumented)
-        static readonly margin: number;
+        static get margin(): number;
         // (undocumented)
         marginColor: ColorDef;
         // (undocumented)
         mode: ThematicMode;
         // (undocumented)
-        range: Range1d;
+        get range(): Range1d;
+        set range(range: Range1d);
         // (undocumented)
         rangeHigh: number;
         // (undocumented)
@@ -2162,11 +2639,12 @@ export namespace HiddenLine {
         static defaults: Settings;
         static fromJSON(json?: SettingsProps): Settings;
         readonly hidden: Style;
+        override(props: SettingsProps): Settings;
         // (undocumented)
         toJSON(): SettingsProps;
         readonly transparencyThreshold: number;
         // (undocumented)
-        readonly transThreshold: number;
+        get transThreshold(): number;
         readonly visible: Style;
     }
     export interface SettingsProps {
@@ -2183,9 +2661,11 @@ export namespace HiddenLine {
         equals(other: Style): boolean;
         // (undocumented)
         static fromJSON(json?: StyleProps, hidden?: true): Style;
-        overrideColor(color: ColorDef): Style;
+        overrideColor(color: ColorDef | undefined): Style;
+        overridePattern(pattern: LinePixels | undefined): Style;
+        overrideWidth(width: number | undefined): Style;
         // @internal (undocumented)
-        readonly ovrColor: boolean;
+        get ovrColor(): boolean;
         readonly pattern?: LinePixels;
         // (undocumented)
         toJSON(): StyleProps;
@@ -2202,6 +2682,8 @@ export namespace HiddenLine {
 
 // @public
 export namespace Hilite {
+    export function cloneSettings(settings: Settings): Settings;
+    export function equalSettings(lhs: Settings, rhs: Settings): boolean;
     export class Settings {
         constructor(color?: ColorDef, visibleRatio?: number, hiddenRatio?: number, silhouette?: Silhouette);
         readonly color: ColorDef;
@@ -2268,6 +2750,8 @@ export interface HttpServerRequest extends Readable {
     // (undocumented)
     httpVersionMinor: number;
     // (undocumented)
+    ip?: string;
+    // (undocumented)
     method: string;
     // (undocumented)
     path: string;
@@ -2301,6 +2785,29 @@ export interface HttpServerResponse extends Writable {
     status(code: number): HttpServerResponse;
 }
 
+// @internal
+export class I3dmHeader extends TileHeader {
+    constructor(stream: ByteStream);
+    // (undocumented)
+    readonly batchTableBinaryLength: number;
+    // (undocumented)
+    readonly batchTableJson: any;
+    // (undocumented)
+    readonly batchTableJsonLength: number;
+    // (undocumented)
+    readonly featureTableBinaryLength: number;
+    // (undocumented)
+    readonly featureTableJsonLength: number;
+    // (undocumented)
+    readonly featureTableJsonPosition: number;
+    // (undocumented)
+    readonly gltfVersion: number;
+    // (undocumented)
+    get isValid(): boolean;
+    // (undocumented)
+    readonly length: number;
+}
+
 // @beta
 export interface ILinearElementProps extends GeometricElement3dProps {
     // (undocumented)
@@ -2327,10 +2834,10 @@ export class ImageBuffer {
     readonly data: Uint8Array;
     readonly format: ImageBufferFormat;
     static getNumBytesPerPixel(format: ImageBufferFormat): number;
-    readonly height: number;
+    get height(): number;
     // @internal (undocumented)
     protected static isValidData(data: Uint8Array, format: ImageBufferFormat, width: number): boolean;
-    readonly numBytesPerPixel: number;
+    get numBytesPerPixel(): number;
     readonly width: number;
 }
 
@@ -2339,6 +2846,55 @@ export enum ImageBufferFormat {
     Alpha = 5,
     Rgb = 2,
     Rgba = 0
+}
+
+// @beta
+export class ImageGraphic {
+    constructor(corners: ImageGraphicCorners, textureId: Id64String, hasBorder?: boolean);
+    // (undocumented)
+    clone(): ImageGraphic;
+    // (undocumented)
+    cloneTransformed(transform: Transform): ImageGraphic;
+    computeRange(result?: Range3d): Range3d;
+    readonly corners: ImageGraphicCorners;
+    // (undocumented)
+    static fromJSON(props: ImageGraphicProps): ImageGraphic;
+    readonly hasBorder: boolean;
+    readonly textureId: Id64String;
+    // (undocumented)
+    toJSON(): ImageGraphicProps;
+    transformInPlace(transform: Transform): void;
+}
+
+// @beta
+export class ImageGraphicCorners {
+    // (undocumented)
+    readonly 0: Point3d;
+    // (undocumented)
+    readonly 1: Point3d;
+    // (undocumented)
+    readonly 2: Point3d;
+    // (undocumented)
+    readonly 3: Point3d;
+    constructor(p0: Point3d, p1: Point3d, p2: Point3d, p3: Point3d);
+    // (undocumented)
+    clone(): ImageGraphicCorners;
+    // (undocumented)
+    static from4Points(points: [Point3d, Point3d, Point3d, Point3d]): ImageGraphicCorners;
+    // (undocumented)
+    static fromJSON(props: ImageGraphicCornersProps): ImageGraphicCorners;
+    // (undocumented)
+    toJSON(): ImageGraphicCornersProps;
+}
+
+// @beta
+export type ImageGraphicCornersProps = [XYZProps, XYZProps, XYZProps, XYZProps];
+
+// @beta
+export interface ImageGraphicProps {
+    corners: ImageGraphicCornersProps;
+    hasBorder: boolean;
+    textureId: Id64String;
 }
 
 // @internal (undocumented)
@@ -2369,23 +2925,53 @@ export enum ImageSourceFormat {
     Svg = 3
 }
 
+// @internal
+export const enum ImdlFlags {
+    ContainsCurves = 1,
+    Incomplete = 4,
+    None = 0
+}
+
+// @internal
+export class ImdlHeader extends TileHeader {
+    constructor(stream: ByteStream);
+    readonly contentRange: ElementAlignedBox3d;
+    readonly emptySubRanges: number;
+    readonly flags: ImdlFlags;
+    readonly headerLength: number;
+    // (undocumented)
+    get isReadableVersion(): boolean;
+    // (undocumented)
+    get isValid(): boolean;
+    readonly numElementsExcluded: number;
+    readonly numElementsIncluded: number;
+    readonly tileLength: number;
+    readonly tolerance: number;
+    // (undocumented)
+    get versionMajor(): number;
+    // (undocumented)
+    get versionMinor(): number;
+}
+
 // @public
 export abstract class IModel implements IModelProps {
     // @internal
-    protected constructor(iModelToken: IModelToken);
+    protected constructor(iModelToken?: IModelToken);
     cartographicToSpatialFromEcef(cartographic: Cartographic, result?: Point3d): Point3d;
     static readonly dictionaryId: Id64String;
-    readonly ecefLocation: EcefLocation | undefined;
+    get ecefLocation(): EcefLocation | undefined;
     ecefToSpatial(ecef: XYAndZ, result?: Point3d): Point3d;
     static getDefaultSubCategoryId(categoryId: Id64String): Id64String;
     getEcefTransform(): Transform;
-    readonly globalOrigin: Point3d;
-    readonly iModelToken: IModelToken;
+    get globalOrigin(): Point3d;
+    set globalOrigin(org: Point3d);
+    get iModelToken(): IModelToken;
     // @internal (undocumented)
     protected initialize(name: string, props: IModelProps): void;
-    readonly isGeoLocated: boolean;
+    get isGeoLocated(): boolean;
     name: string;
-    projectExtents: AxisAlignedBox3d;
+    get projectExtents(): AxisAlignedBox3d;
+    set projectExtents(extents: AxisAlignedBox3d);
     static readonly repositoryModelId: Id64String;
     rootSubject: RootSubjectProps;
     static readonly rootSubjectId: Id64String;
@@ -2395,7 +2981,7 @@ export abstract class IModel implements IModelProps {
     // @internal (undocumented)
     toJSON(): IModelProps;
     // @internal (undocumented)
-    protected _token: IModelToken;
+    protected _token?: IModelToken;
 }
 
 // @beta
@@ -2450,8 +3036,12 @@ export abstract class IModelReadRpcInterface extends RpcInterface {
     getElementProps(_iModelToken: IModelTokenProps, _elementIds: Id64String[]): Promise<ElementProps[]>;
     // @beta (undocumented)
     getGeoCoordinatesFromIModelCoordinates(_iModelToken: IModelTokenProps, _props: string): Promise<GeoCoordinatesResponseProps>;
+    // @alpha (undocumented)
+    getGeometrySummary(_iModelToken: IModelTokenProps, _props: GeometrySummaryRequestProps): Promise<string>;
     // @beta (undocumented)
     getIModelCoordinatesFromGeoCoordinates(_iModelToken: IModelTokenProps, _props: string): Promise<IModelCoordinatesResponseProps>;
+    // @beta (undocumented)
+    getMassProperties(_iModelToken: IModelTokenProps, _props: MassPropertiesRequestProps): Promise<MassPropertiesResponseProps>;
     // (undocumented)
     getModelProps(_iModelToken: IModelTokenProps, _modelIds: Id64String[]): Promise<ModelProps[]>;
     // (undocumented)
@@ -2490,11 +3080,19 @@ export abstract class IModelTileRpcInterface extends RpcInterface {
     getTileCacheContainerUrl(_tokenProps: IModelTokenProps, _id: CloudStorageContainerDescriptor): Promise<CloudStorageContainerUrl>;
     static readonly interfaceName = "IModelTileRpcInterface";
     static interfaceVersion: string;
+    // @internal
+    purgeTileTrees(_tokenProps: IModelTokenProps, _modelIds: Id64Array | undefined): Promise<void>;
     // @internal (undocumented)
-    requestTileContent(iModelToken: IModelTokenProps, treeId: string, contentId: string, isCanceled?: () => boolean): Promise<Uint8Array>;
+    requestTileContent(iModelToken: IModelTokenProps, treeId: string, contentId: string, isCanceled?: () => boolean, guid?: string): Promise<Uint8Array>;
     // @internal (undocumented)
     requestTileTreeProps(_tokenProps: IModelTokenProps, _id: string): Promise<TileTreeProps>;
 }
+
+// @internal
+export type IModelTileTreeId = PrimaryTileTreeId | ClassifierTileTreeId;
+
+// @internal
+export function iModelTileTreeIdToString(modelId: Id64String, treeId: IModelTileTreeId, options: TileOptions): string;
 
 // @public
 export class IModelToken implements IModelTokenProps {
@@ -2525,8 +3123,8 @@ export class IModelVersion {
     static fromJson(jsonObj: any): IModelVersion;
     getAsOfChangeSet(): GuidString | undefined;
     getName(): string | undefined;
-    readonly isFirst: boolean;
-    readonly isLatest: boolean;
+    get isFirst(): boolean;
+    get isLatest(): boolean;
     static latest(): IModelVersion;
     static named(versionName: string): IModelVersion;
     }
@@ -2562,10 +3160,29 @@ export const INSTANCE: unique symbol;
 export const interop: any;
 
 // @beta
+export const Interpolation: {
+    Linear: (v: any, k: number) => number;
+    Bezier: (v: any, k: number) => number;
+    CatmullRom: (v: any, k: number) => number;
+    Utils: {
+        Linear: (p0: number, p1: number, t: number) => number;
+        Bernstein: (n: number, i: number) => number;
+        Factorial: (n: number) => number;
+        CatmullRom: (p0: number, p1: number, p2: number, p3: number, t: number) => number;
+    };
+};
+
+// @beta (undocumented)
+export type InterpolationFunction = (v: any, k: number) => number;
+
+// @beta
 export interface IReferentProps {
     // (undocumented)
     referencedElement?: RelatedElementProps;
 }
+
+// @internal
+export function isKnownTileFormat(format: number): boolean;
 
 // @public
 export function isPowerOfTwo(num: number): boolean;
@@ -2601,9 +3218,9 @@ export class Light {
     // (undocumented)
     intensity2?: number;
     // (undocumented)
-    readonly isValid: boolean;
+    get isValid(): boolean;
     // (undocumented)
-    readonly isVisible: boolean;
+    get isVisible(): boolean;
     // (undocumented)
     kelvin: number;
     // (undocumented)
@@ -2667,6 +3284,20 @@ export enum LightType {
 }
 
 // @beta
+export interface LinearLocationReference {
+    // (undocumented)
+    linearlyLocatedClassFullName: string;
+    // (undocumented)
+    linearlyLocatedId: Id64String;
+    // (undocumented)
+    locationAspectId: Id64String;
+    // (undocumented)
+    startDistanceAlong: number;
+    // (undocumented)
+    stopDistanceAlong: number;
+}
+
+// @beta
 export interface LinearlyLocatedAttributionProps extends GeometricElement3dProps, ILinearlyLocatedAttributionProps {
 }
 
@@ -2696,6 +3327,16 @@ export interface LinearlyReferencedFromToLocationProps {
     toPosition: DistanceExpressionProps;
     // (undocumented)
     toPositionFromReferent?: RelatedElementProps;
+}
+
+// @beta
+export enum LinearlyReferencedLocationType {
+    // (undocumented)
+    Any = 2,
+    // (undocumented)
+    At = 0,
+    // (undocumented)
+    FromTo = 1
 }
 
 // @public
@@ -2774,7 +3415,7 @@ export namespace LineStyle {
 }
 
 // @beta
-export interface LineStyleProps extends ElementProps {
+export interface LineStyleProps extends DefinitionElementProps {
     // (undocumented)
     data: string;
     // (undocumented)
@@ -2802,6 +3443,45 @@ export interface MarshalingBinaryMarker {
 export namespace MarshalingBinaryMarker {
     // (undocumented)
     export function createDefault(): MarshalingBinaryMarker;
+}
+
+// @beta
+export enum MassPropertiesOperation {
+    AccumulateAreas = 1,
+    AccumulateLengths = 0,
+    AccumulateVolumes = 2
+}
+
+// @beta
+export interface MassPropertiesRequestProps {
+    // (undocumented)
+    candidates?: Id64Array;
+    // (undocumented)
+    operation: MassPropertiesOperation;
+}
+
+// @beta
+export interface MassPropertiesResponseProps {
+    // (undocumented)
+    area?: number;
+    // (undocumented)
+    centroid?: XYZProps;
+    // (undocumented)
+    ixy?: number;
+    // (undocumented)
+    ixz?: number;
+    // (undocumented)
+    iyz?: number;
+    // (undocumented)
+    length?: number;
+    // (undocumented)
+    moments?: XYZProps;
+    // (undocumented)
+    perimeter?: number;
+    // (undocumented)
+    status: BentleyStatus;
+    // (undocumented)
+    volume?: number;
 }
 
 // @public
@@ -2856,9 +3536,10 @@ export type MobileRpcChunks = Array<string | Uint8Array>;
 
 // @beta
 export abstract class MobileRpcConfiguration extends RpcConfiguration {
-    static readonly isIOSFrontend: any;
-    static readonly isMobileBackend: boolean;
-    static readonly isMobileFrontend: boolean;
+    static readonly args: any;
+    static get isIOSFrontend(): any;
+    static get isMobileBackend(): boolean;
+    static get isMobileFrontend(): boolean;
     static readonly platform: RpcMobilePlatform;
     // (undocumented)
     abstract protocol: MobileRpcProtocol;
@@ -2925,6 +3606,15 @@ export interface ModelSelectorProps extends DefinitionElementProps {
     models: Id64Array;
 }
 
+// @internal
+export abstract class NativeAppRpcInterface extends RpcInterface {
+    cancelTileContentRequests(_iModelToken: IModelTokenProps, _contentIds: TileTreeContentIds[]): Promise<void>;
+    fetchEvents(_iModelToken: IModelTokenProps, _maxToFetch: number): Promise<QueuedEvent[]>;
+    static getClient(): NativeAppRpcInterface;
+    static readonly interfaceName = "NativeAppRpcInterface";
+    static interfaceVersion: string;
+}
+
 // @public
 export interface NavigationBindingValue {
     id: Id64String;
@@ -2940,6 +3630,9 @@ export interface NavigationValue {
 
 // @public
 export function nextHighestPowerOfTwo(num: number): number;
+
+// @internal
+export function nextPoint3d64FromByteStream(stream: ByteStream, result?: Point3d): Point3d;
 
 // @internal (undocumented)
 export class NonUniformColor {
@@ -2993,6 +3686,10 @@ export class OctEncodedNormal {
     // (undocumented)
     decode(): Vector3d | undefined;
     // (undocumented)
+    static decodeValue(val: number, result?: Vector3d): Vector3d;
+    // (undocumented)
+    static encode(vec: XYAndZ): number;
+    // (undocumented)
     static fromVector(val: XYAndZ): OctEncodedNormal;
     // (undocumented)
     readonly value: number;
@@ -3005,6 +3702,14 @@ export class OctEncodedNormalPair {
     first: OctEncodedNormal;
     // (undocumented)
     second: OctEncodedNormal;
+}
+
+// @alpha
+export interface OidcDesktopClientConfiguration {
+    clientId: string;
+    expiryBuffer?: number;
+    redirectUri: string;
+    scope: string;
 }
 
 // @internal
@@ -3168,6 +3873,56 @@ export interface OpenAPISchema {
 // @internal (undocumented)
 export const OPERATION: unique symbol;
 
+// @internal (undocumented)
+export interface PackedFeature {
+    // (undocumented)
+    animationNodeId: number;
+    // (undocumented)
+    elementId: Id64.Uint32Pair;
+    // (undocumented)
+    geometryClass: GeometryClass;
+    // (undocumented)
+    subCategoryId: Id64.Uint32Pair;
+}
+
+// @internal
+export class PackedFeatureTable {
+    constructor(data: Uint32Array, modelId: Id64String, numFeatures: number, maxFeatures: number, type: BatchType, animationNodeIds?: Uint8Array | Uint16Array | Uint32Array);
+    // (undocumented)
+    readonly anyDefined: boolean;
+    // (undocumented)
+    get byteLength(): number;
+    findElementId(featureIndex: number): Id64String | undefined;
+    findFeature(featureIndex: number): Feature | undefined;
+    // (undocumented)
+    getAnimationNodeId(featureIndex: number): number;
+    // (undocumented)
+    getElementIdPair(featureIndex: number): Id64.Uint32Pair;
+    getFeature(featureIndex: number): Feature;
+    // (undocumented)
+    getPackedFeature(featureIndex: number): PackedFeature;
+    // (undocumented)
+    getSubCategoryIdPair(featureIndex: number): Id64.Uint32Pair;
+    // (undocumented)
+    get isClassifier(): boolean;
+    // (undocumented)
+    get isPlanarClassifier(): boolean;
+    get isUniform(): boolean;
+    // (undocumented)
+    get isVolumeClassifier(): boolean;
+    // (undocumented)
+    readonly maxFeatures: number;
+    // (undocumented)
+    readonly modelId: Id64String;
+    // (undocumented)
+    readonly numFeatures: number;
+    static pack(featureTable: FeatureTable): PackedFeatureTable;
+    // (undocumented)
+    readonly type: BatchType;
+    get uniform(): Feature | undefined;
+    unpack(): FeatureTable;
+}
+
 // @public
 export class Placement2d implements Placement2dProps {
     constructor(origin: Point2d, angle: Angle, bbox: ElementAlignedBox2d);
@@ -3178,12 +3933,13 @@ export class Placement2d implements Placement2dProps {
     calculateRange(): AxisAlignedBox3d;
     static fromJSON(json?: Placement2dProps): Placement2d;
     getWorldCorners(out?: Frustum): Frustum;
-    readonly isValid: boolean;
+    get isValid(): boolean;
+    multiplyTransform(other: Transform): void;
     // (undocumented)
     origin: Point2d;
-    readonly rotation: Matrix3d;
+    get rotation(): Matrix3d;
     setFrom(other: Placement2d): void;
-    readonly transform: Transform;
+    get transform(): Transform;
 }
 
 // @public
@@ -3206,12 +3962,13 @@ export class Placement3d implements Placement3dProps {
     calculateRange(): AxisAlignedBox3d;
     static fromJSON(json?: Placement3dProps): Placement3d;
     getWorldCorners(out?: Frustum): Frustum;
-    readonly isValid: boolean;
+    get isValid(): boolean;
+    multiplyTransform(other: Transform): void;
     // (undocumented)
     origin: Point3d;
-    readonly rotation: Matrix3d;
+    get rotation(): Matrix3d;
     setFrom(other: Placement3d): void;
-    readonly transform: Transform;
+    get transform(): Transform;
 }
 
 // @public
@@ -3226,6 +3983,45 @@ export interface Placement3dProps {
 
 // @public (undocumented)
 export type PlacementProps = Placement2dProps | Placement3dProps;
+
+// @alpha
+export class PlanProjectionSettings {
+    constructor(props: PlanProjectionSettingsProps);
+    clone(changedProps?: PlanProjectionSettingsProps): PlanProjectionSettings;
+    readonly elevation?: number;
+    // (undocumented)
+    static fromJSON(props: PlanProjectionSettingsProps | undefined): PlanProjectionSettings | undefined;
+    readonly overlay: boolean;
+    readonly priority?: number;
+    // (undocumented)
+    toJSON(): PlanProjectionSettingsProps;
+    readonly transparency?: number;
+}
+
+// @alpha
+export interface PlanProjectionSettingsProps {
+    elevation?: number;
+    overlay?: boolean;
+    priority?: number;
+    transparency?: number;
+}
+
+// @internal
+export class PntsHeader extends TileHeader {
+    constructor(stream: ByteStream);
+    // (undocumented)
+    readonly batchTableBinaryLength: number;
+    // (undocumented)
+    readonly batchTableJsonLength: number;
+    // (undocumented)
+    readonly featureTableBinaryLength: number;
+    // (undocumented)
+    readonly featureTableJsonLength: number;
+    // (undocumented)
+    get isValid(): boolean;
+    // (undocumented)
+    readonly length: number;
+}
 
 // @beta
 export interface PointWithStatus {
@@ -3244,7 +4040,7 @@ export class PolylineData {
     // (undocumented)
     init(polyline: MeshPolyline): boolean;
     // (undocumented)
-    readonly isValid: boolean;
+    get isValid(): boolean;
     // (undocumented)
     numIndices: number;
     // (undocumented)
@@ -3261,11 +4057,11 @@ export class PolylineEdgeArgs {
     // (undocumented)
     init(lines?: PolylineData[]): boolean;
     // (undocumented)
-    readonly isValid: boolean;
+    get isValid(): boolean;
     // (undocumented)
     lines?: PolylineData[];
     // (undocumented)
-    readonly numLines: number;
+    get numLines(): number;
 }
 
 // @internal
@@ -3280,13 +4076,13 @@ export class PolylineFlags {
     // (undocumented)
     is2d: boolean;
     // (undocumented)
-    readonly isAnyEdge: boolean;
+    get isAnyEdge(): boolean;
     // (undocumented)
     isDisjoint: boolean;
     // (undocumented)
-    readonly isNormalEdge: boolean;
+    get isNormalEdge(): boolean;
     // (undocumented)
-    readonly isOutlineEdge: boolean;
+    get isOutlineEdge(): boolean;
     // (undocumented)
     isPlanar: boolean;
     pack(): number;
@@ -3307,6 +4103,16 @@ export enum PolylineTypeFlags {
     Normal = 0,
     // (undocumented)
     Outline = 2
+}
+
+// @internal
+export interface PrimaryTileTreeId {
+    // (undocumented)
+    animationId?: Id64String;
+    // (undocumented)
+    edgesRequired: boolean;
+    // (undocumented)
+    type: BatchType.Primary;
 }
 
 // @beta
@@ -3354,6 +4160,7 @@ export class PropertyMetaData implements PropertyMetaDataProps {
     isCustomHandled?: boolean;
     // (undocumented)
     isCustomHandledOrphan?: boolean;
+    get isNavigation(): boolean;
     // (undocumented)
     kindOfQuantity?: string;
     // (undocumented)
@@ -3465,9 +4272,11 @@ export class QPoint2d {
     setFromScalars(x: number, y: number): void;
     unquantize(params: QParams2d, out?: Point2d): Point2d;
     // (undocumented)
-    x: number;
+    get x(): number;
+    set x(x: number);
     // (undocumented)
-    y: number;
+    get y(): number;
+    set y(y: number);
     }
 
 // @internal
@@ -3476,7 +4285,7 @@ export class QPoint2dList {
     add(pt: Point2d): void;
     clear(): void;
     static fromPoints(points: Point2d[], out?: QPoint2dList): QPoint2dList;
-    readonly length: number;
+    get length(): number;
     // (undocumented)
     readonly params: QParams2d;
     push(qpt: QPoint2d): void;
@@ -3502,28 +4311,29 @@ export class QPoint3d {
     setFromScalars(x: number, y: number, z: number): void;
     unquantize(params: QParams3d, out?: Point3d): Point3d;
     // (undocumented)
-    x: number;
+    get x(): number;
+    set x(x: number);
     // (undocumented)
-    y: number;
+    get y(): number;
+    set y(y: number);
     // (undocumented)
-    z: number;
+    get z(): number;
+    set z(z: number);
     }
 
 // @internal
 export class QPoint3dList {
     // (undocumented)
-    [Symbol.iterator](): {
-        next: () => IteratorResult<QPoint3d>;
-    };
+    [Symbol.iterator](): IterableIterator<QPoint3d>;
     constructor(paramsIn?: QParams3d);
     add(pt: Point3d): void;
     clear(): void;
     // (undocumented)
     static createFrom(points: Point3d[], params: QParams3d): QPoint3dList;
     static fromPoints(points: Point3d[], out?: QPoint3dList): QPoint3dList;
-    readonly length: number;
+    get length(): number;
     // (undocumented)
-    readonly list: QPoint3d[];
+    get list(): QPoint3d[];
     // (undocumented)
     readonly params: QParams3d;
     push(qpt: QPoint3d): void;
@@ -3553,6 +4363,22 @@ export namespace Quantization {
 export interface QueryLimit {
     maxRowAllowed?: number;
     startRowOffset?: number;
+}
+
+// @beta
+export interface QueryParams {
+    // (undocumented)
+    fromComparisonOption?: ComparisonOption;
+    // (undocumented)
+    fromDistanceAlong?: number;
+    // (undocumented)
+    linearlyLocatedClassFullNames?: string[];
+    // (undocumented)
+    linearlyReferencedLocationTypeFilter?: LinearlyReferencedLocationType;
+    // (undocumented)
+    toComparisonOption?: ComparisonOption;
+    // (undocumented)
+    toDistanceAlong?: number;
 }
 
 // @public
@@ -3593,6 +4419,18 @@ export enum QueryResponseStatus {
     Timeout = 4
 }
 
+// @internal
+export interface QueuedEvent {
+    // (undocumented)
+    data: any;
+    // (undocumented)
+    eventId: number;
+    // (undocumented)
+    eventName: string;
+    // (undocumented)
+    namespace: string;
+}
+
 // @public
 export enum Rank {
     Application = 2,
@@ -3609,6 +4447,9 @@ export interface ReadableFormData extends Readable {
     };
 }
 
+// @internal
+export function readTileContentDescription(stream: ByteStream, sizeMultiplier: number | undefined, is2d: boolean, options: TileOptions, isVolumeClassifier: boolean): TileContentDescription;
+
 // @beta
 export interface ReferentElementProps extends GeometricElement3dProps, IReferentProps {
 }
@@ -3623,6 +4464,7 @@ export class RelatedElement implements RelatedElementProps {
     static fromJSON(json?: RelatedElementProps): RelatedElement | undefined;
     readonly id: Id64String;
     static idFromJson(json: any): Id64String;
+    static readonly none: RelatedElement;
     readonly relClassName?: string;
 }
 
@@ -3636,7 +4478,7 @@ export interface RelatedElementProps {
 export abstract class RenderMaterial {
     protected constructor(params: RenderMaterial.Params);
     // (undocumented)
-    readonly hasTexture: boolean;
+    get hasTexture(): boolean;
     readonly key?: string;
     readonly textureMapping?: TextureMapping;
 }
@@ -3645,35 +4487,24 @@ export abstract class RenderMaterial {
 export namespace RenderMaterial {
     export class Params {
         constructor(key?: string);
-        // (undocumented)
+        get alpha(): number | undefined;
+        set alpha(alpha: number | undefined);
         ambient: number;
         static readonly defaults: Params;
-        // (undocumented)
         diffuse: number;
-        // (undocumented)
         diffuseColor?: ColorDef;
-        // (undocumented)
         emissiveColor?: ColorDef;
         static fromColors(key?: string, diffuseColor?: ColorDef, specularColor?: ColorDef, emissiveColor?: ColorDef, reflectColor?: ColorDef, textureMap?: TextureMapping): Params;
         key?: string;
-        // (undocumented)
         reflect: number;
-        // (undocumented)
         reflectColor?: ColorDef;
-        // (undocumented)
         refract: number;
-        // (undocumented)
         shadows: boolean;
-        // (undocumented)
         specular: number;
-        // (undocumented)
         specularColor?: ColorDef;
         // (undocumented)
         specularExponent: number;
-        // (undocumented)
         textureMapping?: TextureMapping;
-        // (undocumented)
-        transparency: number;
     }
 }
 
@@ -3719,7 +4550,6 @@ export enum RenderMode {
 
 // @beta
 export namespace RenderSchedule {
-    // (undocumented)
     export interface ColorEntryProps extends TimelineEntryProps {
         // (undocumented)
         value: {
@@ -3728,68 +4558,54 @@ export namespace RenderSchedule {
             blue: number;
         };
     }
-    // (undocumented)
     export interface CuttingPlaneEntryProps extends TimelineEntryProps {
         // (undocumented)
         value: CuttingPlaneProps;
     }
-    // (undocumented)
     export interface CuttingPlaneProps {
-        // (undocumented)
         direction: number[];
-        // (undocumented)
         hidden?: boolean;
-        // (undocumented)
         position: number[];
-        // (undocumented)
         visible?: boolean;
     }
-    // (undocumented)
-    export interface ElementTimelineProps {
+    export interface ElementTimelineProps extends TimelineProps {
         // (undocumented)
         batchId: number;
+        // (undocumented)
+        elementIds: Id64String[];
+    }
+    export interface ModelTimelineProps extends TimelineProps {
+        // (undocumented)
+        elementTimelines: ElementTimelineProps[];
+        // (undocumented)
+        modelId: Id64String;
+        // (undocumented)
+        realityModelUrl?: string;
+    }
+    export interface TimelineEntryProps {
+        interpolation: number;
+        time: number;
+    }
+    export interface TimelineProps {
         // (undocumented)
         colorTimeline?: ColorEntryProps[];
         // (undocumented)
         cuttingPlaneTimeline?: CuttingPlaneEntryProps[];
         // (undocumented)
-        elementIds: Id64String[];
-        // (undocumented)
         transformTimeline?: TransformEntryProps[];
         // (undocumented)
         visibilityTimeline?: VisibilityEntryProps[];
     }
-    // (undocumented)
-    export interface ModelTimelineProps {
-        // (undocumented)
-        elementTimelines: ElementTimelineProps[];
-        // (undocumented)
-        modelId: Id64String;
-    }
-    // (undocumented)
-    export interface TimelineEntryProps {
-        // (undocumented)
-        interpolation: number;
-        // (undocumented)
-        time: number;
-    }
-    // (undocumented)
     export interface TransformEntryProps extends TimelineEntryProps {
         // (undocumented)
         value: TransformProps;
     }
-    // (undocumented)
     export interface TransformProps {
-        // (undocumented)
         orientation: number[];
-        // (undocumented)
         pivot: number[];
-        // (undocumented)
         position: number[];
-        // (undocumented)
         transform: number[][];
     }
-    // (undocumented)
     export interface VisibilityEntryProps extends TimelineEntryProps {
         // (undocumented)
         value: number;
@@ -3801,12 +4617,12 @@ export abstract class RenderTexture implements IDisposable {
     protected constructor(params: RenderTexture.Params);
     abstract dispose(): void;
     // (undocumented)
-    readonly isGlyph: boolean;
+    get isGlyph(): boolean;
     readonly isOwned: boolean;
     // (undocumented)
-    readonly isSkyBox: boolean;
+    get isSkyBox(): boolean;
     // (undocumented)
-    readonly isTileSection: boolean;
+    get isTileSection(): boolean;
     readonly key: string | undefined;
     readonly type: RenderTexture.Type;
 }
@@ -3817,16 +4633,17 @@ export namespace RenderTexture {
         constructor(key?: string, type?: Type, isOwned?: boolean);
         static readonly defaults: Params;
         // (undocumented)
-        readonly isGlyph: boolean;
+        get isGlyph(): boolean;
         readonly isOwned: boolean;
         // (undocumented)
-        readonly isSkyBox: boolean;
+        get isSkyBox(): boolean;
         // (undocumented)
-        readonly isTileSection: boolean;
+        get isTileSection(): boolean;
         readonly key?: string;
         readonly type: Type;
     }
     export const enum Type {
+        FilteredTileSection = 4,
         Glyph = 1,
         Normal = 0,
         SkyBox = 3,
@@ -3844,33 +4661,33 @@ export class ResponseLike implements Response {
     // (undocumented)
     blob(): Promise<Blob>;
     // (undocumented)
-    readonly body: null;
+    get body(): null;
     // (undocumented)
-    readonly bodyUsed: boolean;
+    get bodyUsed(): boolean;
     // (undocumented)
     clone(): {} & this;
     // (undocumented)
     formData(): Promise<FormData>;
     // (undocumented)
-    readonly headers: Headers;
+    get headers(): Headers;
     // (undocumented)
     json(): Promise<any>;
     // (undocumented)
-    readonly ok: boolean;
+    get ok(): boolean;
     // (undocumented)
-    readonly redirected: boolean;
+    get redirected(): boolean;
     // (undocumented)
-    readonly status: number;
+    get status(): number;
     // (undocumented)
-    readonly statusText: string;
+    get statusText(): string;
     // (undocumented)
     text(): Promise<string>;
     // (undocumented)
-    readonly trailer: Promise<Headers>;
+    get trailer(): Promise<Headers>;
     // (undocumented)
-    readonly type: ResponseType;
+    get type(): ResponseType;
     // (undocumented)
-    readonly url: string;
+    get url(): string;
 }
 
 // @public
@@ -3882,10 +4699,21 @@ export class RgbColor {
     equals(other: RgbColor): boolean;
     static fromColorDef(colorDef: ColorDef): RgbColor;
     // (undocumented)
+    static fromJSON(json: RgbColorProps | undefined): RgbColor;
+    // (undocumented)
     readonly g: number;
     // (undocumented)
     readonly r: number;
+    // (undocumented)
+    toJSON(): RgbColorProps;
 }
+
+// @public
+export type RgbColorProps = {
+    r: number;
+    g: number;
+    b: number;
+} | RgbColor;
 
 // @beta
 export type RgbFactorProps = number[];
@@ -4037,13 +4865,13 @@ export { RpcInterfaceStatus }
 export class RpcInvocation {
     constructor(protocol: RpcProtocol, request: SerializedRpcRequest);
     static current(rpcImpl: RpcInterface): RpcInvocation;
-    readonly elapsed: number;
+    get elapsed(): number;
     readonly fulfillment: Promise<RpcRequestFulfillment>;
     readonly operation: RpcOperation;
     readonly protocol: RpcProtocol;
     readonly request: SerializedRpcRequest;
     readonly result: Promise<any>;
-    readonly status: RpcRequestStatus;
+    get status(): RpcRequestStatus;
     }
 
 // @public
@@ -4092,8 +4920,8 @@ export class RpcNotFoundResponse extends RpcControlResponse {
 // @internal
 export class RpcOpenAPIDescription {
     constructor(protocol: WebAppRpcProtocol);
-    readonly document: OpenAPIDocument;
-    readonly paths: OpenAPIPaths;
+    get document(): OpenAPIDocument;
+    get paths(): OpenAPIPaths;
     readonly protocol: WebAppRpcProtocol;
     toJSON(): OpenAPIDocument;
 }
@@ -4107,7 +4935,7 @@ export class RpcOperation {
     static fallbackToken: IModelToken | undefined;
     static forEach(definition: RpcInterfaceDefinition, callback: (operation: RpcOperation) => void): void;
     readonly interfaceDefinition: RpcInterfaceDefinition;
-    readonly interfaceVersion: string;
+    get interfaceVersion(): string;
     static lookup(target: string | RpcInterfaceDefinition, operationName: string): RpcOperation;
     readonly operationName: string;
     policy: RpcOperationPolicy;
@@ -4237,7 +5065,7 @@ export class RpcRegistry {
     // (undocumented)
     initializeRpcInterface<T extends RpcInterface>(definition: RpcInterfaceDefinition<T>): void;
     // (undocumented)
-    static readonly instance: RpcRegistry;
+    static get instance(): RpcRegistry;
     // (undocumented)
     isRpcInterfaceInitialized<T extends RpcInterface>(definition: RpcInterfaceDefinition<T>): boolean;
     // (undocumented)
@@ -4261,15 +5089,15 @@ export class RpcRegistry {
 // @public
 export abstract class RpcRequest<TResponse = any> {
     constructor(client: RpcInterface, operation: string, parameters: any[]);
-    static readonly aggregateLoad: RpcOperationsProfile;
+    static get aggregateLoad(): RpcOperationsProfile;
     readonly client: RpcInterface;
-    readonly connecting: boolean;
+    get connecting(): boolean;
     static current(context: RpcInterface): RpcRequest;
     // @internal (undocumented)
     dispose(): void;
-    readonly elapsed: number;
+    get elapsed(): number;
     static readonly events: BeEvent<RpcRequestEventHandler>;
-    readonly extendedStatus: string;
+    get extendedStatus(): string;
     findParameterOfType<T>(requiredProperties: {
         [index: string]: string;
     }): T | undefined;
@@ -4277,19 +5105,19 @@ export abstract class RpcRequest<TResponse = any> {
     // (undocumented)
     protected handleUnknownResponse(code: number): void;
     readonly id: string;
-    readonly lastSubmitted: number;
-    readonly lastUpdated: number;
+    get lastSubmitted(): number;
+    get lastUpdated(): number;
     protected abstract load(): Promise<RpcSerializedValue>;
     method: string;
     static readonly notFoundHandlers: BeEvent<RpcRequestNotFoundHandler>;
     readonly operation: RpcOperation;
     parameters: any[];
     path: string;
-    readonly pending: boolean;
+    get pending(): boolean;
     readonly protocol: RpcProtocol;
     // (undocumented)
     protected _rawPromise: Promise<Response>;
-    readonly rawResponse: Promise<Response>;
+    get rawResponse(): Promise<Response>;
     // (undocumented)
     protected reject(reason: any): void;
     // (undocumented)
@@ -4301,7 +5129,7 @@ export abstract class RpcRequest<TResponse = any> {
     protected abstract send(): Promise<number>;
     protected abstract setHeader(name: string, value: string): void;
     protected setLastUpdatedTime(): void;
-    readonly status: RpcRequestStatus;
+    get status(): RpcRequestStatus;
     // (undocumented)
     submit(): Promise<void>;
 }
@@ -4400,26 +5228,32 @@ export namespace RpcSerializedValue {
     export function create(objects?: string, data?: Uint8Array[]): RpcSerializedValue;
 }
 
-// @internal (undocumented)
-export class SceneLights {
-    constructor(imageBased: {
-        environmentalMap: RenderTexture;
-        diffuseImage: RenderTexture;
-        solar: ImageLight.Solar;
-    }, fstop?: number);
+// @alpha
+export interface SceneLightsProps {
     // (undocumented)
-    addLight(light: Light): void;
+    sunDir?: XYZProps;
+}
+
+// @beta
+export interface SectionLocationProps extends GeometricElement3dProps {
+    categorySelectorId?: Id64String;
+    clipGeometry?: string;
+    modelSelectorId?: Id64String;
+    sectionType?: SectionType;
+    viewAttachment?: Id64String;
+}
+
+// @public
+export enum SectionType {
     // (undocumented)
-    fstop: number;
+    Detail = 4,
     // (undocumented)
-    imageBased: {
-        environmentalMap: RenderTexture;
-        diffuseImage: RenderTexture;
-        solar: ImageLight.Solar;
-    };
+    Elevation = 5,
     // (undocumented)
-    readonly isEmpty: boolean;
-    }
+    Plan = 6,
+    // (undocumented)
+    Section = 3
+}
 
 // @public
 export interface SerializedRpcOperation {
@@ -4437,6 +5271,8 @@ export interface SerializedRpcOperation {
 export interface SerializedRpcRequest extends SerializedClientRequestContext {
     // (undocumented)
     caching: RpcResponseCacheControl;
+    // (undocumented)
+    ip?: string;
     // (undocumented)
     method: string;
     // (undocumented)
@@ -4618,10 +5454,13 @@ export namespace SolarShadows {
     }
     export class Settings implements Props {
         constructor(props?: SolarShadowProps);
+        // @alpha
         bias: number;
         // (undocumented)
-        clone(): Settings;
+        clone(result?: SolarShadows.Settings): SolarShadows.Settings;
         color: ColorDef;
+        // (undocumented)
+        equals(other: SolarShadows.Settings): boolean;
         // (undocumented)
         static fromJSON(props?: Props): Settings;
         // (undocumented)
@@ -4644,36 +5483,31 @@ export namespace SpatialClassificationProps {
         Off = 0,
         On = 1
     }
+    export function equalClassifiers(lhs: Classifier, rhs: Classifier): boolean;
+    export function equalFlags(lhs: FlagsProps, rhs: FlagsProps): boolean;
+    export function equalProperties(lhs: Properties, rhs: Properties): boolean;
     export class Flags implements FlagsProps {
-        constructor(inside?: Display, outside?: Display);
+        constructor(inside?: Display, outside?: Display, isVolumeClassifier?: boolean);
         // (undocumented)
         inside: Display;
         // (undocumented)
+        isVolumeClassifier: boolean;
+        // (undocumented)
         outside: Display;
-        // (undocumented)
-        selected: Display;
-        // (undocumented)
-        type: number;
+        readonly type = 0;
     }
     export interface FlagsProps {
         // (undocumented)
         inside: SpatialClassificationProps.Display;
         // (undocumented)
+        isVolumeClassifier?: boolean;
+        // (undocumented)
         outside: SpatialClassificationProps.Display;
-        // (undocumented)
-        selected: SpatialClassificationProps.Display;
-        // (undocumented)
-        type: number;
+        readonly type: number;
     }
     export interface Properties extends Classifier {
         // (undocumented)
         isActive: boolean;
-    }
-    export enum Type {
-        // (undocumented)
-        Planar = 0,
-        // (undocumented)
-        Volume = 1
     }
 }
 
@@ -4716,6 +5550,12 @@ export class SubCategoryAppearance {
     readonly dontSnap: boolean;
     // (undocumented)
     equals(other: SubCategoryAppearance): boolean;
+    get fillColor(): ColorDef;
+    // @internal (undocumented)
+    protected readonly _fillColor?: ColorDef;
+    get fillTransparency(): number;
+    // @internal (undocumented)
+    protected readonly _fillTransparency?: number;
     readonly invisible: boolean;
     readonly materialId: Id64String;
     readonly priority: number;
@@ -4736,18 +5576,20 @@ export namespace SubCategoryAppearance {
         dontPlot?: boolean;
         // @internal (undocumented)
         dontSnap?: boolean;
+        fill?: ColorDefProps;
         invisible?: boolean;
         material?: Id64String;
         priority?: number;
         style?: Id64String;
         transp?: number;
+        transpFill?: number;
         weight?: number;
     }
 }
 
 // @public
 export class SubCategoryOverride {
-    readonly anyOverridden: boolean;
+    get anyOverridden(): boolean;
     readonly color?: ColorDef;
     static defaults: SubCategoryOverride;
     equals(other: SubCategoryOverride): boolean;
@@ -4765,7 +5607,7 @@ export class SubCategoryOverride {
 }
 
 // @public
-export interface SubCategoryProps extends ElementProps {
+export interface SubCategoryProps extends DefinitionElementProps {
     // (undocumented)
     appearance?: SubCategoryAppearance.Props;
     // (undocumented)
@@ -4776,6 +5618,46 @@ export interface SubCategoryProps extends ElementProps {
 export interface SubjectProps extends ElementProps {
     // (undocumented)
     description?: string;
+}
+
+// @alpha
+export enum TerrainHeightOriginMode {
+    // (undocumented)
+    Geodetic = 0,
+    // (undocumented)
+    Geoid = 1,
+    // (undocumented)
+    Ground = 2
+}
+
+// @alpha
+export interface TerrainProps {
+    applyLighting?: boolean;
+    exaggeration?: number;
+    heightOrigin?: number;
+    heightOriginMode?: TerrainHeightOriginMode;
+    providerName?: string;
+}
+
+// @alpha
+export type TerrainProviderName = "CesiumWorldTerrain";
+
+// @alpha
+export class TerrainSettings {
+    constructor(providerName?: TerrainProviderName, exaggeration?: number, applyLighting?: boolean, heightOrigin?: number, heightOriginMode?: TerrainHeightOriginMode);
+    readonly applyLighting: boolean;
+    clone(changedProps?: TerrainProps): TerrainSettings;
+    // (undocumented)
+    equals(other: TerrainSettings): boolean;
+    equalsJSON(json?: BackgroundMapProps): boolean;
+    readonly exaggeration: number;
+    // (undocumented)
+    static fromJSON(json?: TerrainProps): TerrainSettings;
+    readonly heightOrigin: number;
+    readonly heightOriginMode: TerrainHeightOriginMode;
+    readonly providerName: TerrainProviderName;
+    // (undocumented)
+    toJSON(): TerrainProps;
 }
 
 // @internal
@@ -4801,7 +5683,7 @@ export class TextString {
     transformInPlace(transform: Transform): boolean;
     underline?: boolean;
     // (undocumented)
-    readonly width: number;
+    get width(): number;
     // (undocumented)
     widthFactor?: number;
 }
@@ -4882,7 +5764,7 @@ export namespace TextureMapping {
         // (undocumented)
         setTransform(): void;
         // (undocumented)
-        readonly transform: Transform;
+        get transform(): Transform;
         }
 }
 
@@ -4935,14 +5817,96 @@ export interface ThumbnailProps extends ThumbnailFormatProps {
     image: Uint8Array;
 }
 
+// @internal (undocumented)
+export interface TileContentDescription extends TileContentMetadata {
+    // (undocumented)
+    readonly featureTableStartPos: number;
+}
+
 // @beta (undocumented)
 export interface TileContentIdentifier {
     // (undocumented)
     contentId: string;
     // (undocumented)
+    guid: string | undefined;
+    // (undocumented)
     iModelToken: IModelToken;
     // (undocumented)
     treeId: string;
+}
+
+// @internal
+export interface TileContentMetadata {
+    // (undocumented)
+    readonly contentRange: Range3d;
+    // (undocumented)
+    readonly emptySubRangeMask: number;
+    // (undocumented)
+    readonly isLeaf: boolean;
+    // (undocumented)
+    readonly sizeMultiplier?: number;
+}
+
+// @internal
+export const enum TileFormat {
+    // (undocumented)
+    A3x = 5780289,
+    // (undocumented)
+    B3dm = 1835283298,
+    // (undocumented)
+    Cmpt = 1953525091,
+    // (undocumented)
+    Gltf = 1179937895,
+    // (undocumented)
+    I3dm = 1835283305,
+    // (undocumented)
+    IModel = 1818512745,
+    // (undocumented)
+    Pnts = 1937010288,
+    // (undocumented)
+    Unknown = 0
+}
+
+// @internal
+export function tileFormatFromNumber(formatNumber: number): TileFormat;
+
+// @internal
+export abstract class TileHeader {
+    constructor(stream: ByteStream);
+    // (undocumented)
+    get format(): TileFormat;
+    protected invalidate(): void;
+    abstract get isValid(): boolean;
+    // (undocumented)
+    version: number;
+}
+
+// @internal
+export interface TileMetadata extends TileContentMetadata {
+    // (undocumented)
+    readonly contentId: string;
+    // (undocumented)
+    readonly range: Range3d;
+}
+
+// @internal
+export class TileMetadataReader {
+    constructor(type: BatchType, is2d: boolean, options: TileOptions);
+    read(stream: ByteStream, props: TileProps): TileMetadata;
+}
+
+// @internal (undocumented)
+export interface TileOptions {
+    // (undocumented)
+    readonly disableMagnification: boolean;
+    // (undocumented)
+    readonly enableImprovedElision: boolean;
+    // (undocumented)
+    readonly enableInstancing: boolean;
+    // (undocumented)
+    readonly maximumMajorTileFormatVersion: number;
+    // (undocumented)
+    readonly useProjectExtents: boolean;
 }
 
 // @internal (undocumented)
@@ -4956,16 +5920,144 @@ export interface TileProps {
     transformToRoot?: TransformProps;
 }
 
+// @internal
+export class TileReadError extends BentleyError {
+    constructor(status: TileReadStatus, message?: string);
+    // (undocumented)
+    get wasCanceled(): boolean;
+}
+
+// @internal
+export const enum TileReadStatus {
+    // (undocumented)
+    Canceled = 7,
+    // (undocumented)
+    InvalidBatchTable = 3,
+    // (undocumented)
+    InvalidFeatureTable = 5,
+    // (undocumented)
+    InvalidHeader = 2,
+    // (undocumented)
+    InvalidScene = 4,
+    // (undocumented)
+    InvalidTileData = 1,
+    // (undocumented)
+    NewerMajorVersion = 6,
+    // (undocumented)
+    Success = 0
+}
+
+// @internal
+export interface TileTreeContentIds {
+    // (undocumented)
+    contentIds: string[];
+    // (undocumented)
+    treeId: string;
+}
+
+// @internal
+export interface TileTreeMetadata {
+    // (undocumented)
+    readonly contentRange?: Range3d;
+    // (undocumented)
+    readonly is2d: boolean;
+    // (undocumented)
+    readonly modelId: Id64String;
+}
+
 // @internal (undocumented)
 export interface TileTreeProps {
     contentRange?: Range3dProps;
     formatVersion?: number;
     id: string;
-    isBackgroundMap?: boolean;
     location: TransformProps;
     maxTilesToSkip?: number;
     rootTile: TileProps;
     yAxisUp?: boolean;
+}
+
+// @beta
+export class Tween {
+    constructor(_group: Tweens, _object: any);
+    // (undocumented)
+    chain(...tweens: Tween[]): this;
+    // (undocumented)
+    delay(amount?: number): this;
+    // (undocumented)
+    duration(d: number): this;
+    // (undocumented)
+    easing(easingFunction?: EasingFunction): this;
+    // (undocumented)
+    end(): this;
+    // (undocumented)
+    getId(): number;
+    // (undocumented)
+    group(group: Tweens): this;
+    // (undocumented)
+    interpolation(interpolationFunction?: InterpolationFunction): this;
+    // (undocumented)
+    get isPaused(): boolean;
+    // (undocumented)
+    get isPlaying(): boolean;
+    // (undocumented)
+    onComplete(callback?: TweenCallback): this;
+    // (undocumented)
+    onRepeat(callback: TweenCallback): this;
+    // (undocumented)
+    onStart(callback: TweenCallback): this;
+    // (undocumented)
+    onStop(callback: TweenCallback): this;
+    // (undocumented)
+    onUpdate(callback: UpdateCallback): this;
+    // (undocumented)
+    pause(time: number): this;
+    // (undocumented)
+    repeat(times: number): this;
+    // (undocumented)
+    repeatDelay(amount: number): this;
+    // (undocumented)
+    resume(time?: number): this;
+    // (undocumented)
+    start(time?: string | number): this;
+    // (undocumented)
+    stop(): this;
+    // (undocumented)
+    stopChainedTweens(): void;
+    // (undocumented)
+    to(properties: any, duration?: number): this;
+    // (undocumented)
+    update(time: number): boolean;
+    // (undocumented)
+    yoyo(yoyo: boolean): this;
+    }
+
+// @beta (undocumented)
+export type TweenCallback = (obj: any) => void;
+
+// @beta
+export class Tweens {
+    // (undocumented)
+    add(tween: Tween): void;
+    create(from: any, opts?: {
+        to: any;
+        duration: number;
+        onUpdate: UpdateCallback;
+        onComplete?: TweenCallback;
+        delay?: number;
+        start?: boolean;
+        easing?: EasingFunction;
+        interpolation?: InterpolationFunction;
+    }): Tween;
+    // (undocumented)
+    getAll(): any[];
+    // (undocumented)
+    nextId(): number;
+    // (undocumented)
+    remove(tween: Tween): void;
+    // (undocumented)
+    removeAll(): void;
+    // (undocumented)
+    update(time?: number, preserve?: boolean): boolean;
 }
 
 // @public
@@ -4977,6 +6069,9 @@ export interface TypeDefinitionElementProps extends DefinitionElementProps {
     // (undocumented)
     recipe?: RelatedElementProps;
 }
+
+// @beta (undocumented)
+export type UpdateCallback = (obj: any, t: number) => void;
 
 // @public (undocumented)
 export interface ViewAttachmentLabelProps extends GeometricElement2dProps {
@@ -5030,8 +6125,12 @@ export namespace ViewFlag {
         apply(base: ViewFlags): ViewFlags;
         // (undocumented)
         clear(): void;
+        // (undocumented)
+        clearClipVolume(): void;
+        // (undocumented)
+        clearPresent(flag: PresenceFlag): void;
         // @internal
-        readonly clipVolumeOverride: boolean | undefined;
+        get clipVolumeOverride(): boolean | undefined;
         // (undocumented)
         clone(out?: Overrides): Overrides;
         // (undocumented)
@@ -5194,7 +6293,8 @@ export class ViewFlags {
     // @internal (undocumented)
     hiddenEdgesVisible(): boolean;
     hLineMaterialColors: boolean;
-    lighting: boolean;
+    get lighting(): boolean;
+    set lighting(enable: boolean);
     materials: boolean;
     monochrome: boolean;
     // @internal
@@ -5256,7 +6356,7 @@ export abstract class WebAppRpcProtocol extends RpcProtocol {
     abstract info: OpenAPIInfo;
     isTimeout(code: number): boolean;
     // @internal
-    readonly openAPIDescription: RpcOpenAPIDescription;
+    get openAPIDescription(): RpcOpenAPIDescription;
     pathPrefix: string;
     // (undocumented)
     preserveStreams: boolean;

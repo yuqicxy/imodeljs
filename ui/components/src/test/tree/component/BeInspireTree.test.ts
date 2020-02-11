@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import * as moq from "typemoq";
@@ -12,7 +12,7 @@ import {
   BeInspireTree, BeInspireTreeNodes, BeInspireTreeNode,
   BeInspireTreeDataProviderMethod, BeInspireTreeNodeConfig,
   MapPayloadToInspireNodeCallback, BeInspireTreeEvent, BeInspireTreeDataProviderInterface,
-  BeInspireTreeDataProvider, toNode,
+  BeInspireTreeDataProvider, toNode, BeInspireTreeDataProviderPromise,
 } from "../../../ui-components/tree/component/BeInspireTree";
 import { PageOptions } from "../../../ui-components/common/PageOptions";
 
@@ -336,6 +336,40 @@ describe("BeInspireTree", () => {
           await tree.reload();
           expect(renderer).to.have.callCount(1);
         });
+
+        if (entry.isDelayLoaded) {
+
+          it("requests data from the data provider", async () => {
+            const spy = (typeof dataProvider === "function")
+              ? dataProvider = sinon.spy(dataProvider)
+              : sinon.spy(dataProvider as any, "getNodes");
+            tree = new BeInspireTree({
+              dataProvider,
+              mapPayloadToInspireNodeConfig,
+              pageSize: 1,
+            });
+            spy.resetHistory();
+            await tree.reload();
+            expect(spy).to.have.been.called;
+          });
+
+          if (entry.supportsPagination) {
+
+            it("requests data from paginated data provider", async () => {
+              tree = new BeInspireTree({
+                dataProvider,
+                mapPayloadToInspireNodeConfig,
+                pageSize: 1,
+              });
+              await tree.ready;
+              const spy = sinon.spy(dataProvider as any, "getNodes");
+              await tree.reload();
+              expect(spy).to.have.been.called;
+            });
+
+          }
+
+        }
 
       });
 
@@ -1063,7 +1097,7 @@ describe("BeInspireTree", () => {
   describe("pagination", () => {
 
     let dataProvider: BeInspireTreeDataProviderInterface<Node>;
-    let getNodesSpy: sinon.SinonSpy;
+    let getNodesSpy: sinon.SinonSpy<[Node?, PageOptions?], BeInspireTreeDataProviderPromise<Node>>;
 
     beforeEach(async () => {
       hierarchy = createHierarchy(5, 2);
@@ -1148,6 +1182,18 @@ describe("BeInspireTree", () => {
       expect(renderedTree).to.matchSnapshot();
     });
 
+    it("auto-expands children while parent pages are loaded", async () => {
+      // set the 3rd node to be auto-expanded
+      hierarchy[2].autoExpand = true;
+      // load the second page - it contains the auto-expanded node
+      const r1 = tree.requestNodeLoad(undefined, 2);
+      // load the third page
+      const r2 = tree.requestNodeLoad(undefined, 4);
+      await Promise.all([r1, r2]);
+      // expect chilren of node "2" to be loaded
+      expect(renderedTree).to.matchSnapshot();
+    });
+
     it("fires ChangesApplied event when child node is loaded for not rendered parent", async () => {
       tree = new BeInspireTree({
         dataProvider: createDataProviderInterface(createHierarchy(2, 3)),
@@ -1227,7 +1273,7 @@ describe("BeInspireTree", () => {
         done();
       });
 
-      // tslint:disable-next-line: no-floating-promises
+      // tslint:disable-next-line:no-floating-promises
       tree.requestNodeLoad(undefined, 2);
     });
 

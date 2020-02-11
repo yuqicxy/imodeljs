@@ -1,22 +1,24 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { VariableType, FragmentShaderComponent, ShaderType } from "../ShaderBuilder";
 import { ShaderProgram } from "../ShaderProgram";
-import { GLSLFragment } from "./Fragment";
+import { assignFragColor } from "./Fragment";
 import { createViewportQuadBuilder } from "./ViewportQuad";
-import { FrustumUniformType, fromSumOf } from "../Target";
-import { Frustum, Npc } from "@bentley/imodeljs-common";
+import { fromSumOf, FrustumUniformType } from "../FrustumUniforms";
+import { Npc } from "@bentley/imodeljs-common";
 import { Vector3d, Point3d, Angle } from "@bentley/geometry-core";
 import { SkySphereViewportQuadGeometry } from "../CachedGeometry";
-import { GL } from "../GL";
 import { Texture } from "../Texture";
 import { TextureUnit } from "../RenderFlags";
 import { System } from "../System";
-import { assert } from "@bentley/bentleyjs-core";
+import { AttributeMap } from "../AttributeMap";
+import { TechniqueId } from "../TechniqueId";
 
 const computeGradientValue = `
   // For the gradient sky it's good enough to calculate these in the vertex shader.
@@ -63,29 +65,10 @@ const scratch3Floats = new Float32Array(3);
 const scratchVec3 = new Vector3d();
 const scratchPoint3 = new Point3d();
 
-function setPointsFromFrustum(skyGeometry: SkySphereViewportQuadGeometry, frustum: Frustum) {
-  const wp = skyGeometry.worldPos;
-  let mid = frustum.getCorner(Npc.LeftBottomRear).interpolate(0.5, frustum.getCorner(Npc.LeftBottomFront), scratchPoint3);
-  wp[0] = mid.x;
-  wp[1] = mid.y;
-  wp[2] = mid.z;
-  mid = frustum.getCorner(Npc.RightBottomRear).interpolate(0.5, frustum.getCorner(Npc.RightBottomFront), scratchPoint3);
-  wp[3] = mid.x;
-  wp[4] = mid.y;
-  wp[5] = mid.z;
-  mid = frustum.getCorner(Npc.RightTopRear).interpolate(0.5, frustum.getCorner(Npc.RightTopFront), scratchPoint3);
-  wp[6] = mid.x;
-  wp[7] = mid.y;
-  wp[8] = mid.z;
-  mid = frustum.getCorner(Npc.LeftTopRear).interpolate(0.5, frustum.getCorner(Npc.LeftTopFront), scratchPoint3);
-  wp[9] = mid.x;
-  wp[10] = mid.y;
-  wp[11] = mid.z;
-}
-
 /** @internal */
 export function createSkySphereProgram(context: WebGLRenderingContext, isGradient: boolean): ShaderProgram {
-  const builder = createViewportQuadBuilder(false);
+  const attrMap = AttributeMap.findAttributeMap(isGradient ? TechniqueId.SkySphereGradient : TechniqueId.SkySphereTexture, false);
+  const builder = createViewportQuadBuilder(false, attrMap);
   if (isGradient) {
     builder.addFunctionComputedVarying("v_gradientValue", VariableType.Vec4, "computeGradientValue", computeGradientValue);
     builder.addGlobal("horizonSize", VariableType.Float, ShaderType.Both, "0.0015", true);
@@ -93,21 +76,10 @@ export function createSkySphereProgram(context: WebGLRenderingContext, isGradien
     builder.addInlineComputedVarying("v_eyeToVert", VariableType.Vec3, computeEyeToVert);
 
   const vert = builder.vert;
-  vert.addAttribute("a_worldPos", VariableType.Vec3, (shaderProg) => {
-    shaderProg.addAttribute("a_worldPos", (attr, params) => {
-      // Send in the corners of the view in world space.
-      const geom = params.geometry;
-      assert(geom instanceof SkySphereViewportQuadGeometry);
-      const skyGeometry = geom as SkySphereViewportQuadGeometry;
-      setPointsFromFrustum(skyGeometry, params.target.planFrustum);
-      skyGeometry.bind();
-      attr.enableArray(skyGeometry.worldPosBuff, 3, GL.DataType.Float, false, 0, 0);
-    });
-  });
   vert.addUniform("u_worldEye", VariableType.Vec3, (shader) => {
     shader.addGraphicUniform("u_worldEye", (uniform, params) => {
       const frustum = params.target.planFrustum;
-      if (FrustumUniformType.Perspective === params.target.frustumUniforms.type) {
+      if (FrustumUniformType.Perspective === params.target.uniforms.frustum.type) {
         // compute eye point from frustum.
         const farLowerLeft = frustum.getCorner(Npc.LeftBottomRear);
         const nearLowerLeft = frustum.getCorner(Npc.LeftBottomFront);
@@ -206,7 +178,7 @@ export function createSkySphereProgram(context: WebGLRenderingContext, isGradien
     });
     frag.set(FragmentShaderComponent.ComputeBaseColor, computeSkySphereColorTexture);
   }
-  frag.set(FragmentShaderComponent.AssignFragData, GLSLFragment.assignFragColor);
+  frag.set(FragmentShaderComponent.AssignFragData, assignFragColor);
 
   builder.vert.headerComment = "// ----- SkySphere -----";
   builder.frag.headerComment = "// ----- SkySphere -----";

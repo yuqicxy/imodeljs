@@ -1,6 +1,228 @@
 # Change Log - @bentley/ui-framework
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Upgrade to TypeScript 3.7.2.
+- Made 'show/hide all categories' action be limited by the filter
+- Cube navigation aid touch events fix.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Fixed lgtm issues in UI folders
+- Ui doc & release tag cleanup
+- Update to use new BackstageItemManager and PluginStatusBarManager from ui-abstract package. Update StatusbarComposer to show items from plugins.
+- Remove duplicate StatusBarItemManager from ui-framework and only leave the one in ui-abstract.
+- Fix for nine-zone sample app not displaying backstage items.
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Add useActiveIModelConnection hook.
+- Allow setting App Iconspec.
+- Setup OidcDesktopClient for Electron use cases. 
+- Fix styling of footer Indicator to work with Themes.
+- Disallow plugins from adding tools anywhere but the end of a toolbar.
+- [ModelsTree] Merge same-label Subject nodes to avoid duplication
+- No longer accessing this.state or this.props in setState updater - flagged by lgtm report
+- Changed SignIn & SignOut buttons to large. Fixed Dialog component resizing. Reduced default minimum size of Dialog component.
+- Update sinon version.
+- Added support for NotifyMessageDetails.displayTime for Toast messages
+- Reduce active tab index when tab is removed.
+- Ability to determine available tool settings width.
+- Fix code analysis report issues.
+- Adjusted Categories and Models trees according changes to ControlledTree events
+- Added VisibilityWigdet implementation using ControlledTree and ability to switch to it
+- Remove content node when WidgetContentRenderer unmounts.
+- Update overflow GroupItem click action to open the panel.
+- Prevent frontstage composer rerender on pointer events.
+- Use exhaustive-deps linter rule.
+- Ability to opt-in to toolbar drag interaction.
+- Prevent unnecessary resubscribe in useActiveViewport hook.
+- Visibility Widget: Treat dictionary model as never private in Categories tree. 
+- Ability to specify initialWidth for Zone component.
+- Removed unused React state variables. Removed unsupported setState calls from render() methods.
+- Code cleanup based on code analysis report from lgtm. Updated status field fade-in/out animation.
+- Update to allow Sections statusfield to hide/show depending on active view clip.
+- Added ConditionalField and FooterModeField components. StatusBar responsive changes.
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Add support for Hide, Isolate, emphasize tools and status bar item to UiFramework.
+- Fix bug where ToolSettings title was not reset after view undo/redo tool usage.
+- Initializing OidcBrowserClient before setting it in UiFramework
+- Responsive logic in Property Grid to switch to Vertical orientation when too narrow
+- Tablet responsive UI
+- Added StatusBarComposer, StatusBarItem, StatusBarManager and StatusBarItemsManager
+- Added StatusBarItemsManager.setIsVisible & StatusBarItem.isVisible
+- Support multiple status bars in the StatusBarManager
+- Added tslint-react-hooks to UI packages
+- Ensure item uniqueness in BackstageItemsManager and StatusBarItemsManager.
+- Remove unsupported fit-content CSS value.
+- Expose stage panel minSize and maxSize props.
+- Do not show widget resize indicator when widget can not be resized.
+- Remove history trays.
+- Open tool panel via drag interaction.
+- Update TileRendering StatusField width.
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Addressed AccessToken, OidcClient and Backstage issues in ui-framework
+- UiAdmin methods for AccuDraw Ui: MenuButton, Calculator, Angle, Length, Height
+- Provide a DefaultNavigationWidget that can be used by Apps and Plugins and can be extended by Plugins.
+- Fixed issues with use of OIDC AuthCode workflow in Electron and Single Page Applications.
+- Minor Backstage cleanup & unit tests
+- Update DefaultToolSettingsProvide to create responsive UI.
+- Added badge support to context menu items. Moved some Plugin Ui definitions to ui-abstract.
+- Added support for English key-ins in addition to translated key-ins
+- Flatten group in DefaultNavigationWidget
+- Update order of string enums to try to avoid extract-api issues
+- Added New badge for UI items
+- Add basic support for redux connected components.
+- Made the Status Bar & Backstage more responsive on smaller screens
+- Added initial ui-abstract package setup
+- Added UiAdmin with support for displaying Menus and Toolbars at a location
+- Refactored BackstageComposer.
+- Expand tool zone bounds over unused bottom zones.
+- Correctly fill merged zones.
+- Update presentation rules of imodel components' hierarchies to hide private models and their content
+- Fix defaultState of StagePanel.
+- Raise BackstageEvent from BackstageManager.
+- Remove CSS class that was adding extra padding to the bottom of editor fields in narrow layout.
+- Removed unused package
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:43 GMT
+
+### Updates
+
+- Add support for CursorMenu
+- Clear internal row/column selection data when number or rows change in Table. Add definitions for platform MeasureTools.
+- Fix Tool Settings label to ensure it stays in sync with active tool.
+- Added AutoSuggest component and improved KeyinBrowser component
+- Close tool group panel on toolbar item click.
+- Ability to drag and resize tool settings widget.
+- Ignore widgetDef state in WidgetContentRenderer of tool settings.
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- AccuDraw Popup Editors. Improved editor sizes. Editor Params improvements.
+- Initial Accudraw Ui components - Buttons, ContextMenus, Calculator, Editors. IconInput in ui-core.
+- Backport Sections and ViewAttributes Status Fields from Design Review for use with plugins.
+- Cursor Prompt no longer displays as small blank popup when Tool Assistance instruction is blank
+- Fixed Frontstage resizing problem exposed by Chrome update
+- #168241 Don't try to correct clip plane handle location when plane has been moved outside project extents. Updated image for two finger drag svg.
+- Changed ToolWidget, NavigatonWidget, and Toolbar render method to only render items in state and to not generate them during render.
+- Add support for panelLabel property for a GoupButton. This is the title that is shown when the group is opened.
+- Added FrontstageProvider.initializeDef param for FrontstageDef
+- Correct ViewClipByPlaneTool icon.
+- UiDataProvider class, work on PluginUiProvider
+- Change BackstageItemSpec to use localized strings not keys to be localized due to the way Plugins provide localization.
+- Create a common IModelViewPort control that supports Design Review and ui-test-app.
+- Add ability to pre-load hierarchies in Visibility Widget
+- Tool Assistance changes per UX Design
+- Support for Modifier key + wide SVG
+- Tool Assistance for Ctrl+Z and other chars
+- Fixed ToolAssistanceField pin problem
+- #168481 Tool assistance: Measure tools, view clip tools, and touch cursor inputs.
+- Added touch entries to ToolAssistanceImage
+- Joe G required the tree (empty data) be more descriptive and generic.
+- In the Model/Category/Spatial trees, center the error message
+- upgrade to TypeScript 3.6.2
+- Ability to collapse stage panel using StagePanelDef.
+- Stage panel header.
+- Make components aware of safe area insets.
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Using Checkbox component in BooleanEditor. Cleaned up cell editor positioning.
+- Updated inputs and button padding for iModel.js. Fixed Popup colors & z-index.
+- Added support for content view minSize properties
+- Fixed SplitPane pane 2 size. Upgraded react-split-pane to 0.1.87.
+- Addressed some warnings introduced with React 16.9
+- Listening for onSelectedViewportChanged to set active content view for viewports
+- Had to back up to react-split-pane 0.1.77
+- #165662. Allow an app to specify touch-specific instructions in tool assistance.
+- Visibility Component: Preserve active tree state by saving and restoring scroll position
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Add markupTool definitions. Update to use latest icon library
+- Add support for BackstageComposer so Plugins can add backstage items.
+- Fix dragged widget offset.
+- Widget with isToolSettings honors defaultState
+- Move MarkupTool definitions to their own class.
+- Fixed location of ContentLayout within 9-zone area and Stage Panels
+- Added CursorPopupRenderer to render multiple CursorPopups per RelativePosition.
+- Added CursorPrompt, improved Pointer messages
+- Added @bentley/icons-generic to dependencies which was wrongly set in devDependencies.
+- #159907. Fixed Group Button history is overlapping a Popup Button panel when hovering over the Group button
+- Allow enter key in arguments field of keyin browser to trigger command execution. Select text on focus in to allow easy argument replacement
+- Added icons to markup/redline
+- Fixed Zone mergeWithZone processing
+- Port RealityData widget from Design Review.
+- Added icon for redline text tool
+- Update FilteringInput to use updated search box design from UX. Also updated ModelSelectorTree to work with changes and marked ModelSelector as deprecated.
+- Add tool assistance for SelectTool.
+- Update SelectTool to display tool setting by default.
+- Moved Point, PointProps, Rectangle, RectangleProps, Size and SizeProps to ui-core from ui-ninezone
+- Improved ToolAssistance item spacing. ViewSelector shows current view.
+- Made Tool Settings tab tooltip more concise & clearer
+- Close ListPicker popup when clicking the button.
+- Initialize stage panel size from size prop.
+- VisibilityTree: Fix not all models' visibility being changed when changing visibility of parent subject
+- Visibility Tree: Handle `Viewport.isAlwaysDrawnExclusive` flag when determining and handling Element display states
+- Backport Visibility Widget from Design Review
+- Update to latest icon package version.
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Update so both Tool and Navigation wigets refresh when PluginUiProvider is loaded.
+- Support ToolbarItemInsertSpecs with conditional visibility. Update toolbar processing to better handle situations where number of visible items change.
+- Add support for GroupItemInsertSpec, badges, and svg symbolId in ToolbarItemInsertSpecs
+- Bug 148507: Removed redundant call to OidcClient.initialize in UiFramework.
+- Add PluginUiManager class and PluginUiProvider interface that will be used by Plugins to specify UI components to add to an iModeljs application.
+- Added CursorInformation and CursorPopup
+- Upgraded to Redux 4.0.3 that fixed combineReducers
+- Add basic support to display an svg file for an toolbar item image.
+- Added ToolAssistance support and Tool.iconSpec
+- Fixed Toolbar resizing, ContextMenu className and $buic-row-hover & $buic-row-selection
+- Rerender widget tabs when WidgetDef changes.
+- Close ListPicker on outside click.
+- Ability to close Panel of PopupButton.
+- remove node selection logic from model Tree
+- Convert Widget, Zone and StagePanel components to PureComponents.
+- Model Picker: Fix presentation ruleset
+- VisibilityTree: Update visual styles.
+- Visibility Tree: Only show Subject nodes which have child Subjects, PhysicalPartitions or SpatialLocationPartitions.
+- React to ui-ninezone changes.
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -20,7 +22,7 @@ import { ItemStyleProvider, ItemStyle } from "../../properties/ItemStyle";
 import "./NodeContent.scss";
 
 /** Properties for [[TreeNodeContent]] component
- * @internal
+ * @internal @deprecated
  */
 export interface TreeNodeContentProps extends CommonProps {
   node: BeInspireTreeNode<TreeNodeItem>;
@@ -44,14 +46,17 @@ export interface TreeNodeContentProps extends CommonProps {
   renderId?: string;
 }
 
-/** @internal */
+/** @internal @deprecated */
 export interface TreeNodeContentState {
   label: React.ReactNode;
-  renderTimestamp?: number;
+  renderInfo?: {
+    timestamp: number;
+    counter: number;
+  };
 }
 
 /** React component for displaying [[TreeNode]] label
- * @internal
+ * @internal @deprecated
  */
 export class TreeNodeContent extends React.Component<TreeNodeContentProps, TreeNodeContentState> {
   private _isMounted = false;
@@ -121,7 +126,7 @@ export class TreeNodeContent extends React.Component<TreeNodeContentProps, TreeN
 
     // tslint:disable-next-line:no-floating-promises
     this.updateLabel(this.props);
-    this.setState({ renderTimestamp: this.props.node.itree!.dirtyTimestamp });
+    this.setState((_, props) => ({ renderInfo: createRenderInfo(props.node) }));
   }
 
   private static doPropsDiffer(props1: TreeNodeContentProps, props2: TreeNodeContentProps) {
@@ -132,8 +137,13 @@ export class TreeNodeContent extends React.Component<TreeNodeContentProps, TreeN
   }
 
   private static needsLabelUpdate(state: TreeNodeContentState, prevProps: TreeNodeContentProps, nextProps: TreeNodeContentProps) {
-    return this.doPropsDiffer(prevProps, nextProps)
-      || nextProps.node.itree!.dirtyTimestamp && (!state.renderTimestamp || state.renderTimestamp < nextProps.node.itree!.dirtyTimestamp!);
+    if (this.doPropsDiffer(prevProps, nextProps)) {
+      return true;
+    }
+    if (nextProps.node.itree!.dirtyTimestamp && (!state.renderInfo || state.renderInfo.timestamp < nextProps.node.itree!.dirtyTimestamp || state.renderInfo.counter < nextProps.node.itree!.dirtyCounter!)) {
+      return true;
+    }
+    return false;
   }
 
   public componentDidUpdate(prevProps: TreeNodeContentProps) {
@@ -142,7 +152,9 @@ export class TreeNodeContent extends React.Component<TreeNodeContentProps, TreeN
       this.updateLabel(this.props);
     }
 
-    this.setState({ renderTimestamp: this.props.node.itree!.dirtyTimestamp });
+    const renderInfo = createRenderInfo(this.props.node);
+    if (renderInfo !== this.state.renderInfo)
+      this.setState({ renderInfo });
   }
 
   public componentWillUnmount() {
@@ -200,3 +212,8 @@ export class TreeNodeContent extends React.Component<TreeNodeContentProps, TreeN
     );
   }
 }
+
+const createRenderInfo = (node: BeInspireTreeNode<TreeNodeItem>) => ({
+  timestamp: node.itree!.dirtyTimestamp || 0,
+  counter: node.itree!.dirtyCounter || 0,
+});

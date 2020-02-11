@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 const path = require("path");
@@ -54,8 +54,8 @@ function createConfig(shouldInstrument) {
             env[key] = JSON.stringify(raw[key]);
             return env;
           }, {
-              IMODELJS_CORE_DIRNAME: JSON.stringify(path.join(__dirname, "../..")),
-            }),
+            IMODELJS_CORE_DIRNAME: JSON.stringify(path.join(__dirname, "../..")),
+          }),
       })
     ]
   };

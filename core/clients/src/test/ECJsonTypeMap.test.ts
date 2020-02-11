@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as chai from "chai";
 import { WsgInstance, ECJsonTypeMap } from "../ECJsonTypeMap";
@@ -62,7 +62,7 @@ describe("ECJsonTypeMap", () => {
   let seedTypedWsgInstance: TestClass;
   let seedTypedECDbInstance: TestClass;
 
-  before((done: MochaDone): any => {
+  before((done: Mocha.Done): any => {
     seedUntypedWsgInstance = {
       instanceId: "TestWsgInstanceId",
       schemaName: "Test_Schema",

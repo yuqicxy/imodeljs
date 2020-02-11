@@ -1,12 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module SnapMode */
+/** @packageDocumentation
+ * @module SnapMode
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
 import { CommonProps } from "@bentley/ui-core";
+import { TitleBar } from "../dialog/TitleBar";
 import "./Panel.scss";
 
 /** Properties of [[SnapModePanel]] component.
@@ -35,9 +38,7 @@ export class SnapModePanel extends React.PureComponent<SnapModePanelProps> {
         className={className}
         style={this.props.style}
       >
-        <div className="nz-title">
-          {this.props.title}
-        </div>
+        <TitleBar title={this.props.title} />
         <div className="nz-snaps">
           {this.props.children}
         </div>

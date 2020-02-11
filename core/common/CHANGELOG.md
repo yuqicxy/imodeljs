@@ -1,6 +1,134 @@
 # Change Log - @bentley/imodeljs-common
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Simplify iterator for QPoint3dList.
+- Native apps can now cancel tile requests in progress on the backend.
+- Remove echo test function from devTools
+- Clean up documentation modules; add PlanProjectionSettings for display styles.
+- Allow outline fill to be specified by subcategory appearance.
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Added support for embedding images in a GeometryStream.
+- Moving data-holder structures used during the LinearElement.queryLinearLocations API to imodeljs-common.
+- Allow events to be sent from backend to frontend
+- Renamed EventSourceRpcInterface to NativeAppRpcInterface
+- Moved tile IO-related APIs from frontend to common.
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Added Tween.js code
+- Added AliCloud tile cache service
+- Code quality report fixes
+- fix warnings from static analysis
+- Add PropertyMetaData.isNavigation
+- Addressing typo in a couple of members, making them match the schema properly.
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Option to include part references in GeometrySummary output.
+- Added missing topic descriptions
+- Fix defect where isMobileBackend return true on windows
+- Change terrain lighting default to off.
+- Change SectionLocationProps.clipGeometry type to string. Add get/set ClipVector methods on SectionLocation.
+- mark bias as alpha
+- Update to allow Node 12
+- Add support for view-independent display of geometry streams.
+- Fixed camera.equals
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Anisotropic filtering of draped map tiles.
+- Tweaks to ambient occlusion settings.
+- Callout clip is now local to placement. Only show marker for active clip.
+- Cleanup AO settings.
+- Remove @deprecated tags in GeometryStreamIteratorEntry
+- Fix comparison of classification properties ignoring the 'volume' flag.
+- Fixes for making volume classifiers work.
+- New wip plugin for hypermodeling support.
+- Add CommonLoggerCategory.Geometry
+- Add Placement2d.multiplyTransform, Placement3d.multiplyTransform
+- Add RelatedElement.none for nulling out existing navigation relationships
+- Reacting to iPadOS change in user agent of safari
+- Remove limit for binary data for mobile
+- Expose FrustumPlanes.planes
+- Convenience methods for overriding aspects of hidden line styles.
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+### Updates
+
+- Add GeometricModel3dProps
+- Add SectionLocationProps
+- Remove no-longer-needed mobile RPC chunk size workaround for mobile backends.
+- Fixed multiple viewport shadows
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- added support for blank IModelConnections
+- Fixed reporting of errors when the ClientRequestContext is established at the backend. 
+- Add DisplayStyleSettings.subCategoryOverrides
+- Make ExternalSourceAspectProps.checksum optional
+- Added geometry primitive typing and geometry summary types
+- Support animation of models within RenderSchedule.
+- Refine planar projection frustum calculation
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Add documentation for RenderSchedule
+- fix casing of displayStyle.contextRealityModels
+- Fixed reporting of errors when the ClientRequestContext is established at the backend. 
+- Electron IPC transport fix for large messages.
+- Added ability to clear individual overridden flags in ViewFlag.Overrides.
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Add optional arguments to EcefLocation.createFromCartographicOrigin
+- Allow custom tile cache services.
+- Add CodeSpec.isManagedWithIModel, CodeSpec.scopeType, deprecate CodeSpec.specScopeType
+- Add CodeSpec.create
+- Add terrain settings.
+- Require electron without eval trick.
+- Log more information during RPC trace/info request logging.
+- Changed the transfer chunk size for mobile RPC transport.
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Added option to restrict tile cache URLs by client IP address.
+- Added method to get element mass properties.
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

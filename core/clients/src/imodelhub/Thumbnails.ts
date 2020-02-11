@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModelHub */
+/** @packageDocumentation
+ * @module iModelHubClient
+ */
 
 import { GuidString, Logger } from "@bentley/bentleyjs-core";
 import { AuthorizedClientRequestContext } from "../AuthorizedClientRequestContext";
@@ -11,12 +13,12 @@ import { ECJsonTypeMap, WsgInstance } from "./../ECJsonTypeMap";
 import { request, RequestOptions } from "./../Request";
 import { IModelBaseHandler } from "./BaseHandler";
 import { ArgumentCheck } from "./Errors";
-import { InstanceIdQuery } from "./Query";
+import { InstanceIdQuery } from "./HubQuery";
 
 const loggerCategory: string = ClientsLoggerCategory.IModelHub;
 
 /** Thumbnail size. 'Small' is 400x250 PNG image and 'Large' is a 800x500 PNG image.
- * @alpha
+ * @beta
  */
 export type ThumbnailSize = "Small" | "Large";
 
@@ -111,6 +113,7 @@ export class ThumbnailHandler {
 
   /** Download the thumbnail.
    * @param requestContext The client request context.
+   *
    * @param url Url to download thumbnail.
    * @return String for the PNG image that includes the base64 encoded array of the image bytes.
    */
@@ -131,7 +134,7 @@ export class ThumbnailHandler {
       return Promise.reject(new Error("Expected an image to be returned from the query"));
     }
 
-    const base64Data = Base64.btoa(String.fromCharCode(...byteArray));
+    const base64Data = Base64.btoa(byteArray.reduce((acc, byte) => acc + String.fromCharCode(byte), ""));
     return "data:image/png;base64," + base64Data;
   }
 

@@ -1,10 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module LocatingElements */
+/** @packageDocumentation
+ * @module LocatingElements
+ */
 
-import { Point3d, Point2d, XAndY, Vector3d, CurveCurve, IModelJson as GeomJson } from "@bentley/geometry-core";
+import { Point3d, Point2d, XAndY, Vector3d, CurveCurve, CurvePrimitive, GeometryQuery, IModelJson as GeomJson } from "@bentley/geometry-core";
 import { Viewport, ScreenViewport } from "./Viewport";
 import { BeButtonEvent, BeTouchEvent, BeButton, InputSource } from "./tools/Tool";
 import { SnapStatus, LocateAction, LocateResponse, HitListHolder, ElementLocateManager, LocateFilterStatus } from "./ElementLocateManager";
@@ -16,6 +18,8 @@ import { BeDuration } from "@bentley/bentleyjs-core";
 import { Decorator } from "./ViewManager";
 import { SnapRequestProps } from "@bentley/imodeljs-common";
 import { CanvasDecoration } from "./rendering";
+
+// cspell:ignore dont primitivetools
 
 /** Virtual cursor for using AccuSnap with touch input.
  * @internal
@@ -35,12 +39,12 @@ export class TouchCursor implements CanvasDecoration {
   }
 
   protected setPosition(vp: Viewport, worldLocation: Point3d): boolean {
-    const pt4 = vp.worldToView4d(worldLocation);
-    if (pt4.w > 1.0 || pt4.w < 0) // outside of frustum.
-      return false;
+    const pointNpc = vp.worldToNpc(worldLocation);
+    if (pointNpc.z < 0.0 || pointNpc.z > 1.0)
+      pointNpc.z = 0.5; // move inside frustum.
 
-    const viewLocation = pt4.realPoint();
-    if (undefined === viewLocation || !vp.viewRect.containsPoint(viewLocation))
+    const viewLocation = vp.npcToView(pointNpc);
+    if (!vp.viewRect.containsPoint(viewLocation))
       return false; // outside this viewport rect
 
     viewLocation.x = Math.floor(viewLocation.x) + 0.5; viewLocation.y = Math.floor(viewLocation.y) + 0.5; viewLocation.z = 0.0;
@@ -180,8 +184,6 @@ export class AccuSnap implements Decorator {
   public explanation?: string;
   /** Number of times "suppress" has been called -- unlike suspend this is not automatically cleared by tools */
   private _suppressed = 0;
-  /** Time motion stopped. */
-  private _motionStopTime = 0;
   /** Location of cursor when we last checked for motion */
   private readonly _lastCursorPos = new Point2d();
   /** @internal */
@@ -191,7 +193,7 @@ export class AccuSnap implements Decorator {
   /** @internal */
   public touchCursor?: TouchCursor;
   /** Current request for tooltip message. */
-  private _toolTipPromise?: Promise<string | HTMLElement>;
+  private _toolTipPromise?: Promise<Promise<void>>;
 
   /** @internal */
   public onInitialized() { }
@@ -260,8 +262,13 @@ export class AccuSnap implements Decorator {
     if (IModelApp.tentativePoint.isActive) {
       if (!this._doSnapping || !this._searchForExtendedIntersections)
         return false;
+
       const snaps = this.getActiveSnapModes();
-      for (const snap of snaps) { if (snap === SnapMode.Intersection) return true; }
+      for (const snap of snaps) {
+        if (snap === SnapMode.Intersection)
+          return true;
+      }
+
       return false;
     }
 
@@ -337,17 +344,19 @@ export class AccuSnap implements Decorator {
     this.clearSprites(); // remove all sprites from the screen
   }
 
-  /** @internal */
-  public showElemInfo(viewPt: XAndY, vp: ScreenViewport, hit: HitDetail): void {
-    if (IModelApp.viewManager.doesHostHaveFocus && undefined === this._toolTipPromise) {
-      const promise = IModelApp.toolAdmin.getToolTip(hit);
-      this._toolTipPromise = promise;
-      promise.then((msg) => { // tslint:disable-line:no-floating-promises
-        // Ignore response if we're no longer interested in this tooltip.
-        if (this._toolTipPromise === promise)
+  private showElemInfo(viewPt: XAndY, vp: ScreenViewport, hit: HitDetail, delay: BeDuration): void {
+    if (!IModelApp.viewManager.doesHostHaveFocus || undefined !== this._toolTipPromise)
+      return;
+
+    const promise = this._toolTipPromise = delay.executeAfter(async () => {
+      if (promise !== this._toolTipPromise)
+        return; // we abandoned this request during delay
+      try {
+        const msg = await IModelApp.toolAdmin.getToolTip(hit);
+        if (this._toolTipPromise === promise) // have we abandoned this request while awaiting getToolTip?
           this.showLocateMessage(viewPt, vp, msg);
-      }).catch((_) => undefined); // can be rejected on abort.
-    }
+      } catch (error) { } // happens if getToolTip was canceled
+    });
   }
 
   private showLocateMessage(viewPt: XAndY, vp: ScreenViewport, msg: HTMLElement | string) {
@@ -358,7 +367,7 @@ export class AccuSnap implements Decorator {
   /** @internal */
   public displayToolTip(viewPt: XAndY, vp: ScreenViewport, uorPt?: Point3d): void {
     // if the tooltip is already displayed, or if user doesn't want it, quit.
-    if (0 === this._motionStopTime || !this._settings.toolTip || !IModelApp.notifications.isToolTipSupported || IModelApp.notifications.isToolTipOpen)
+    if (!this._settings.toolTip || !IModelApp.notifications.isToolTipSupported || IModelApp.notifications.isToolTipOpen)
       return;
 
     const accuSnapHit = this.currHit;
@@ -368,14 +377,6 @@ export class AccuSnap implements Decorator {
     if (!accuSnapHit && !tpHit && !this.errorIcon.isActive)
       return;
 
-    // when the tentative button is first pressed, we pass nullptr for uorPt so that we can know to show the tooltip more quickly.
-    const timeout = (undefined === tpHit || undefined !== uorPt ? this._settings.toolTipDelay : BeDuration.fromSeconds(.1));
-
-    // have we waited long enough to show the balloon?
-    if ((this._motionStopTime + timeout.milliseconds) > Date.now())
-      return;
-
-    this._motionStopTime = 0; // If application chooses to not display tool tip, make sure we don't ask again until we see another motion/motion stopped...
     let theHit: HitDetail | undefined;
 
     // determine which type of hit
@@ -393,7 +394,7 @@ export class AccuSnap implements Decorator {
 
     // if we're currently showing an error, get the error message...otherwise display hit info...
     if (!this.errorIcon.isActive && theHit) {
-      this.showElemInfo(viewPt, vp, theHit);
+      this.showElemInfo(viewPt, vp, theHit, this._settings.toolTipDelay);
       return;
     }
 
@@ -410,10 +411,6 @@ export class AccuSnap implements Decorator {
     this.explanation = IModelApp.i18n.translate(this.errorKey);
     if (!this.explanation)
       return;
-
-    // Get the "best" rejected hit to augment the error explanation with the hit info...
-    if (!theHit)
-      theHit = this.aSnapHits ? this.aSnapHits.hits[0] : undefined;
 
     this.showLocateMessage(viewPt, vp, this.explanation);
   }
@@ -616,10 +613,25 @@ export class AccuSnap implements Decorator {
 
   /** @internal */
   public static async requestSnap(thisHit: HitDetail, snapModes: SnapMode[], hotDistanceInches: number, keypointDivisor: number, hitList?: HitList<HitDetail>, out?: LocateResponse): Promise<SnapDetail | undefined> {
-    if (undefined !== thisHit.subCategoryId) {
+    if (thisHit.isModelHit || thisHit.isClassifier) {
+      if (snapModes.includes(SnapMode.Nearest)) {
+        if (out) out.snapStatus = SnapStatus.Success;
+        return new SnapDetail(thisHit, SnapMode.Nearest, SnapHeat.InRange);
+      }
+      if (out) {
+        out.snapStatus = (1 === snapModes.length && snapModes.includes(SnapMode.Intersection) ? SnapStatus.NoSnapPossible : SnapStatus.NotSnappable);
+        out.explanation = IModelApp.i18n.translate(ElementLocateManager.getFailureMessageKey("RealityModelSnapMode"));
+      }
+      return undefined;
+    }
+
+    if (undefined !== thisHit.subCategoryId && !thisHit.isExternalIModelHit) {
       const appearance = thisHit.viewport.getSubCategoryAppearance(thisHit.subCategoryId);
       if (appearance.dontSnap) {
-        if (out) out.snapStatus = SnapStatus.NotSnappable;
+        if (out) {
+          out.snapStatus = SnapStatus.NotSnappable;
+          out.explanation = IModelApp.i18n.translate(ElementLocateManager.getFailureMessageKey("NotSnappableSubCategory"));
+        }
         return undefined;
       }
     }
@@ -649,7 +661,7 @@ export class AccuSnap implements Decorator {
     if (snapModes.includes(SnapMode.Intersection)) {
       if (undefined !== hitList) {
         for (const hit of hitList.hits) {
-          if (thisHit.sourceId === hit.sourceId)
+          if (thisHit.sourceId === hit.sourceId || thisHit.iModel !== hit.iModel)
             continue;
 
           if (!hit.isElementHit) {
@@ -678,14 +690,19 @@ export class AccuSnap implements Decorator {
       }
     }
 
-    const result = await thisHit.viewport.iModel.requestSnap(requestProps);
+    const result = await thisHit.iModel.requestSnap(requestProps);
 
     if (out) out.snapStatus = result.status;
     if (result.status !== SnapStatus.Success)
       return undefined;
 
+    const parseCurve = (json: any): CurvePrimitive | undefined => {
+      const parsed = undefined !== json ? GeomJson.Reader.parse(json) : undefined;
+      return parsed instanceof GeometryQuery && "curvePrimitive" === parsed.geometryCategory ? parsed : undefined;
+    };
+
     const snap = new SnapDetail(thisHit, result.snapMode!, result.heat!, result.snapPoint!);
-    snap.setCurvePrimitive(undefined !== result.curve ? GeomJson.Reader.parse(result.curve) : undefined, undefined, result.geomType);
+    snap.setCurvePrimitive(parseCurve(result.curve), undefined, result.geomType);
     if (undefined !== result.parentGeomType)
       snap.parentGeomType = result.parentGeomType;
     if (undefined !== result.hitPoint)
@@ -699,7 +716,7 @@ export class AccuSnap implements Decorator {
     if (undefined === result.intersectId)
       return undefined;
 
-    const otherPrimitive = (undefined !== result.intersectCurve ? GeomJson.Reader.parse(result.intersectCurve) : undefined);
+    const otherPrimitive = parseCurve(result.intersectCurve);
     if (undefined === otherPrimitive)
       return undefined;
 
@@ -879,6 +896,9 @@ export class AccuSnap implements Decorator {
     if (hit || this.currHit)
       this.setCurrHit(hit);
 
+    if (hit)
+      this.displayToolTip(ev.viewPoint, ev.viewport!, ev.rawPoint);
+
     // indicate errors
     this.showSnapError(out, ev);
 
@@ -887,11 +907,6 @@ export class AccuSnap implements Decorator {
       IModelApp.viewManager.invalidateDecorationsAllViews();
     }
   }
-
-  /** @internal */
-  public onMotionStopped(_ev: BeButtonEvent): void { this._motionStopTime = Date.now(); }
-  /** @internal */
-  public async onNoMotion(ev: BeButtonEvent) { this.displayToolTip(ev.viewPoint, ev.viewport!, ev.rawPoint); return Promise.resolve(); }
 
   /** @internal */
   public onPreButtonEvent(ev: BeButtonEvent): boolean { return (undefined !== this.touchCursor) ? this.touchCursor.isButtonHandled(ev) : false; }
@@ -912,7 +927,16 @@ export class AccuSnap implements Decorator {
       return this.touchCursor.doTouchTap(ev);
     if (!this._doSnapping)
       return false;
-    return (undefined !== (this.touchCursor = TouchCursor.createFromTouchTap(ev)));
+    this.touchCursor = TouchCursor.createFromTouchTap(ev);
+    if (undefined === this.touchCursor)
+      return false;
+    // Give active tool an opportunity to update it's tool assistance since event won't be passed along...
+    const tool = IModelApp.toolAdmin.activeTool;
+    if (undefined === tool)
+      return true;
+    tool.onSuspend();
+    tool.onUnsuspend();
+    return true;
   }
 
   private flashElements(context: DecorateContext): void {

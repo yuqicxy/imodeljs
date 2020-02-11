@@ -1,7 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Utils
+ */
+
 import { BentleyError, BentleyStatus } from "@bentley/bentleyjs-core";
 import { BadUnit, Parser, ParserSpec, ParseResult, Format, Formatter, FormatterSpec, UnitConversion, UnitProps, UnitsProvider, BasicUnit } from "@bentley/imodeljs-quantity";
 import { IModelApp } from "./IModelApp";
@@ -63,6 +67,7 @@ const unitData: UnitDefinition[] = [
   { name: "Units.FT", unitFamily: "Units.LENGTH", conversion: { numerator: 1.0, denominator: 0.3048, offset: 0.0 }, displayLabel: "ft", altDisplayLabels: ["F", "FT", "'"] },
   { name: "Units.YRD", unitFamily: "Units.LENGTH", conversion: { numerator: 1.0, denominator: 0.9144, offset: 0.0 }, displayLabel: "yd", altDisplayLabels: ["YRD", "yrd"] },
   { name: "Units.MILE", unitFamily: "Units.LENGTH", conversion: { numerator: 1.0, denominator: 1609.344, offset: 0.0 }, displayLabel: "mi", altDisplayLabels: ["mile", "Miles", "Mile"] },
+  { name: "Units.SURVEY_FT", unitFamily: "Units.LENGTH", conversion: { numerator: 1.0, denominator: 0.3048006096, offset: 0.0 }, displayLabel: "ft", altDisplayLabels: ["F", "FT", "'"] },
 
   { name: "Units.SQ_FT", unitFamily: "Units.AREA", conversion: { numerator: 1.0, denominator: .09290304, offset: 0.0 }, displayLabel: "ft²", altDisplayLabels: ["sf"] },
   { name: "Units.SQ_M", unitFamily: "Units.AREA", conversion: { numerator: 1.0, denominator: 1.0, offset: 0.0 }, displayLabel: "m²", altDisplayLabels: [] },
@@ -74,7 +79,7 @@ const unitData: UnitDefinition[] = [
 /** Defines standard format types for tools that need to display measurements to user.
  * @beta
  */
-export enum QuantityType { Length = 1, Angle = 2, Area = 3, Volume = 4, LatLong = 5, Coordinate = 6 }
+export enum QuantityType { Length = 1, Angle = 2, Area = 3, Volume = 4, LatLong = 5, Coordinate = 6, Stationing = 7, LengthSurvey = 8, LengthEngineering = 9 }
 
 // The following provide default formats for different the QuantityTypes. It is important to note that these default should reference
 // units that are available from the registered units provider.
@@ -175,6 +180,55 @@ const defaultsFormats = {
       },
       formatTraits: ["keepSingleZero", "showUnitLabel"],
       precision: 2,
+      type: "Decimal",
+    },
+  }, {
+    type: 7/*Stationing*/, format: {
+      composite: {
+        includeZero: true,
+        spacer: " ",
+        units: [
+          {
+            label: "m",
+            name: "Units.M",
+          },
+        ],
+      },
+      formatTraits: ["trailZeroes", "keepSingleZero"],
+      stationOffsetSize: 3,
+      precision: 2,
+      type: "Station",
+    },
+  }, {
+    type: 8/*LengthSurvey*/, format: {
+      composite: {
+        includeZero: true,
+        spacer: " ",
+        units: [
+          {
+            label: "m",
+            name: "Units.M",
+          },
+        ],
+      },
+      formatTraits: ["keepSingleZero", "showUnitLabel"],
+      precision: 4,
+      type: "Decimal",
+    },
+  }, {
+    type: 9/*LengthEngineering*/, format: {
+      composite: {
+        includeZero: true,
+        spacer: " ",
+        units: [
+          {
+            label: "m",
+            name: "Units.M",
+          },
+        ],
+      },
+      formatTraits: ["keepSingleZero", "showUnitLabel"],
+      precision: 4,
       type: "Decimal",
     },
   },
@@ -289,6 +343,55 @@ const defaultsFormats = {
       precision: 2,
       type: "Decimal",
     },
+  }, {
+    type: 7/*Stationing*/, format: {
+      composite: {
+        includeZero: true,
+        spacer: " ",
+        units: [
+          {
+            label: "ft",
+            name: "Units.FT",
+          },
+        ],
+      },
+      formatTraits: ["trailZeroes", "keepSingleZero"],
+      stationOffsetSize: 2,
+      precision: 2,
+      type: "Station",
+    },
+  }, {
+    type: 8/*LengthSurvey*/, format: {
+      composite: {
+        includeZero: true,
+        spacer: " ",
+        units: [
+          {
+            label: "ft",
+            name: "Units.SURVEY_FT",
+          },
+        ],
+      },
+      formatTraits: ["keepSingleZero", "showUnitLabel"],
+      precision: 4,
+      type: "Decimal",
+    },
+  }, {
+    type: 9/*LengthEngineering*/, format: {
+      composite: {
+        includeZero: true,
+        spacer: " ",
+        units: [
+          {
+            label: "ft",
+            name: "Units.FT",
+          },
+        ],
+      },
+      formatTraits: ["keepSingleZero", "showUnitLabel"],
+      precision: 4,
+      type: "Decimal",
+    },
   },
   ],
 };
@@ -305,6 +408,11 @@ export class QuantityFormatter implements UnitsProvider {
   protected _metricFormatSpecsByType = new Map<QuantityType, FormatterSpec>();
   protected _imperialParserSpecsByType = new Map<QuantityType, ParserSpec>();
   protected _metricUnitParserSpecsByType = new Map<QuantityType, ParserSpec>();
+
+  public onInitialized() {
+    // initialize default format and parsing specs
+    this.loadFormatAndParsingMaps(this._activeSystemIsImperial); // tslint:disable-line:no-floating-promises
+  }
 
   /** Find a unit given the unitLabel. */
   public async findUnit(unitLabel: string, unitFamily?: string): Promise<UnitProps> {
@@ -462,6 +570,9 @@ export class QuantityFormatter implements UnitsProvider {
         return this.findUnitByName("Units.M");
       case QuantityType.Coordinate:
       case QuantityType.Length:
+      case QuantityType.Stationing:
+      case QuantityType.LengthSurvey:
+      case QuantityType.LengthEngineering:
       default:
         return this.findUnitByName("Units.M");
     }
@@ -469,7 +580,7 @@ export class QuantityFormatter implements UnitsProvider {
 
   /** Asynchronous call to loadParsingSpecsForQuantityTypes. This method caches all the ParserSpecs so they can be quickly accessed. */
   protected async loadParsingSpecsForQuantityTypes(useImperial: boolean): Promise<void> {
-    const typeArray: QuantityType[] = [QuantityType.Length, QuantityType.Angle, QuantityType.Area, QuantityType.Volume, QuantityType.LatLong, QuantityType.Coordinate];
+    const typeArray: QuantityType[] = [QuantityType.Length, QuantityType.Angle, QuantityType.Area, QuantityType.Volume, QuantityType.LatLong, QuantityType.Coordinate, QuantityType.Stationing, QuantityType.LengthSurvey, QuantityType.LengthEngineering];
     const activeMap = useImperial ? this._imperialParserSpecsByType : this._metricUnitParserSpecsByType;
     activeMap.clear();
 
@@ -485,7 +596,7 @@ export class QuantityFormatter implements UnitsProvider {
 
   /** Asynchronous call to loadFormatSpecsForQuantityTypes. This method caches all the FormatSpec so they can be quickly accessed. */
   protected async loadFormatSpecsForQuantityTypes(useImperial: boolean): Promise<void> {
-    const typeArray: QuantityType[] = [QuantityType.Length, QuantityType.Angle, QuantityType.Area, QuantityType.Volume, QuantityType.LatLong, QuantityType.Coordinate];
+    const typeArray: QuantityType[] = [QuantityType.Length, QuantityType.Angle, QuantityType.Area, QuantityType.Volume, QuantityType.LatLong, QuantityType.Coordinate, QuantityType.Stationing, QuantityType.LengthSurvey, QuantityType.LengthEngineering];
     const activeMap = useImperial ? this._imperialFormatSpecsByType : this._metricFormatSpecsByType;
     activeMap.clear();
 
@@ -594,16 +705,17 @@ export class QuantityFormatter implements UnitsProvider {
   public async loadFormatAndParsingMaps(useImperial: boolean): Promise<void> {
     const formatPromise = this.loadFormatSpecsForQuantityTypes(useImperial);
     const parsePromise = this.loadParsingSpecsForQuantityTypes(useImperial);
-    await Promise.all([formatPromise, parsePromise]); // tslint:disable-line:no-floating-promises
+    await Promise.all([formatPromise, parsePromise]);
   }
 
-  /** Set the flag to return either metric or imperial formats. This call also makes an async request to refresh the cached formats. */
+  /** True if tool quantity values should be displayed in imperial units; false for metric. Changing this flag triggers an asynchronous request to refresh the cached formats. */
+  public get useImperialFormats(): boolean { return this._activeSystemIsImperial; }
   public set useImperialFormats(useImperial: boolean) {
+    if (this._activeSystemIsImperial === useImperial)
+      return;
+
     IModelApp.toolAdmin.startDefaultTool();
     this._activeSystemIsImperial = useImperial;
     this.loadFormatAndParsingMaps(useImperial); // tslint:disable-line:no-floating-promises
   }
-
-  /** Return true if Tool Quantities are to be displayed in Imperial units. If false Metric units are to used. */
-  public get useImperialFormats(): boolean { return this._activeSystemIsImperial; }
 }

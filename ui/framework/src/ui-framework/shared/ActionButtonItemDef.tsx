@@ -1,17 +1,19 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Item */
+/** @packageDocumentation
+ * @module Item
+ */
 
 import * as React from "react";
 
-import { CommandHandler, ItemProps } from "./ItemProps";
-import { ItemDefBase } from "./ItemDefBase";
+import { CommandHandler, OnItemExecutedFunc } from "@bentley/ui-abstract";
+import { Orientation, SizeProps } from "@bentley/ui-core";
 
-import { Size } from "@bentley/ui-ninezone";
-import { Orientation } from "@bentley/ui-core";
+import { ItemDefBase } from "./ItemDefBase";
 import { ActionItemButton } from "../toolbar/ActionItemButton";
+import { ItemProps } from "./ItemProps";
 
 /** Abstract base class that is used by classes to execute an action when pressed.
  * @public
@@ -19,12 +21,15 @@ import { ActionItemButton } from "../toolbar/ActionItemButton";
 export abstract class ActionButtonItemDef extends ItemDefBase {
   protected _commandHandler?: CommandHandler;
   public parameters?: any;
-  public size?: Size;
+  public size?: SizeProps;
+  public static defaultButtonSize = 42;
+  private _onItemExecuted?: OnItemExecutedFunc;
 
-  constructor(itemProps: ItemProps) {
+  constructor(itemProps: ItemProps, onItemExecuted?: OnItemExecutedFunc) {
     super(itemProps);
 
     this.execute = this.execute.bind(this);
+    this._onItemExecuted = onItemExecuted;
   }
 
   public execute(): void {
@@ -34,16 +39,21 @@ export abstract class ActionButtonItemDef extends ItemDefBase {
       else
         this._commandHandler.execute(this._commandHandler.parameters);
     }
+
+    // istanbul ignore else
+    if (this._onItemExecuted)
+      this._onItemExecuted(this);
   }
 
-  public handleSizeKnown = (size: Size) => {
+  public handleSizeKnown = (size: SizeProps) => {
     this.size = size;
   }
 
   public getDimension(orientation: Orientation): number {
-    let dimension = 0;
+    let dimension = ActionButtonItemDef.defaultButtonSize;
     if (this.size)
       dimension = (orientation === Orientation.Horizontal) ? this.size.width : this.size.height;
+
     return dimension;
   }
 

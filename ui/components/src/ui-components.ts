@@ -1,7 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+
+// cSpell:ignore iconpicker lineweight
+
 export { UiComponents } from "./ui-components/UiComponents";
 
 export * from "./ui-components/breadcrumb/Breadcrumb";
@@ -11,6 +14,7 @@ export * from "./ui-components/breadcrumb/hoc/withDragDrop";
 export * from "./ui-components/breadcrumb/breadcrumbdetails/BreadcrumbDetails";
 export * from "./ui-components/breadcrumb/breadcrumbdetails/hoc/withDragDrop";
 
+export * from "./ui-components/common/Links";
 export * from "./ui-components/common/PageOptions";
 export * from "./ui-components/common/selection/SelectionModes";
 export * from "./ui-components/common/IImageLoader";
@@ -47,6 +51,7 @@ export * from "./ui-components/editors/ToggleEditor";
 export * from "./ui-components/editors/ColorEditor";
 export * from "./ui-components/editors/WeightEditor";
 export * from "./ui-components/editors/CustomNumberEditor";
+export * from "./ui-components/editors/IconEditor";
 
 export * from "./ui-components/filtering/FilteringInput";
 export * from "./ui-components/filtering/ResultSelector";
@@ -59,6 +64,8 @@ export * from "./ui-components/properties/renderers/NonPrimitivePropertyRenderer
 export * from "./ui-components/properties/renderers/PrimitivePropertyRenderer";
 export * from "./ui-components/properties/renderers/PropertyRenderer";
 export * from "./ui-components/properties/renderers/PropertyView";
+export * from "./ui-components/properties/renderers/ActionButtonList";
+export * from "./ui-components/properties/renderers/ActionButtonRenderer";
 
 export * from "./ui-components/timeline/interfaces";
 export * from "./ui-components/timeline/BaseTimelineDataProvider";
@@ -96,22 +103,42 @@ export * from "./ui-components/color/AlphaSlider";
 export * from "./ui-components/color/SaturationPicker";
 export * from "./ui-components/color/ColorPickerButton";
 
+export * from "./ui-components/iconpicker/IconPickerButton";
+
 export * from "./ui-components/lineweight/Swatch";
 export * from "./ui-components/lineweight/WeightPickerButton";
 
 export * from "./ui-components/table/TableDataProvider";
 export * from "./ui-components/table/SimpleTableDataProvider";
+export * from "./ui-components/table/columnfiltering/ColumnFiltering";
 export * from "./ui-components/table/component/Table";
+export * from "./ui-components/table/component/TableColumn";
 export * from "./ui-components/table/hocs/withDragDrop";
+
+export * from "./ui-components/tooltip/UITooltipRenderer";
 
 export * from "./ui-components/tree/TreeDataProvider";
 export * from "./ui-components/tree/HighlightingEngine";
 export * from "./ui-components/tree/component/Tree";
 export * from "./ui-components/tree/component/BeInspireTree";
+export * from "./ui-components/tree/component/Node";
 export * from "./ui-components/tree/CellEditingEngine";
 export * from "./ui-components/tree/ImageLoader";
 export * from "./ui-components/tree/hocs/withDragDrop";
 export * from "./ui-components/tree/SimpleTreeDataProvider";
+
+export * from "./ui-components/tree/controlled/TreeActions";
+export * from "./ui-components/tree/controlled/TreeEventDispatcher";
+export * from "./ui-components/tree/controlled/TreeEventHandler";
+export * from "./ui-components/tree/controlled/TreeEvents";
+export * from "./ui-components/tree/controlled/TreeModel";
+export * from "./ui-components/tree/controlled/TreeModelSource";
+export * from "./ui-components/tree/controlled/TreeNodeLoader";
+export * from "./ui-components/tree/controlled/Observable";
+export * from "./ui-components/tree/controlled/TreeHooks";
+export * from "./ui-components/tree/controlled/component/ControlledTree";
+export * from "./ui-components/tree/controlled/component/TreeNodeRenderer";
+export * from "./ui-components/tree/controlled/component/TreeRenderer";
 
 export * from "./ui-components/viewport/ViewportComponent";
 export * from "./ui-components/viewport/ViewportComponentEvents";
@@ -127,7 +154,6 @@ if ((typeof (BUILD_SEMVER) !== "undefined") && (typeof window !== "undefined") &
 
 /** @docs-package-description
  * The ui-components package contains React components that are data-oriented, such as PropertyGrid, Table, Tree and Breadcrumb.
- * For more information, see [learning about ui-components]($docs/learning/components/index.md).
  */
 /**
  * @docs-group-description Common

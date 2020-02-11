@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 
 import { StrokeOptions } from "./StrokeOptions";
 import { GeometryQuery } from "./GeometryQuery";
@@ -19,6 +21,9 @@ import { AnyCurve } from "./CurveChain";
  * @public
  */
 export class ParityRegion extends CurveCollection {
+   /** String name for schema properties */
+  public readonly curveCollectionType = "parityRegion";
+
   /** Test if `other` is an instance of `ParityRegion` */
   public isSameGeometryClass(other: GeometryQuery): boolean { return other instanceof ParityRegion; }
   /** Array of loops in this parity region. */
@@ -27,6 +32,34 @@ export class ParityRegion extends CurveCollection {
   public get children(): Loop[] { return this._children; }
   /** Construct parity region with empty loop array */
   public constructor() { super(); this._children = []; }
+  /**
+   * Add loops (recursively) to this region's children
+   */
+  public addLoops(data?: Loop | Loop[] | Loop[][]) {
+    if (data === undefined) {
+    } else if (data instanceof Loop)
+      this.children.push(data);
+    else if (Array.isArray(data)) {
+      for (const child of data) {
+        if (child instanceof Loop)
+          this.children.push(child);
+        else if (Array.isArray(child))
+          this.addLoops(child);
+      }
+    }
+  }
+  /** Return a single loop or parity region with given loops.
+   * * The returned structure CAPTURES the loops.
+   * * The loops are NOT reorganized by hole analysis.
+   */
+  public static createLoops(data?: Loop | Loop[] | Loop[][]): Loop | ParityRegion {
+    if (data instanceof Loop)
+      return data;
+    const result = new ParityRegion();
+    result.addLoops(data);
+    return result;
+  }
+
   /** Create a parity region with given loops */
   public static create(...data: Loop[]): ParityRegion {
     const result = new ParityRegion();
@@ -68,8 +101,8 @@ export class ParityRegion extends CurveCollection {
   /** Add `child` to this parity region.
    * * any child type other than `Loop` is ignored.
    */
-  public tryAddChild(child: AnyCurve): boolean {
-    if (child instanceof Loop) {
+  public tryAddChild(child: AnyCurve | undefined): boolean {
+    if (child && child instanceof Loop) {
       this._children.push(child);
       return true;
     }

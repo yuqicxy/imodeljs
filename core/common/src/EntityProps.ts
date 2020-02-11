@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WireFormats */
+/** @packageDocumentation
+ * @module Entities
+ */
 
 import { Id64String, Id64 } from "@bentley/bentleyjs-core";
 import { Point2d, Point3d } from "@bentley/geometry-core";
@@ -16,8 +18,8 @@ export interface EntityProps {
   classFullName: string;
   /** The Id of the entity. Must be present for SELECT, UPDATE, or DELETE, ignored for INSERT. */
   id?: Id64String;
-
-  [propName: string]: any;
+  /** Optional [json properties]($docs/bis/intro/element-fundamentals.md#jsonproperties) of this Entity. */
+  jsonProperties?: { [key: string]: any };
 }
 
 /** Parameters for performing a query on [Entity]($backend) classes.
@@ -173,10 +175,15 @@ export class PropertyMetaData implements PropertyMetaDataProps {
           return this.createValueOrArray(Point3d.fromJSON, jsonObj);
       }
     }
-    if (this.direction !== undefined)  // the presence of this means it is a navigation property
+    if (this.isNavigation)
       return jsonObj.id !== undefined ? new RelatedElement(jsonObj) : Id64.fromJSON(jsonObj);
 
     return jsonObj;
+  }
+
+  /** Return `true` if this property is a NavigationProperty. */
+  public get isNavigation(): boolean {
+    return (this.direction !== undefined); // the presence of `direction` means it is a navigation property
   }
 }
 
@@ -218,9 +225,9 @@ export class EntityMetaData implements EntityMetaDataProps {
     this.baseClasses = jsonObj.baseClasses;
     this.customAttributes = jsonObj.customAttributes;
     this.properties = {};
-    for (const propName in jsonObj.properties) {
-      if (propName)
-        this.properties[propName] = new PropertyMetaData(jsonObj.properties[propName]);
+
+    for (const propName in jsonObj.properties) { // tslint:disable-line: forin
+      this.properties[propName] = new PropertyMetaData(jsonObj.properties[propName]);
     }
   }
 }

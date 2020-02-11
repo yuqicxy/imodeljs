@@ -1,13 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Zone */
+/** @packageDocumentation
+ * @module Zone
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
 import { CommonProps } from "@bentley/ui-core";
-import { WidgetZoneIndex } from "../manager/Zones";
+import { WidgetZoneId } from "../manager/Zones";
 import "./Arrow.scss";
 
 /** Properties of [[Arrow]] component.
@@ -15,7 +17,7 @@ import "./Arrow.scss";
  */
 export interface ArrowProps extends CommonProps {
   /** Describes arrow rotation. */
-  zoneIndex: WidgetZoneIndex;
+  zoneIndex: WidgetZoneId;
 }
 
 /** Arrow icon used in [[MergeTarget]], [[BackTarget]] components.

@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module OIDC */
+/** @packageDocumentation
+ * @module OIDC
+ */
 
 import * as React from "react";
 
-import { ClientRequestContext } from "@bentley/bentleyjs-core";
+import { ClientRequestContext, Logger } from "@bentley/bentleyjs-core";
 import { UserInfo, AccessToken } from "@bentley/imodeljs-clients";
 import { getUserColor } from "@bentley/ui-core";
 
@@ -64,6 +66,8 @@ export class SignOutModalFrontstage implements ModalFrontstageInfo {
     // istanbul ignore next
     if (UiFramework.oidcClient)
       UiFramework.oidcClient.signOut(new ClientRequestContext()); // tslint:disable-line:no-floating-promises
+    else
+      Logger.logInfo(UiFramework.loggerCategory(this), "UiFramework.oidcClient must be set for signOut");
 
     // istanbul ignore else
     if (this._handleSignOut)
@@ -77,7 +81,7 @@ export class SignOutModalFrontstage implements ModalFrontstageInfo {
     const organization = (this._userInfo && this._userInfo.organization) ? this._userInfo.organization.name : /* istanbul ignore next */ "";
     const color = getUserColor(email);
     return (
-      <div className="user-profile">
+      <div className="uifw-user-profile">
         <div className="profile-info">
           <span className="circle" style={{ backgroundColor: color }}>{initials}</span>
           <span>{fullName}</span>

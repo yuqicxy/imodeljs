@@ -1,13 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
+import * as sinon from "sinon";
 import { mount, shallow } from "enzyme";
-import { render } from "@testing-library/react";
-import { RadialMenu, RadialButton } from "../../ui-core";
 import { expect } from "chai";
-import sinon = require("sinon");
+import { render } from "@testing-library/react";
+
+import { RadialMenu, RadialButton } from "../../ui-core";
 import { TestUtils } from "../TestUtils";
 
 describe("RadialMenu", () => {
@@ -79,7 +80,7 @@ describe("RadialMenu", () => {
       const spyMethod = sinon.fake();
       const component = render(<RadialMenu opened={true} left={100} top={100} innerRadius={10} outerRadius={100} onEsc={spyMethod} />);
       const item = component.getByTestId("core-radial-menu");
-      item.dispatchEvent(createBubbledEvent("keyup", { keyCode: 27 /* <Esc> */ }));
+      item.dispatchEvent(createBubbledEvent("keyup", { key: "Escape" }));
       spyMethod.should.have.been.called;
     });
 

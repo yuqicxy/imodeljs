@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module MarkupTools */
+/** @packageDocumentation
+ * @module MarkupTools
+ */
 
 import { XAndY } from "@bentley/geometry-core";
 import { BeButton, BeTouchEvent, CoordinateLockOverrides, EventHandled, IModelApp, PrimitiveTool, Viewport } from "@bentley/imodeljs-frontend";
@@ -14,7 +16,7 @@ import { Markup, MarkupApp } from "./Markup";
  */
 export abstract class MarkupTool extends PrimitiveTool {
   public markup!: Markup;
-  public static toolKey = "MarkupTools:tools.";
+  public static toolKey = "MarkupTools:tools.Markup.";
   public requireWriteableTarget(): boolean { return false; }
   public isCompatibleViewport(vp: Viewport | undefined, isSelectedViewChange: boolean): boolean { return (super.isCompatibleViewport(vp, isSelectedViewChange) && undefined !== vp && vp === IModelApp.toolAdmin.markupView); }
   public onInstall(): boolean { if (undefined === MarkupApp.markup) return false; this.markup = MarkupApp.markup; return super.onInstall(); }

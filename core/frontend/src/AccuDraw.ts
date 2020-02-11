@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module AccuDraw */
+/** @packageDocumentation
+ * @module AccuDraw
+ */
 import { IModelApp } from "./IModelApp";
 import {
   Point3d, Vector3d, Point2d, Matrix3d, Transform, Geometry, Arc3d, LineSegment3d, CurvePrimitive,
@@ -20,6 +22,8 @@ import { AuxCoordSystemState, ACSDisplayOptions } from "./AuxCoordSys";
 import { GraphicBuilder, GraphicType } from "./render/GraphicBuilder";
 import { DecorateContext } from "./ViewContext";
 import { ViewTool } from "./tools/ViewTool";
+
+// cspell:ignore dont primitivetools
 
 /** @internal */
 export enum AccuDrawFlags {
@@ -434,7 +438,7 @@ export class AccuDraw {
       return true;
 
     // XY Lock:
-    if (isRectMode && !axisIsIndexed) {
+    if (isRectMode) {
       const locked = this.locked & LockedStates.XY_BM;
 
       if ((0 !== locked) && isOnCompassPlane) {
@@ -922,131 +926,10 @@ export class AccuDraw {
   }
 
   private stringToUORs(_uors: number[], _str: string): BentleyStatus {
-    // DistanceParserPtr parser = DistanceParser:: Create();
-    // DgnViewportP   vp = GetCompassViewport();
-
-    // if (NULL == vp)
-    //   parser = DistanceParser:: Create();
-    //   else
-    // parser = DistanceParser:: Create(* vp);
-
-    // if (SUCCESS != parser.ToValue(uors, str))
-    //   return ERROR;
-
     return BentleyStatus.SUCCESS;
   }
 
   private stringToAngle(_angle: number[], _out: { isBearing: boolean }, _inString: string, _restrict: boolean): BentleyStatus {
-    // WString     buffer(inString, BentleyCharEncoding:: Utf8);
-    // WChar * p1, * p2, * string;
-    // int         north = 0, east = 0;
-    // bool        bearing = false;
-
-    // if (isBearing)
-    //       * isBearing = false;
-
-    // string = buffer.begin();
-
-    // if ((p1 = wcspbrk(string, L"NnSs")) != NULL) {
-    //   string = p1 + 1;
-
-    //   if ((p2 = wcspbrk(string, L"EeWw")) == NULL)
-    //     return ERROR;
-
-    //   north = (towupper(* p1) == L'N');
-    //   east = (towupper(* p2) == L'E');
-    //       * p2 = 0; // terminate string
-    //   bearing = true;
-    // }
-    // else if (string[1] == L' ')
-    // {
-    //   bearing = true;
-
-    //   switch (string[0]) {
-    //     case L'1':
-    //       north = true;
-    //       east = true;
-    //       break;
-    //     case L'2':
-    //       north = false;
-    //       east = true;
-    //       break;
-    //     case L'3':
-    //       north = false;
-    //       east = false;
-    //       break;
-    //     case L'4':
-    //       north = true;
-    //       east = false;
-    //       break;
-    //     default:
-    //       bearing = false;
-    //       break;
-    //   }
-
-    //   if (bearing)
-    //     string += 2;
-    // }
-    //   else
-    // {
-    //   bearing = false;
-    // }
-
-    // while (* string == L' ')
-    // string++;
-
-    // AngleParserPtr parser = AngleParser:: Create();
-
-    // _SetupAngleParser(* parser);
-
-    // if (SUCCESS != parser -> ToValue(angle, Utf8String(string).c_str()))
-    //   return ERROR;
-
-    // if (bearing) {
-    //   if (north) {
-    //     if (east)
-    //       angle = 90.0 - angle;
-    //     else
-    //       angle = 90.0 + angle;
-    //   }
-    //   else {
-    //     if (east)
-    //       angle = 270.0 + angle;
-    //     else
-    //       angle = 270.0 - angle;
-    //   }
-    // }
-    // else {
-    //   DirectionFormatterPtr  formatter;
-
-    //   DgnViewportP vp = GetCompassViewport();
-    //   if (vp)
-    //     formatter = DirectionFormatter:: Create(* vp -> GetViewController().GetTargetModel());
-    //       else
-    //   formatter = DirectionFormatter:: Create();
-
-    //   if (DirectionMode:: Azimuth == formatter -> GetDirectionMode())
-    //   {
-    //     if (formatter -> GetClockwise())
-    //       angle = formatter -> GetBaseDirection() - angle;
-    //     else
-    //       angle = angle - formatter -> GetBaseDirection();
-    //   }
-    // }
-
-    // if (restrict == true) {
-    //   while (angle >= 360.0)
-    //     angle -= 360.0;
-
-    //   while (angle < 0.0)
-    //     angle += 360.0;
-    // }
-
-    // angle *= (msGeomConst_pi / 180.0);
-
-    // if (isBearing)
-    //       * isBearing = bearing;
-
     return BentleyStatus.SUCCESS;
   }
 
@@ -1155,7 +1038,7 @@ export class AccuDraw {
     const yVec = viewNormal.crossProduct(inVec);
 
     if (!yVec.normalizeInPlace()) {
-      normalVec = viewNormal;
+      normalVec.setFrom(viewNormal);
       return false;
     }
 
@@ -1329,11 +1212,8 @@ export class AccuDraw {
       if (undefined !== yVec) {
         const viewX = vp.rotation.rowX();
         if (snap.primitive instanceof LineString3d) {
-          if (Math.abs(xVec.dotProduct(viewX)) < Math.abs(yVec.dotProduct(viewX))) {
-            const tVec = xVec;
+          if (Math.abs(xVec.dotProduct(viewX)) < Math.abs(yVec.dotProduct(viewX)))
             xVec = yVec;
-            yVec = tVec;
-          }
           if (xVec.dotProduct(viewX) < 0.0)
             xVec.negate(xVec);
         } else {
@@ -3199,9 +3079,9 @@ export class AccuDrawHintBuilder {
   public setAngle(angle: number) { this._angle = angle; this._flagAngle = true; }
 
   /* Enable AccuDraw for the current tool without sending any hints */
-  public static activate() { IModelApp.accuDraw.activate; }
+  public static activate() { IModelApp.accuDraw.activate(); }
   /* Disable AccuDraw for the current tool */
-  public static deactivate() { IModelApp.accuDraw.deactivate; }
+  public static deactivate() { IModelApp.accuDraw.deactivate(); }
 
   /**
    * Calls AccuDraw.setContext using the current builder state.

@@ -1,17 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Widget */
+/** @packageDocumentation
+ * @module Widget
+ */
 
 import * as React from "react";
 
-import { IconProps } from "../shared/IconComponent";
+import { BadgeType, StringGetter } from "@bentley/ui-abstract";
+import { IconProps } from "@bentley/ui-core";
+
 import { WidgetState } from "./WidgetDef";
-import { StringGetter } from "../shared/ItemProps";
 import { ConfigurableUiControlConstructor } from "../configurableui/ConfigurableUiControl";
 
-/** Properties for a [Widget]($framework). component.
+/** Properties for a [Widget]($ui-framework) component.
  * @public
  */
 export interface WidgetProps extends IconProps {
@@ -29,7 +32,7 @@ export interface WidgetProps extends IconProps {
   tooltipKey?: string;
   /** Optional Id used to uniquely identify the widget. */
   id?: string;
-  /** Default Widget state. Controls how the Widget is initially displayed. Defaults to WidgetState.Open. */
+  /** Default Widget state. Controls how the Widget is initially displayed. Defaults to WidgetState.Unloaded. */
   defaultState?: WidgetState;
   /** Indicates whether the Widget is free-form or rectangular. Defaults to false for rectangular. The default is false. */
   isFreeform?: boolean;
@@ -55,8 +58,12 @@ export interface WidgetProps extends IconProps {
   classId?: string | ConfigurableUiControlConstructor;
   /** Control's priority */
   priority?: number;
-  /** Indicates whether to draw a Beta badge. */
+  /** Indicates whether to draw a Beta badge.
+   * @deprecated - use badgeType instead.
+   */
   betaBadge?: boolean;
+  /** Badge to be overlaid on the widget tab. */
+  badgeType?: BadgeType;
 }
 
 /** Widget React component.

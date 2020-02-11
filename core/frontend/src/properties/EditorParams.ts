@@ -1,27 +1,30 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Properties */
+/** @packageDocumentation
+ * @module Properties
+ */
 import { QuantityType } from "../QuantityFormatter";
 
 /**
- * Enumeration for Property Editor Param Types
+ * Enum for Property Editor Param Types
  * @beta
  */
 export enum PropertyEditorParamTypes {
-  ButtonGroupData,
-  CheckBoxIcons,
-  Icon,
-  InputEditorSize,
-  JSON,
-  MultilineText,
-  Range,
-  Slider,
-  SuppressUnitLabel,
-  SuppressEditorLabel,
-  ColorData,
-  CustomFormattedNumber,
+  ButtonGroupData = "ButtonGroupData",
+  CheckBoxIcons = "CheckBoxIcons",
+  Icon = "Icon",
+  InputEditorSize = "InputEditorSize",
+  JSON = "JSON",
+  MultilineText = "MultilineText",
+  Range = "Range",
+  Slider = "Slider",
+  SuppressUnitLabel = "SuppressUnitLabel",
+  SuppressEditorLabel = "SuppressEditorLabel",
+  ColorData = "ColorData",
+  CustomFormattedNumber = "CustomFormattedNumber",
+  IconListData = "IconListData",
 }
 
 /**
@@ -29,7 +32,7 @@ export enum PropertyEditorParamTypes {
  * @beta
  */
 export interface BasePropertyEditorParams {
-  type: PropertyEditorParamTypes;
+  type: string;
 }
 
 /**
@@ -58,12 +61,27 @@ export interface ColorEditorParams extends BasePropertyEditorParams {
 }
 
 /**
+ * Parameters used to populate icon type editor with a specific set of icons.
+ * @beta
+ */
+export interface IconListEditorParams extends BasePropertyEditorParams {
+  type: PropertyEditorParamTypes.IconListData;
+  /** active icon shown in the button */
+  iconValue: string;
+  /** array of icon (svg) names to show in icon picker popup. */
+  iconValues: string[];
+  /** number of columns to show in icon picker popup. The value of 4 is used if not defined. */
+  numColumns?: number;
+}
+
+/**
  * Information about an icon displayed next to a property editor.
  * @beta
  */
 export interface IconDefinition {
-  /** icon class name. */
-  iconClass: string;
+  /** Icon specification. The value is the name of an icon WebFont entry, or if specifying an SVG symbol, use `svg:` prefix. */
+  iconSpec: string;
+  /** Function to determine if the item is enabled. */
   isEnabledFunction?: () => boolean;
 }
 
@@ -185,11 +203,7 @@ export interface CustomFormattedNumberParams extends BasePropertyEditorParams {
 }
 
 /**
- * Type definition for all Property Editor params
+ * Type definition for Property Editor params
  * @beta
  */
-export type PropertyEditorParams = ButtonGroupEditorParams | ColorEditorParams | InputEditorSizeParams | SuppressLabelEditorParams | BasePropertyEditorParams | CustomFormattedNumberParams;
-/*  Not yet supported
-  |  JsonEditorParams | RangeEditorParams | SliderEditorParams |
-  | IconEditorParams | CheckBoxIconsEditorParams | SuppressUnitLabelEditorParams
-*/
+export type PropertyEditorParams = BasePropertyEditorParams;

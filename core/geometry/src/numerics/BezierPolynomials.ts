@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Numerics */
+/** @packageDocumentation
+ * @module Numerics
+ */
 
 // import { Angle, AngleSweep, Geometry } from "../Geometry";
 import { Geometry } from "../Geometry";
@@ -148,7 +150,7 @@ export abstract class BezierCoffs {
   /** Subdivide -- write results into caller-supplied bezier coffs (which must be of the same order) */
   public subdivide(u: number, left: BezierCoffs, right: BezierCoffs): boolean {
     const order = this.order;
-    if (left.order !== order && right.order !== order)
+    if (left.order !== order || right.order !== order)
       return false;
     const v = 1.0 - u;
     right.copyFrom(this);
@@ -585,7 +587,7 @@ export class UnivariateBezier extends BezierCoffs {
       let c0 = this.coffs[0] / b0;
       let c1;
       this.coffs[0] = c0;
-      let a1 = this.coffs[1];
+      let a1;
       for (let i = 1; i < orderC; i++) {
         a1 = this.coffs[i] * pascalA[i];
         c1 = (a1 - c0 * b1) / b0;

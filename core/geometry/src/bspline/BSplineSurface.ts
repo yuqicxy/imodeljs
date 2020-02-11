@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-
-/** @module Bspline */
+/** @packageDocumentation
+ * @module Bspline
+ */
 
 // import { Point2d } from "./Geometry2d";
 /* tslint:disable:variable-name jsdoc-format no-empty no-console*/
@@ -161,6 +162,9 @@ export interface BSplineSurface3dQuery {
  * @public
  */
 export abstract class BSpline2dNd extends GeometryQuery {
+  /** String name for schema properties */
+  public readonly geometryCategory = "bsurf";
+
   /** Array of (exactly 2) knot vectors for the u, v directions */
   public knots: KnotVector[];
   /** flat array of coordinate daa, blocked by poleDimension and row */

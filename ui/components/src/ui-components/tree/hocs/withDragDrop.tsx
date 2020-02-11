@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 import * as React from "react";
 import { getDisplayName } from "@bentley/ui-core";
@@ -16,13 +18,13 @@ import { TreeNodeProps, TreeNode } from "../component/Node";
 
 /**
  * Type for drag and drop,
- * @beta
+ * @beta @deprecated
  */
 export type TreeDragDropType = {} | TreeNodeItem | TreeDataProvider;
 
 /**
  * Props that are injected to the HOC component.
- * @beta
+ * @beta @deprecated
  */
 export interface TreeDragDropProps<DragDropObject = any> {
   dragProps?: DragSourceProps<DragDropObject>;
@@ -32,7 +34,7 @@ export interface TreeDragDropProps<DragDropObject = any> {
 /**
  * A HOC component that adds drag and drop functionality to the supplied
  * tree component.
- * @beta
+ * @beta @deprecated
  */
 // tslint:disable-next-line: variable-name naming-convention
 export function withTreeDragDrop<P extends TreeProps, DragDropObject extends TreeDragDropType>(TreeComponent: React.ComponentType<P>): React.ComponentType<P & TreeDragDropProps<DragDropObject>> {

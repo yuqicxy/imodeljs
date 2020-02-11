@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import { mount, shallow } from "enzyme";
@@ -11,6 +11,7 @@ import {
   CoreTools,
 } from "../ui-framework";
 import { Direction, Toolbar } from "@bentley/ui-ninezone";
+import { PopupButton } from "../ui-framework/toolbar/PopupButton";
 
 describe("CoreToolDefinitions", () => {
 
@@ -34,7 +35,10 @@ describe("CoreToolDefinitions", () => {
             <ActionItemButton actionItem={CoreTools.walkViewCommand} />
             <ActionItemButton actionItem={CoreTools.toggleCameraViewCommand} />
             <ActionItemButton actionItem={CoreTools.flyViewCommand} />
-            <ActionItemButton actionItem={CoreTools.sectionByPlaneCommand} />
+            <ActionItemButton actionItem={CoreTools.sectionByPlaneCommandItemDef} />
+            <ActionItemButton actionItem={CoreTools.sectionByElementCommandItemDef} />
+            <ActionItemButton actionItem={CoreTools.sectionByShapeCommandItemDef} />
+            <ActionItemButton actionItem={CoreTools.sectionByRangeCommandItemDef} />
           </>
         }
       />;
@@ -58,4 +62,9 @@ describe("CoreToolDefinitions", () => {
     ).should.matchSnapshot();
   });
 
+  it("should render KeyInBrowser", () => {
+    const sut = shallow<PopupButton>(CoreTools.keyinBrowserButtonItemDef.reactElement as React.ReactElement);
+    sut.setState({ isPressed: true });
+    sut.dive().should.matchSnapshot();
+  });
 });

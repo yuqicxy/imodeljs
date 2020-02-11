@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Serialization */
+/** @packageDocumentation
+ * @module Serialization
+ */
 
 // import { Geometry, Angle, AxisOrder, BSIJSONValues } from "../Geometry";
 import { Geometry, AngleProps, AngleSweepProps, AxisOrder } from "../Geometry";
@@ -15,7 +17,7 @@ import { Point3d, XYZ, Vector3d } from "../geometry3d/Point3dVector3d";
 import { Segment1d } from "../geometry3d/Segment1d";
 import { YawPitchRollAngles, YawPitchRollProps } from "../geometry3d/YawPitchRollAngles";
 import { Matrix3d } from "../geometry3d/Matrix3d";
-import { GeometryQuery } from "../curve/GeometryQuery";
+import { AnyGeometryQuery, GeometryQuery } from "../curve/GeometryQuery";
 import { CoordinateXYZ } from "../curve/CoordinateXYZ";
 import { TransitionSpiral3d } from "../curve/TransitionSpiral";
 import { Transform } from "../geometry3d/Transform";
@@ -853,7 +855,7 @@ export namespace IModelJson {
     }
 
     /** parse indexed mesh content to an IndexedPolyface instance */
-    public static parseIndexedMesh(data?: any): any | undefined {
+    public static parseIndexedMesh(data?: any): IndexedPolyface | undefined {
       // {Coord:[[x,y,z],. . . ],   -- simple xyz for each point
       // CoordIndex[1,2,3,0]    -- zero-terminated, one based !!!
       if (data.hasOwnProperty("point") && Array.isArray(data.point)
@@ -913,7 +915,7 @@ export namespace IModelJson {
       if (data && Array.isArray(data)) {
         for (const c of data) {
           const g = Reader.parse(c);
-          if (g !== undefined)
+          if (g instanceof GeometryQuery && ("curveCollection" === g.geometryCategory || "curvePrimitive" === g.geometryCategory))
             result.tryAddChild(g);
         }
         return result;
@@ -950,7 +952,7 @@ export namespace IModelJson {
       return undefined;
     }
     /** Parse `cone` contents to `Cone` instance  */
-    public static parseConeProps(json?: ConeProps): any {
+    public static parseConeProps(json?: ConeProps): Cone | undefined {
       const axes = Reader.parseOrientation(json, false);
       const start = Reader.parsePoint3dProperty(json, "start");
       const end = Reader.parsePoint3dProperty(json, "end");
@@ -978,7 +980,7 @@ export namespace IModelJson {
     }
 
     /** Parse `cylinder` content to `Cone` instance */
-    public static parseCylinderProps(json?: CylinderProps): any {
+    public static parseCylinderProps(json?: CylinderProps): Cone | undefined {
       const start = Reader.parsePoint3dProperty(json, "start");
       const end = Reader.parsePoint3dProperty(json, "end");
       const radius = Reader.parseNumberProperty(json, "radius");
@@ -993,16 +995,19 @@ export namespace IModelJson {
       return undefined;
     }
     /** Parse line segment (array of 2 points) properties to `LineSegment3d` instance */
-    private static parseLineSegmentProps(value: any[]): any {
+    private static parseLineSegmentProps(value: any[]): LineSegment3d | undefined {
       if (Array.isArray(value) && value.length > 1)
         return LineSegment3d.create(Point3d.fromJSON(value[0]), Point3d.fromJSON(value[1]));
+      else
+        return undefined;
     }
     /** Parse linear sweep content to `LinearSweep` instance. */
-    public static parseLinearSweep(json?: any): any {
+    public static parseLinearSweep(json?: any): LinearSweep | undefined {
       const contour = Reader.parse(json.contour);
       const capped = Reader.parseBooleanProperty(json, "capped");
       const extrusionVector = Reader.parseVector3dProperty(json, "vector");
-      if (contour
+      if (contour instanceof GeometryQuery
+        && "curveCollection" === contour.geometryCategory
         && capped !== undefined
         && extrusionVector
       ) {
@@ -1019,7 +1024,8 @@ export namespace IModelJson {
       const axisVector = Reader.parseVector3dProperty(json, "axis");
       const center = Reader.parsePoint3dProperty(json, "center");
       const sweepDegrees = Reader.parseNumberProperty(json, "sweepAngle");
-      if (contour
+      if (contour instanceof GeometryQuery
+        && "curveCollection" === contour.geometryCategory
         && sweepDegrees !== undefined
         && capped !== undefined
         && axisVector
@@ -1131,7 +1137,7 @@ export namespace IModelJson {
       return points;
     }
     /** Deserialize `json` to `GeometryQuery` instances. */
-    public static parse(json?: any): any {
+    public static parse(json?: any): AnyGeometryQuery | any[] | undefined {
       if (json !== undefined && json as object) {
         if (json.lineSegment !== undefined) {
           return Reader.parseLineSegmentProps(json.lineSegment);
@@ -1633,7 +1639,8 @@ export namespace IModelJson {
       }
       // assemble the contents in alphabetical order.
       const contents: { [k: string]: any } = {};
-
+      if (pf.twoSided)
+        contents.twoSided = true;
       if (pf.data.auxData)
         contents.auxData = this.handlePolyfaceAuxData(pf.data.auxData, pf);
 

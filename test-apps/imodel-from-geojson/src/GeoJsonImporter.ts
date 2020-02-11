@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64, Id64String, OpenMode } from "@bentley/bentleyjs-core";
 import { Angle, GeometryQuery, LineString3d, Loop, StandardViewIndex, Arc3d, Range3d } from "@bentley/geometry-core";
@@ -66,13 +66,14 @@ export class GeoJsonImporter {
     const categoryName = this._modelName ? this._modelName : "GeoJson Category";
     const modelName = this._modelName ? this._modelName : "GeoJson Model";
 
+    let featureModelExtents: AxisAlignedBox3d;
     if (this._appendToExisting) {
       this.physicalModelId = PhysicalModel.insert(this.iModelDb, IModelDb.rootSubjectId, modelName);
       const foundCategoryId = SpatialCategory.queryCategoryIdByName(this.iModelDb, IModel.dictionaryId, categoryName);
       this.featureCategoryId = (foundCategoryId !== undefined) ? foundCategoryId : this.addCategoryToExistingDb(categoryName);
       this.convertFeatureCollection();
       const featureModel: SpatialModel = this.iModelDb.models.getModel(this.physicalModelId) as SpatialModel;
-      const featureModelExtents: AxisAlignedBox3d = featureModel.queryExtents();
+      featureModelExtents = featureModel.queryExtents();
       const projectExtents = Range3d.createFrom(this.iModelDb.projectExtents);
       projectExtents.extendRange(featureModelExtents);
       this.iModelDb.updateProjectExtents(projectExtents);
@@ -92,13 +93,16 @@ export class GeoJsonImporter {
       this.convertFeatureCollection();
 
       const featureModel: SpatialModel = this.iModelDb.models.getModel(this.physicalModelId) as SpatialModel;
-      const featureModelExtents: AxisAlignedBox3d = featureModel.queryExtents();
+      featureModelExtents = featureModel.queryExtents();
       if (!this._classifiedURL)
         this.insertSpatialView("Spatial View", featureModelExtents);
       this.iModelDb.updateProjectExtents(featureModelExtents);
     }
-    if (this._classifiedURL)
-      await insertClassifiedRealityModel(this._classifiedURL, this.physicalModelId, this.featureCategoryId, this.iModelDb, this._viewFlags, this._backgroundMap, this._classifiedName ? this._classifiedName : this._modelName, this._classifiedInside, this._classifiedOutside);
+
+    if (this._classifiedURL) {
+      const isPlanar = (featureModelExtents.high.z - featureModelExtents.low.z) < 1.0E-2;
+      await insertClassifiedRealityModel(this._classifiedURL, this.physicalModelId, this.featureCategoryId, this.iModelDb, this._viewFlags, isPlanar, this._backgroundMap, this._classifiedName ? this._classifiedName : this._modelName, this._classifiedInside, this._classifiedOutside);
+    }
 
     this.iModelDb.saveChanges();
   }

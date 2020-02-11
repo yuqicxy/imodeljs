@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
-import { Geometry } from "../Geometry";
+/** @packageDocumentation
+ * @module Curve
+ */
 import { StrokeOptions } from "./StrokeOptions";
 import { CurvePrimitive } from "./CurvePrimitive";
 import { GeometryQuery } from "./GeometryQuery";
@@ -14,13 +15,16 @@ import { GeometryHandler } from "../geometry3d/GeometryHandler";
 import { LineString3d } from "./LineString3d";
 import { CurveChain } from "./CurveCollection";
 import { AnyCurve } from "./CurveChain";
-import { GrowableXYZArray } from "../geometry3d/GrowableXYZArray";
+import { IndexedXYZCollection } from "../geometry3d/IndexedXYZCollection";
 
 /**
  * A `Loop` is a curve chain that is the boundary of a closed (planar) loop.
  * @public
  */
 export class Loop extends CurveChain {
+   /** String name for schema properties */
+  public readonly curveCollectionType = "loop";
+
   /** tag value that can be set to true for user code to mark inner and outer loops. */
   public isInner: boolean = false;
   /** test if `other` is a `Loop` */
@@ -50,7 +54,7 @@ export class Loop extends CurveChain {
     return result;
   }
   /** Create a loop from an array of points */
-  public static createPolygon(points: GrowableXYZArray | Point3d[]): Loop {
+  public static createPolygon(points: IndexedXYZCollection | Point3d[]): Loop {
     const linestring = LineString3d.create(points);
     linestring.addClosurePoint();
     return Loop.create(linestring);
@@ -68,19 +72,22 @@ export class Loop extends CurveChain {
   public announceToCurveProcessor(processor: RecursiveCurveProcessor, indexInParent: number = -1): void {
     return processor.announceLoop(this, indexInParent);
   }
-  /** Return the curve primitive identified by `index`, with cyclic indexing. */
-  public cyclicCurvePrimitive(index: number): CurvePrimitive | undefined {
-    const n = this.children.length;
-    if (n >= 1) {
-      index = Geometry.modulo(index, this.children.length);
-      return this.children[index];
-    }
-    return undefined;
-  }
   /** Create a new `Loop` with no children */
   public cloneEmptyPeer(): Loop { return new Loop(); }
   /** Second step of double dispatch:  call `handler.handleLoop(this)` */
   public dispatchToGeometryHandler(handler: GeometryHandler): any {
     return handler.handleLoop(this);
   }
+}
+
+/** Carrier object for loops characterized by area sign
+ * @public
+ */
+export interface SignedLoops {
+  /** Array of loops that have positive area sign.  (i.e. counterclockwise loops) */
+  positiveAreaLoops: Loop[];
+  /** Array of loops that have negative area sign. (i.e. clockwise loops. */
+  negativeAreaLoops: Loop[];
+  /** slivers where there are coincident sections of input curves. */
+  slivers: Loop[];
 }

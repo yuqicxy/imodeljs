@@ -1,16 +1,19 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module KeyboardShortcut */
+/** @packageDocumentation
+ * @module KeyboardShortcut
+ */
 
-import { UiError } from "@bentley/ui-core";
+import { UiError } from "@bentley/ui-abstract";
 
-import { ItemProps } from "../shared/ItemProps";
 import { ActionButtonItemDef } from "../shared/ActionButtonItemDef";
 import { ItemDefBase } from "../shared/ItemDefBase";
 import { KeyboardShortcutMenu } from "./KeyboardShortcutMenu";
 import { UiFramework } from "../UiFramework";
+import { CursorInformation } from "../cursor/CursorInformation";
+import { ItemProps } from "../shared/ItemProps";
 
 /** Enumeration for Function Keys
  * @public
@@ -60,9 +63,9 @@ export interface KeyboardShortcutProps extends ItemProps {
    */
   key: string | FunctionKey | SpecialKey;
 
-  /** The item to execute when this shortcut is invoked. Either 'items' or 'shortcuts' must be specified. */
+  /** The item to execute when this shortcut is invoked. Either 'item' or 'shortcuts' must be specified. */
   item?: ActionButtonItemDef;
-  /** Nested array of shortcut props. Either 'items' or 'shortcuts' must be specified. */
+  /** Nested array of shortcut props. Either 'item' or 'shortcuts' must be specified. */
   shortcuts?: KeyboardShortcutProps[];
 
   /** Indicates whether the Alt key required. Default - false */
@@ -93,9 +96,9 @@ export class KeyboardShortcut extends ItemDefBase {
 
     this._key = props.key;
 
-    if (Object.values(FunctionKey).includes(this._key))
+    if (this._key in FunctionKey)
       this._isFunctionKey = true;
-    if (Object.values(SpecialKey).includes(this._key))
+    if (this._key in SpecialKey)
       this._isSpecialKey = true;
 
     this._shortcuts = new KeyboardShortcutContainer();
@@ -251,8 +254,6 @@ export class KeyboardShortcutContainer {
 export class KeyboardShortcutManager {
 
   private static _shortcuts: KeyboardShortcutContainer = new KeyboardShortcutContainer();
-  private static _cursorX = 0;
-  private static _cursorY = 0;
 
   public static loadKeyboardShortcuts(shortcutList: KeyboardShortcutProps[]) {
     shortcutList.forEach((shortcutProps: KeyboardShortcutProps) => {
@@ -313,10 +314,7 @@ export class KeyboardShortcutManager {
     });
   }
 
-  public static get cursorX(): number { return this._cursorX; }
-  public static set cursorX(x: number) { this._cursorX = x; }
-
-  public static get cursorY(): number { return this._cursorY; }
-  public static set cursorY(y: number) { this._cursorY = y; }
+  public static get cursorX(): number { return CursorInformation.cursorX; }
+  public static get cursorY(): number { return CursorInformation.cursorY; }
 
 }

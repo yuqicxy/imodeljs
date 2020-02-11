@@ -1,6 +1,127 @@
 # Change Log - @bentley/ui-ninezone
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Upgrade to TypeScript 3.7.2.
+- Docked tool settings component.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Fix widget target infinite set state issue.
+- Add css option to pad between icon and label in Label StatusBar Indicator.
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Invoke onTargetChanged when component unmounts.
+- No longer accessing this.state or this.props in setState updater - flagged by lgtm report
+- Update sinon version.
+- Added support for NotifyMessageDetails.displayTime for Toast messages
+- Ability to determine available tool settings width.
+- Fix code analysis report issues.
+- Use exhaustive-deps linter rule.
+- Expandable group touch support.
+- Use typescript as webpack configuration language.
+- Ability to set zone width from zones manager.
+- Removed unused React state variables. Removed unsupported setState calls from render() methods.
+- Added ConditionalField and FooterModeField components. StatusBar responsive changes.
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Update Icon package version.
+- Tablet responsive UI
+- Added StatusBarComposer, StatusBarItem, StatusBarManager and StatusBarItemsManager
+- Added tslint-react-hooks to UI packages
+- Remove unsupported fit-content CSS value.
+- Fix flex CSS rule shorthand issue in stage panel splitter.
+- Touch support for widget drag, widget resize and stage panel splitter.
+- Add disabled resize handles option to widget.
+- Deprecate history tray components.
+- Open tool panel via drag interaction.
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Fixed mouse interaction for Navigation Aids
+- Made the Status Bar & Backstage more responsive on smaller screens
+- Added initial ui-abstract package setup
+- Added UiAdmin with support for displaying Menus and Toolbars at a location
+- Merge zone to save window resize settings and update target zone bounds.
+- Fix footer offset in widget mode.
+- Enable pointer events over toolbar instead of toolbar container.
+- Persist zones layout on window resize.
+- Fix Safari high CPU issue.
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:43 GMT
+
+### Updates
+
+- Added AutoSuggest component and improved KeyinBrowser component
+- Ability to drag and resize tool settings widget.
+- Change prop type from RefObject<T> to T.
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- copyright headers
+- Tool Assistance changes per UX Design
+- Tool Assistance for Ctrl+Z and other chars
+- upgrade to TypeScript 3.6.2
+- Prevent BackstageItem label overflow.
+- Make components aware of safe area insets.
+- Enable backstage scrolling.
+- Scrollable tool settings content.
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- #165662. Allow an app to specify touch-specific instructions in tool assistance.
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Update to use latest icon library
+- Add support for BackstageComposer so Plugins can add backstage items.
+- Added CursorPrompt, improved Pointer messages
+- #159907. Fixed Group Button history is overlapping a Popup Button panel when hovering over the Group button
+- Updated generic icon package
+- Moved Point, PointProps, Rectangle, RectangleProps, Size and SizeProps to ui-core from ui-ninezone
+- Improved ToolAssistance item spacing. ViewSelector shows current view.
+- Update to latest icon package version.
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Move zonesBounds from manager to props.
+- Update horizontal toolbar styles
+- Update <img> height/width for toolbar items so svg icons would display.
+- Added ToolAssistance support and Tool.iconSpec
+- Demo changes.
+- Refactor and test ZonesManager.
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

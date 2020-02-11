@@ -1,8 +1,9 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-@import "../inputs/variables.scss";
+@import "../inputs/variables";
+@import "../z-index";
 
 .core-popup {
  top: 0;
@@ -11,13 +12,15 @@
  box-sizing: border-box;
  position: absolute;
  border-radius: 4px;
- z-index: 100;
  border: 1px solid $buic-background-panel-stroke;
- background: $uicore-white;
+ background: $buic-background-panel;
+ color: $buic-text-color;
  animation-duration: .2s;
  animation-timing-function: ease;
  animation-fill-mode: forwards;
  cursor: default;
+
+ @include uicore-z-index(tooltip);
 }
 
 .core-popup.arrow::after, .core-popup.arrow::before {
@@ -27,6 +30,7 @@
  width: 0;
  position: absolute;
  pointer-events: none;
+ color: $buic-background-panel;
 }
 
 .core-popup.core-popup-bottom-left.arrow::after,
@@ -134,8 +138,8 @@
 }
 
 .core-popup-shadow {
- -webkit-box-shadow: 0 6px 12px rgba(0,0,0,0.25);
- box-shadow: 0px 6px 12px rgba(0,0,0,0.25);
+ -webkit-box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+ box-shadow: 0px 3px 6px rgba(0,0,0,0.25);
  background-clip: padding-box;
  //box-shadow: rgba(67, 90, 111, 0.416) 0px 0px 1px, rgba(67, 90, 111, 0.3) 0px 8px 10px -4px;
 

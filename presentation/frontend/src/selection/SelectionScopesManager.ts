@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module UnifiedSelection */
+/** @packageDocumentation
+ * @module UnifiedSelection
+ */
 
 import { Id64Arg } from "@bentley/bentleyjs-core";
 import { IModelConnection } from "@bentley/imodeljs-frontend";
@@ -21,7 +23,7 @@ export interface SelectionScopesManagerProps {
 }
 
 /**
- * A manager that knows available [selection scopes]($docs/learning/unified-selection/Terminology#selection-scope)
+ * A manager that knows available [selection scopes]($docs/learning/presentation/Unified-Selection/Terminology#selection-scope)
  * and can compute logical selection based on element IDs and selection scope.
  *
  * @public
@@ -40,9 +42,8 @@ export class SelectionScopesManager {
   /** Get active locale */
   public get activeLocale() { return this._getLocale(); }
 
-  /** Get active selection scope or its id */
+  /** The active selection scope or its id */
   public get activeScope() { return this._activeScope; }
-  /** Set active selection scope or its id */
   public set activeScope(scope: SelectionScope | string | undefined) { this._activeScope = scope; }
 
   /**
@@ -62,8 +63,7 @@ export class SelectionScopesManager {
    * @param scope Selection scope to apply
    */
   public async computeSelection(imodel: IModelConnection, ids: Id64Arg, scope: SelectionScope | string): Promise<KeySet> {
-    // get scope id
-    const scopeId = (typeof scope === "string") ? scope : scope.id;
+    const scopeId = getScopeId(scope);
 
     // convert ids input to array
     if (typeof ids === "string")
@@ -86,4 +86,17 @@ export class SelectionScopesManager {
     batchKeys.forEach((bk) => keys.add(bk));
     return keys;
   }
+}
+
+/**
+ * Determines the scope id
+ * @param scope Selection scope
+ * @public
+ */
+export function getScopeId(scope: SelectionScope | string | undefined): string {
+  if (!scope)
+    return "element";
+  if (typeof scope === "string")
+    return scope;
+  return scope.id;
 }

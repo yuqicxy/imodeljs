@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ToolAssistance */
+/** @packageDocumentation
+ * @module ToolAssistance
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
@@ -13,7 +15,7 @@ import "./Item.scss";
  * @beta
  */
 export interface ToolAssistanceItemProps extends CommonProps {
-  /** Assistance items and separators. I.e. [[ToolAssistanceItem]], [[ToolAssistanceSeparator]] */
+  /** Assistance instructions or components */
   children?: React.ReactNode;
 }
 

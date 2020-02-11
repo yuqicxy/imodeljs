@@ -1,10 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module MarkupTools */
+/** @packageDocumentation
+ * @module MarkupTools
+ */
 
-import { BeButtonEvent, EventHandled, InputSource } from "@bentley/imodeljs-frontend";
+import { BeButtonEvent, EventHandled, InputSource, ToolAssistance, IModelApp, ToolAssistanceInstruction, ToolAssistanceImage, ToolAssistanceInputMethod, ToolAssistanceSection, CoreTools } from "@bentley/imodeljs-frontend";
 import { G, Text as MarkupText } from "@svgdotjs/svg.js";
 import { RedlineTool } from "./RedlineTool";
 import { MarkupApp } from "./Markup";
@@ -15,6 +17,7 @@ import { MarkupTool } from "./MarkupTool";
  */
 export class PlaceTextTool extends RedlineTool {
   public static toolId = "Markup.Text.Place";
+  public static iconSpec = "icon-text-medium";
   protected _nRequiredPoints = 1;
   protected _minPoints = 0;
   protected _value!: string;
@@ -24,7 +27,7 @@ export class PlaceTextTool extends RedlineTool {
     super.onPostInstall();
   }
 
-  protected showPrompt(): void { this.outputMarkupPrompt("Text.Place.Prompts.FirstPoint"); }
+  protected showPrompt(): void { this.provideToolAssistance(MarkupTool.toolKey + "Text.Place.Prompts.FirstPoint", true); }
 
   protected createMarkup(svg: G, ev: BeButtonEvent, isDynamics: boolean): void {
     if (isDynamics && InputSource.Touch === ev.inputSource)
@@ -49,10 +52,31 @@ export class PlaceTextTool extends RedlineTool {
  */
 export class EditTextTool extends MarkupTool {
   public static toolId = "Markup.Text.Edit";
+  public static iconSpec = "icon-text-medium";
   public editor?: HTMLTextAreaElement;
   public editDiv?: HTMLDivElement;
   public boxed?: G;
   constructor(public text?: MarkupText | G, private _fromPlaceTool = false) { super(); }
+
+  protected showPrompt(): void {
+    const mainInstruction = ToolAssistance.createInstruction(this.iconSpec, IModelApp.i18n.translate(MarkupTool.toolKey + "Text.Edit.Prompts.FirstPoint"));
+    const mouseInstructions: ToolAssistanceInstruction[] = [];
+    const touchInstructions: ToolAssistanceInstruction[] = [];
+
+    const acceptMsg = CoreTools.translate("ElementSet.Inputs.Accept");
+    const rejectMsg = CoreTools.translate("ElementSet.Inputs.Exit");
+    touchInstructions.push(ToolAssistance.createInstruction(ToolAssistanceImage.OneTouchTap, acceptMsg, false, ToolAssistanceInputMethod.Touch));
+    mouseInstructions.push(ToolAssistance.createInstruction(ToolAssistanceImage.LeftClick, acceptMsg, false, ToolAssistanceInputMethod.Mouse));
+    touchInstructions.push(ToolAssistance.createInstruction(ToolAssistanceImage.TwoTouchTap, rejectMsg, false, ToolAssistanceInputMethod.Touch));
+    mouseInstructions.push(ToolAssistance.createInstruction(ToolAssistanceImage.RightClick, rejectMsg, false, ToolAssistanceInputMethod.Mouse));
+
+    const sections: ToolAssistanceSection[] = [];
+    sections.push(ToolAssistance.createSection(mouseInstructions, ToolAssistance.inputsLabel));
+    sections.push(ToolAssistance.createSection(touchInstructions, ToolAssistance.inputsLabel));
+
+    const instructions = ToolAssistance.createInstructions(mainInstruction, sections);
+    IModelApp.notifications.setToolAssistance(instructions);
+  }
 
   /** Open the text editor  */
   public startEditor() {
@@ -145,7 +169,7 @@ export class EditTextTool extends MarkupTool {
       const fontSize = text.getFontSize();
       newText.createMarkup(newVal, fontSize);
       if (this.boxed) {
-        newText = this.createBoxedText(original.parent() as G, newText);
+        newText = this.createBoxedText((original as G).parent() as G, newText);
         newText.matrix(original.matrix());
       }
       original.replace(newText);

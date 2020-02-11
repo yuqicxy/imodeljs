@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Toolbar */
+/** @packageDocumentation
+ * @module Toolbar
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
@@ -23,15 +25,14 @@ export interface OverflowProps extends ExpandableItemProps {
  */
 export class Overflow extends React.PureComponent<OverflowProps> {
   public render() {
-    const className = classnames(
+    const { onClick, className, ...props } = this.props;
+    const itemClassName = classnames(
       "nz-toolbar-item-overflow",
-      this.props.className);
-
-    const { onClick, ...props } = this.props;
+      className);
 
     return (
       <ExpandableItem
-        className={className}
+        className={itemClassName}
         {...props}
       >
         <Item

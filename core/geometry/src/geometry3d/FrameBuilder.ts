@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module CartesianGeometry */
+/** @packageDocumentation
+ * @module CartesianGeometry
+ */
 
 // import { Point2d } from "./Geometry2d";
 /* tslint:disable:variable-name jsdoc-format no-empty */
@@ -19,6 +21,8 @@ import { Arc3d } from "../curve/Arc3d";
 import { LineSegment3d } from "../curve/LineSegment3d";
 import { LineString3d } from "../curve/LineString3d";
 import { Point3dArray } from "./PointHelpers";
+import { PolygonOps } from "./PolygonOps";
+import { GrowableXYZArray } from "./GrowableXYZArray";
 /**
  * Helper class to accumulate points and vectors until there is enough data to define a coordinate system.
  *
@@ -40,10 +44,18 @@ export class FrameBuilder {
   private _vector0: undefined | Vector3d;
   private _vector1: undefined | Vector3d;
   private _vector2: undefined | Vector3d;
+  // test if both vectors are defined and have significant angle between.
+  private areStronglyIndependentVectors(vector0: Vector3d, vector1: Vector3d, radiansTolerance: number = Geometry.smallAngleRadians): boolean {
+    if (vector0 !== undefined && vector1 !== undefined) {
+      const q = vector0.smallerUnorientedRadiansTo(vector1);
+      return q > radiansTolerance;
+    }
+    return false;
+  }
   /** clear all accumulated point and vector data */
   public clear() { this._origin = undefined; this._vector0 = undefined; this._vector1 = undefined; this._vector2 = undefined; }
   constructor() { this.clear(); }
-  /** Try to assemble the data into a nonsingular transform.
+  /** Try to assemble the data into a non-singular transform.
    *
    * * If allowLeftHanded is false, vector0 and vector1 determine a right handed coordinate system.
    * * if allowLeftHanded is true, the z vector of the right handed system can be flipped to agree with vector2 direction.
@@ -63,7 +75,7 @@ export class FrameBuilder {
             matrix.scaleColumns(1.0, 1.0, -1.0);
           return Transform.createOriginAndMatrix(this._origin, matrix);
         }
-        // uh oh again -- clear vector1 and vector2, reannounce vector2 as possible vector1??
+        // uh oh again -- clear vector1 and vector2, re-announce vector2 as possible vector1??
         const vector2 = this._vector2;
         this._vector1 = this._vector2 = undefined;
         this.announceVector(vector2);
@@ -71,7 +83,7 @@ export class FrameBuilder {
     }
     return undefined;
   }
-  /**If vector0 is known but vector1 is not, make vector1 the cross of the upvector and vector0 */
+  /**If vector0 is known but vector1 is not, make vector1 the cross of the up-vector and vector0 */
   public applyDefaultUpVector(vector?: Vector3d) {
     if (vector && this._vector0 && !this._vector1 && !vector.isParallelTo(this._vector0)) {
       this._vector1 = vector.crossProduct(this._vector0);
@@ -106,10 +118,10 @@ export class FrameBuilder {
     if (vector.isAlmostZero)
       return this.savedVectorCount();
 
-    if (!this._vector0) { this._vector0 = vector; return 1; }
+    if (!this._vector0) { this._vector0 = vector.clone(this._vector0); return 1; }
 
     if (!this._vector1) {
-      if (!vector.isParallelTo(this._vector0)) { this._vector1 = vector; return 2; }
+      if (this.areStronglyIndependentVectors(vector, this._vector0, 1.0e-5)) { this._vector1 = vector.clone(this._vector1); return 2; }
       return 1;
     }
 
@@ -117,7 +129,7 @@ export class FrameBuilder {
     if (!this._vector2) {
       const unitPerpendicular = this._vector0.unitCrossProduct(this._vector1);
       if (unitPerpendicular && !Geometry.isSameCoordinate(0, unitPerpendicular.dotProduct(vector))) {
-        this._vector2 = vector;
+        this._vector2 = vector.clone(this._vector2);
         return 3;
       }
       return 2;
@@ -171,6 +183,13 @@ export class FrameBuilder {
           if (this.savedVectorCount() > 1)
             break;
         }
+    } else if (data instanceof GrowableXYZArray) {
+      const point = Point3d.create();
+      for (let i = 0; this.savedVectorCount() < 2; i++) {
+        if (data.getPoint3dAtCheckedPointIndex(i, point) instanceof Point3d)
+          this.announcePoint(point);
+        else break;
+      }
     }
   }
   /** create a localToWorld frame for the given data.
@@ -185,8 +204,13 @@ export class FrameBuilder {
       builder.announce(data);
       builder.applyDefaultUpVector(defaultUpVector);
       const result = builder.getValidatedFrame(false);
-      if (result !== undefined)
+      if (result !== undefined) {
+        if (defaultUpVector) {
+          if (result.matrix.dotColumnZ(defaultUpVector) < 0.0)
+            result.matrix.scaleColumnsInPlace(1, -1, -1);
+        }
         return result;
+      }
     }
     // try direct evaluation of curve primitives?
     for (const data of params) {
@@ -206,10 +230,10 @@ export class FrameBuilder {
     }
     return undefined;
   }
-  /** create a map with
-   * *  transform0 = the local to world
-   * *  transform1 = world to local
-   * * ideally all points in local xy plane
+  /** create a transform containing points or vectors in the given data.
+   * * The xy columns of the transform contain the first points or vectors of the data.
+   * * The z column is perpendicular to that xy plane.
+   * * The calculation favors the first points found.  It does not try to get a "best" plane.
    */
   public static createRightHandedLocalToWorld(...params: any[]): Transform | undefined {
     const builder = new FrameBuilder();
@@ -239,6 +263,22 @@ export class FrameBuilder {
       const matrix = Matrix3d.createRigidFromColumns(vector01, vector02, AxisOrder.XYZ);
       if (matrix)
         return Transform.createRefs(origin, matrix);
+    }
+    return undefined;
+  }
+  /**
+   * try to create a frame whose xy plane is through points, with the points appearing CCW in the local frame.
+   *
+   * *  if 3 or more distinct points are present, the x axis is from the first point to the most distance, and y direction is toward the
+   * point most distant from that line.
+   * @param points array of points
+   */
+  public static createFrameWithCCWPolygon(points: Point3d[]): Transform | undefined {
+    if (points.length > 2) {
+      const ray = PolygonOps.centroidAreaNormal(points);
+      if (ray) {
+        return ray.toRigidZFrame();
+      }
     }
     return undefined;
   }

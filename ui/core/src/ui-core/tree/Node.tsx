@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
@@ -18,7 +20,10 @@ import { CommonProps } from "../utils/Props";
 /** Props for node checkbox renderer
  * @beta
  */
-export type NodeCheckboxRenderProps = Omit<CheckboxProps, "onChange"> & { onChange: (checked: boolean) => void };
+export type NodeCheckboxRenderProps = Omit<CheckboxProps, "onChange" | "onClick"> & {
+  onChange: (checked: boolean) => void,
+  onClick: (e: React.MouseEvent) => void,
+};
 
 /** Type for node checkbox renderer
  * @beta
@@ -160,7 +165,7 @@ export class TreeNode extends React.Component<TreeNodeProps> {
       this.props.checkboxProps.onClick(checked ? CheckBoxState.On : CheckBoxState.Off);
   }
 
-  private _onCheckboxClick = (e: React.MouseEvent<HTMLInputElement>) => {
+  private _onCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   }
 

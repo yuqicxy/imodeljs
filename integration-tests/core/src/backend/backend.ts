@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Logger, LogLevel } from "@bentley/bentleyjs-core";
 import { IModelJsConfig } from "@bentley/config-loader/lib/IModelJsConfig";
@@ -16,6 +16,8 @@ RpcConfiguration.developmentMode = true;
 
 // Start the backend
 const hostConfig = new IModelHostConfiguration();
+hostConfig.concurrentQuery.concurrent = 2;
+hostConfig.concurrentQuery.pollInterval = 5;
 IModelHost.startup(hostConfig);
 
 Logger.initializeToConsole();

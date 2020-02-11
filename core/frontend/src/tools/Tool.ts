@@ -1,62 +1,21 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tools */
+/** @packageDocumentation
+ * @module Tools
+ */
 
-import { BeDuration } from "@bentley/bentleyjs-core";
-import { Point2d, Point3d, PolygonOps, Angle, Constant } from "@bentley/geometry-core";
+import { Point2d, Point3d, PolygonOps, XAndY } from "@bentley/geometry-core";
 import { GeometryStreamProps, IModelError } from "@bentley/imodeljs-common";
-import { I18NNamespace } from "@bentley/imodeljs-i18n";
+import { I18NNamespace, I18N } from "@bentley/imodeljs-i18n";
 import { LocateFilterStatus, LocateResponse } from "../ElementLocateManager";
 import { FuzzySearch, FuzzySearchResults } from "../FuzzySearch";
 import { HitDetail } from "../HitDetail";
 import { IModelApp } from "../IModelApp";
 import { ToolSettingsPropertyRecord, ToolSettingsPropertySyncItem } from "../properties/ToolSettingsValue";
 import { DecorateContext, DynamicsContext } from "../ViewContext";
-import { ScreenViewport, Viewport } from "../Viewport";
-
-/** Settings that control the behavior of built-in tools. Applications may modify these values.
- * @public
- */
-export class ToolSettings {
-  /** Duration of animations of viewing operations. */
-  public static animationTime = BeDuration.fromMilliseconds(260);
-  /** Two tap must be within this period to be a double tap. */
-  public static doubleTapTimeout = BeDuration.fromMilliseconds(250);
-  /** Two clicks must be within this period to be a double click. */
-  public static doubleClickTimeout = BeDuration.fromMilliseconds(500);
-  /** Number of screen inches of movement allowed between clicks to still qualify as a double-click.  */
-  public static doubleClickToleranceInches = 0.05;
-  /** Duration without movement before a no-motion event is generated. */
-  public static noMotionTimeout = BeDuration.fromMilliseconds(10);
-  /** If true, view rotation tool keeps the up vector (worldZ) aligned with screenY. */
-  public static preserveWorldUp = true;
-  /** Delay with a touch on the surface before a move operation begins. */
-  public static touchMoveDelay = BeDuration.fromMilliseconds(50);
-  /** Delay with the mouse down before a drag operation begins. */
-  public static startDragDelay = BeDuration.fromMilliseconds(110);
-  /** Distance in screen inches a touch point must move before being considered motion. */
-  public static touchMoveDistanceInches = 0.15;
-  /** Distance in screen inches the cursor must move before a drag operation begins. */
-  public static startDragDistanceInches = 0.15;
-  /** Radius in screen inches to search for elements that anchor viewing operations. */
-  public static viewToolPickRadiusInches = 0.20;
-  /** Camera angle enforced for walk tool. */
-  public static walkCameraAngle = Angle.createDegrees(75.6);
-  /** Whether the walk tool enforces worldZ be aligned with screenY */
-  public static walkEnforceZUp = false;
-  /** Speed, in meters per second, for the walk tool. */
-  public static walkVelocity = 3.5;
-  /** Scale factor applied for wheel events with "per-line" modifier. */
-  public static wheelLineFactor = 40;
-  /** Scale factor applied for wheel events with "per-page" modifier. */
-  public static wheelPageFactor = 120;
-  /** When the zoom-with-wheel tool (with camera enabled) gets closer than this distance to an obstacle, it "bumps" through. */
-  public static wheelZoomBumpDistance = Constant.oneCentimeter;
-  /** Scale factor for zooming with mouse wheel. */
-  public static wheelZoomRatio = 1.75;
-}
+import { ScreenViewport } from "../Viewport";
 
 /** @public */
 export type ToolType = typeof Tool;
@@ -170,6 +129,7 @@ export class BeButtonEvent implements BeButtonEventProps {
   private readonly _point: Point3d = new Point3d();
   private readonly _rawPoint: Point3d = new Point3d();
   private readonly _viewPoint: Point3d = new Point3d();
+  private _movement?: XAndY;
   /** The [[ScreenViewport]] from which this BeButtonEvent was generated. If undefined, this event is invalid. */
   public viewport?: ScreenViewport;
   /** How the coordinate values were generated (either from an action by the user or from a program.) */
@@ -206,6 +166,11 @@ export class BeButtonEvent implements BeButtonEventProps {
    */
   public get viewPoint() { return this._viewPoint; }
   public set viewPoint(pt: Point3d) { this._viewPoint.setFrom(pt); }
+  /** The difference in screen coordinates from previous motion event
+   * @internal
+   */
+  public get movement(): XAndY | undefined { return this._movement; }
+  public set movement(mov: XAndY | undefined) { this._movement = mov; }
 
   /** Mark this BeButtonEvent as invalid. Can only become valid again by calling [[init]] */
   public invalidate() { this.viewport = undefined; }
@@ -323,25 +288,30 @@ export class BeTouchEvent extends BeButtonEvent implements BeTouchEventProps {
  */
 export interface BeWheelEventProps extends BeButtonEventProps {
   wheelDelta?: number;
+  time?: number;
 }
 /** A BeButtonEvent generated by movement of a mouse wheel.
  * @note wheel events include mouse location.
  * @public
  */
 export class BeWheelEvent extends BeButtonEvent implements BeWheelEventProps {
-  public wheelDelta: number = 0;
+  public wheelDelta: number;
+  public time: number;
   public constructor(props?: BeWheelEventProps) {
     super(props);
-    if (props && props.wheelDelta !== undefined) this.wheelDelta = props.wheelDelta;
+    this.wheelDelta = (props && props.wheelDelta !== undefined) ? props.wheelDelta : 0;
+    this.time = (props && props.time) ? props.time : Date.now();
   }
   public setFrom(src: BeWheelEvent): this {
     super.setFrom(src);
     this.wheelDelta = src.wheelDelta;
+    this.time = src.time;
     return this;
   }
 }
 
-/** Base Tool class for writing an immediate tool that executes it's assigned task immediately without further input.
+/** A Tool that performs an action. It has a *toolId* that uniquely identifies it, so it can be found via a lookup in the [[ToolRegistry]].
+ * Every time a tools run, a new instance of (a subclass of) this class is created and its [[run]] method is invoked.
  * @see [[InteractiveTool]] for a base Tool class to handle user input events from a Viewport.
  * @see [Tools]($docs/learning/frontend/tools.md)
  * @public
@@ -351,43 +321,83 @@ export class Tool {
   public static hidden = false;
   /** The unique string that identifies this tool. This must be overridden in every subclass. */
   public static toolId = "";
+  /** The icon for this Tool. This may be overridden in subclasses to provide a tool icon.
+   * The value is the name of an icon WebFont entry, or if specifying an SVG symbol, use `svg:` prefix.
+   */
+  public static iconSpec = "";
   /** The [I18NNamespace]($i18n) that provides localized strings for this Tool. Subclasses should override this. */
   public static namespace: I18NNamespace;
+
+  /** The internationalization services instance used to translate strings from the namespace. */
+  public static i18n: I18N;
+
   public constructor(..._args: any[]) { }
 
-  private static _keyin?: string;
-  private static _flyover?: string;
-  private static _description?: string;
-  private static get _localizeBase() { return this.namespace.name + ":tools." + this.toolId; }
-  private static get _keyinKey() { return this._localizeBase + ".keyin"; }
-  private static get _flyoverKey() { return this._localizeBase + ".flyover"; }
-  private static get _descriptionKey() { return this._localizeBase + ".description"; }
+  /** The minimum number of arguments allowed by [[parseAndRun]]. If subclasses override [[parseAndRun]], they should also
+   * override this method to indicate the minimum number of arguments their implementation expects. UI controls can use
+   * this information to ensure the tool has enough information to execute.
+   * @beta
+   */
+  public static get minArgs(): number { return 0; }
+
+  /** The maximum number of arguments allowed by [[parseAndRun]], or undefined if there is no maximum.
+   * If subclasses override [[parseAndRun]], they should also override this method to indicate the maximum
+   * number of arguments their implementation expects.
+   * @beta
+   */
+  public static get maxArgs(): number | undefined { return 0; }
 
   /**
-   * Register this Tool class with the ToolRegistry.
-   * @param namespace optional namespace to supply to ToolRegistry.register. If undefined, use namespace from superclass.
+   * Register this Tool class with the [[ToolRegistry]].
+   * @param namespace optional namespace to supply to [[ToolRegistry.register]]. If undefined, use namespace from superclass.
+   * @param i18n optional internationalization services object (required only for externally hosted plugins). If undefined, use IModelApp.i18n.
    */
-  public static register(namespace?: I18NNamespace) { IModelApp.tools.register(this, namespace); }
+  public static register(namespace?: I18NNamespace, i18n?: I18N) { IModelApp.tools.register(this, namespace, i18n); }
+
+  private static getLocalizedKey(name: string): string | undefined {
+    const key = "tools." + this.toolId + "." + name;
+    const val = this.i18n.translateWithNamespace(this.namespace.name, key);
+    return key === val ? undefined : val; // if translation for key doesn't exist, `translate` returns the key as the result
+  }
 
   /**
-   * Get the localized keyin string for this Tool class. This returns the value of "tools." + this.toolId + ".keyin" from the
-   * .json file for the current locale of its registered Namespace (e.g. "en/MyApp.json")
+   * Get the localized keyin string for this Tool class. This returns the value of "tools." + this.toolId + ".keyin" from
+   * its registered Namespace (e.g. "en/MyApp.json").
    */
-  public static get keyin(): string { return this._keyin ? this._keyin : (this._keyin = IModelApp.i18n && IModelApp.i18n.translate(this._keyinKey)); }
+  public static get keyin(): string {
+    const keyin = this.getLocalizedKey("keyin");
+    return (undefined !== keyin) ? keyin : ""; // default to empty string
+  }
 
   /**
-   * Get the localized flyover for this Tool class. This returns the value of "tools." + this.toolId + ".flyover" from the
-   * .json file for the current locale of its registered Namespace (e.g. "en/MyApp.json"). If that key is not in the localization namespace,
-   * the keyin property is returned.
+   * Get the English keyin string for this Tool class. This returns the value of "tools." + this.toolId + ".keyin" from
+   * its registered Namespace (e.g. "en/MyApp.json").
    */
-  public static get flyover(): string { return this._flyover ? this._flyover : (this._flyover = IModelApp.i18n && IModelApp.i18n.translate([this._flyoverKey, this._keyinKey])); }
+  public static get englishKeyin(): string {
+    const key = "tools." + this.toolId + ".keyin";
+    const val = this.i18n.getEnglishTranslation(this.namespace.name, key);
+    return val !== key ? val : ""; // default to empty string
+  }
 
   /**
-   * Get the localized description for this Tool class. This returns the value of "tools." + this.toolId + ".description" from the
-   * .json file for the current locale of its registered Namespace (e.g. "en/MyApp.json"). If that key is not in the localization namespace,
-   * the flyover property is returned.
+   * Get the localized flyover for this Tool class. This returns the value of "tools." + this.toolId + ".flyover" from
+   * its registered Namespace (e.g. "en/MyApp.json"). If that key is not in the localization namespace,
+   * [[keyin]] is returned.
    */
-  public static get description(): string { return this._description ? this._description : (this._description = IModelApp.i18n && IModelApp.i18n.translate([this._descriptionKey, this._flyoverKey, this._keyinKey])); }
+  public static get flyover(): string {
+    const flyover = this.getLocalizedKey("flyover");
+    return (undefined !== flyover) ? flyover : this.keyin; // default to keyin
+  }
+
+  /**
+   * Get the localized description for this Tool class. This returns the value of "tools." + this.toolId + ".description" from
+   * its registered Namespace (e.g. "en/MyApp.json"). If that key is not in the localization namespace,
+   * [[flyover]] is returned.
+   */
+  public static get description(): string {
+    const description = this.getLocalizedKey("description");
+    return (undefined !== description) ? description : this.flyover; // default to flyover
+  }
 
   /**
    * Get the toolId string for this Tool class. This string is used to identify the Tool in the ToolRegistry and is used to localize
@@ -395,20 +405,42 @@ export class Tool {
    */
   public get toolId(): string { return (this.constructor as ToolType).toolId; }
 
-  /** Get the localized keyin string from this Tool's class */
+  /** Get the localized keyin string from this Tool's class
+   * @see `static get keyin()`
+   */
   public get keyin(): string { return (this.constructor as ToolType).keyin; }
 
-  /** Get the localized flyover string from this Tool's class */
+  /** Get the localized flyover string from this Tool's class
+   * @see `static get flyover()`
+   */
   public get flyover(): string { return (this.constructor as ToolType).flyover; }
 
-  /** Get the localized description string from this Tool's class */
+  /** Get the localized description string from this Tool's class
+   * @see `static get description()`
+   */
   public get description(): string { return (this.constructor as ToolType).description; }
+
+  /** Get the iconSpec from this Tool's class.
+   * @see `static iconSpec`
+   */
+  public get iconSpec(): string { return (this.constructor as ToolType).iconSpec; }
 
   /**
    * Run this instance of a Tool. Subclasses should override to perform some action.
    * @returns `true` if the tool executed successfully.
    */
-  public run(..._arg: any[]): boolean { return true; }
+  public run(..._args: any[]): boolean { return true; }
+
+  /** Run this instance of a tool using a series of string arguments. Override this method to parse the arguments, and if they're
+   * acceptable, execute your [[run]] method. If the arguments aren't valid, return `false`.
+   * @note if you override this method, you must also override the static [[minArgs]] and [[maxArgs]] getters.
+   * @note Generally, implementers of this method are **not** expected to call `super.parseAndRun(...)`. Instead, call your
+   * [[run]] method with the appropriate (parsed) arguments directly.
+   * @beta
+   */
+  public parseAndRun(..._args: string[]): boolean {
+    return this.run();
+  }
 }
 
 /** @public */
@@ -500,12 +532,6 @@ export abstract class InteractiveTool extends Tool {
   /** Invoked when the cursor is moving */
   public async onMouseMotion(_ev: BeButtonEvent): Promise<void> { }
 
-  /** Invoked when the cursor is not moving */
-  public async onMouseNoMotion(_ev: BeButtonEvent): Promise<void> { }
-
-  /** Invoked when the cursor was previously moving, and has stopped moving. */
-  public async onMouseMotionStopped(_ev: BeButtonEvent): Promise<void> { }
-
   /** Invoked when the cursor begins moving while a button is depressed.
    * @return Yes if event completely handled by tool and event should not be passed on to the IdleTool.
    */
@@ -562,7 +588,7 @@ export abstract class InteractiveTool extends Tool {
    */
   public async onTouchTap(_ev: BeTouchEvent): Promise<EventHandled> { return EventHandled.No; }
 
-  public isCompatibleViewport(_vp: Viewport, _isSelectedViewChange: boolean): boolean { return true; }
+  public isCompatibleViewport(_vp: ScreenViewport, _isSelectedViewChange: boolean): boolean { return true; }
   public isValidLocation(_ev: BeButtonEvent, _isButtonEvent: boolean): boolean { return true; }
 
   /**
@@ -570,7 +596,7 @@ export abstract class InteractiveTool extends Tool {
    * @param previous The previously active view.
    * @param current The new active view.
    */
-  public onSelectedViewportChanged(_previous: Viewport | undefined, _current: Viewport | undefined): void { }
+  public onSelectedViewportChanged(_previous: ScreenViewport | undefined, _current: ScreenViewport | undefined): void { }
 
   /**
    * Invoked before the locate tooltip is displayed to retrieve the information about the located element. Allows the tool to override the toolTip.
@@ -666,7 +692,7 @@ export abstract class InteractiveTool extends Tool {
  * @public
  */
 export abstract class InputCollector extends InteractiveTool {
-  public run(): boolean {
+  public run(..._args: any[]): boolean {
     const toolAdmin = IModelApp.toolAdmin;
     // An input collector can only suspend a primitive tool, don't install if a viewing tool is active...
     if (undefined !== toolAdmin.viewTool || !toolAdmin.onInstallTool(this))
@@ -677,11 +703,16 @@ export abstract class InputCollector extends InteractiveTool {
     return true;
   }
 
-  public exitTool(): void { IModelApp.toolAdmin.exitInputCollector(); }
-  public async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> { this.exitTool(); return EventHandled.Yes; }
+  public exitTool(): void {
+    IModelApp.toolAdmin.exitInputCollector();
+  }
+  public async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
+    this.exitTool();
+    return EventHandled.Yes;
+  }
 }
 
-/** The ToolRegistry holds a mapping between toolIds and their corresponding Tool class. This provides the mechanism to
+/** The ToolRegistry holds a mapping between toolIds and their corresponding [[Tool]] class. This provides the mechanism to
  * find Tools by their toolId, and also a way to iterate over the set of Tools available.
  * @public
  */
@@ -700,9 +731,11 @@ export class ToolRegistry {
    * @param toolClass the subclass of Tool to register.
    * @param namespace the namespace for the localized strings for this tool. If undefined, use namespace from superclass.
    */
-  public register(toolClass: ToolType, namespace?: I18NNamespace) {
+  public register(toolClass: ToolType, namespace?: I18NNamespace, i18n?: I18N) {
     if (namespace) // namespace is optional because it can come from superclass
       toolClass.namespace = namespace;
+
+    toolClass.i18n = (i18n) ? i18n : IModelApp.i18n;
 
     if (toolClass.toolId.length === 0)
       return; // must be an abstract class, ignore it
@@ -718,20 +751,19 @@ export class ToolRegistry {
    * Register all the Tool classes found in a module.
    * @param modelObj the module to search for subclasses of Tool.
    */
-  public registerModule(moduleObj: any, namespace?: I18NNamespace) {
-    for (const thisMember in moduleObj) {
-      if (!thisMember)
-        continue;
-
+  public registerModule(moduleObj: any, namespace?: I18NNamespace, i18n?: I18N) {
+    for (const thisMember in moduleObj) {  // tslint:disable-line: forin
       const thisTool = moduleObj[thisMember];
       if (thisTool.prototype instanceof Tool) {
-        this.register(thisTool, namespace);
+        this.register(thisTool, namespace, i18n);
       }
     }
   }
 
   /** Look up a tool by toolId */
-  public find(toolId: string): ToolType | undefined { return this.tools.get(toolId); }
+  public find(toolId: string): ToolType | undefined {
+    return this.tools.get(toolId);
+  }
 
   /**
    * Look up a tool by toolId and, if found, create an instance with the supplied arguments.
@@ -771,19 +803,7 @@ export class ToolRegistry {
    * @internal
    */
   public findPartialMatches(keyin: string): FuzzySearchResults<ToolType> {
-    return new FuzzySearch<ToolType>().search(this.getToolList(), ["keyin"], keyin);
-  }
-
-  /**
-   * Find a tool by its localized keyin. If found (via exact match), execute the tool with the supplied arguments.
-   * @param keyin the localized keyin string of the Tool to run.
-   * @param args the arguments for the tool. Note: these argument are passed to both the constructor and the tools' run method.
-   * @note Make sure the i18n resources are all loaded (e.g. `await IModelApp.i81n.waitForAllRead()`) before calling this method.
-   * @internal
-   */
-  public executeExactMatch(keyin: string, ...args: any[]): boolean {
-    const foundClass = this.findExactMatch(keyin);
-    return foundClass ? new foundClass(...args).run(...args) : false;
+    return new FuzzySearch<ToolType>().search(this.getToolList(), ["keyin"], keyin.toLowerCase());
   }
 
   /**
@@ -793,5 +813,16 @@ export class ToolRegistry {
    * @note Make sure the i18n resources are all loaded (e.g. `await IModelApp.i81n.waitForAllRead()`) before calling this method.
    * @internal
    */
-  public findExactMatch(keyin: string): ToolType | undefined { return this.getToolList().find((thisTool) => thisTool.keyin === keyin); }
+  public findExactMatch(keyin: string): ToolType | undefined {
+    keyin = keyin.toLowerCase();
+    return this.getToolList().find((thisTool) => thisTool.keyin.toLowerCase() === keyin);
+  }
+}
+
+/** @internal */
+export class CoreTools {
+  public static namespace = "CoreTools";
+  public static tools = "CoreTools:tools.";
+  public static translate(prompt: string) { return IModelApp.i18n.translate(this.tools + prompt); }
+  public static outputPromptByKey(key: string) { return IModelApp.notifications.outputPromptByKey(this.tools + key); }
 }

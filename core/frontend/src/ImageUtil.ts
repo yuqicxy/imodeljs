@@ -1,11 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Rendering */
+/** @packageDocumentation
+ * @module Rendering
+ */
 
-import { ImageSource, ImageSourceFormat, ImageBuffer, ImageBufferFormat } from "@bentley/imodeljs-common";
+import {
+  ElectronRpcConfiguration,
+  ImageBuffer,
+  ImageBufferFormat,
+  ImageSource,
+  ImageSourceFormat,
+} from "@bentley/imodeljs-common";
 import { Point2d } from "@bentley/geometry-core";
+import { ViewRect } from "./ViewRect";
 
 interface Rgba {
   r: number;
@@ -36,11 +45,11 @@ function rgbaFromRgba(rgba: Rgba, src: Uint8Array, idx: number): number {
 }
 
 /** Resize a canvas to a desired size.  The final size will be targetSize plus barSize.  The original canvas is left untouched and a new, resized canvas with potential side bars is returned.
- * @param canvasIn the source [[HTMLCanvasElement]] to resize.
+ * @param canvasIn the source [HTMLCanvasElement](https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement) to resize.
  * @param targetSize the desired new size for the canvas image.
  * @param barSize total size of side bars to add to the image in width and height; defaults to (0, 0).  For example, if you specify (2, 0), a 1 pixel side bar will be added to the left and right sides of the resized image.  If an odd dimension is specified, the left or upper side of the image will be one pixel larger than the opposite side.  For example, if you specify (1, 0), a 1 pixel side bar will be added to the left side of the image and a 0 pixel side bar will be added to the right side of the image.
  * @param barStyle CSS style string to apply to any side bars; defaults to "#C0C0C0", which is silver.
- * @returns an [[HTMLCanvasElement]] object containing the resized image and any requested side bars.
+ * @returns an [HTMLCanvasElement](https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement) object containing the resized image and any requested side bars.
  * @public
  */
 export function canvasToResizedCanvasWithBars(canvasIn: HTMLCanvasElement, targetSize: Point2d, barSize = new Point2d(0, 0), barStyle = "#C0C0C0"): HTMLCanvasElement {
@@ -66,11 +75,12 @@ export function canvasToResizedCanvasWithBars(canvasIn: HTMLCanvasElement, targe
 }
 
 /** Create a canvas element with the same dimensions and contents as an image buffer.
- * @param buffer the source [[ImageBuffer]] object from which the [[HTMLCanvasElement]] object will be constructed.
- * @returns an [[HTMLCanvasElement]] object containing the contents of the source image buffer, or undefined if the conversion fails.
+ * @param buffer the source [[ImageBuffer]] object from which the [HTMLCanvasElement](https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement) object will be constructed.
+ * @param preserveAlpha If false, the alpha channel will be set to 255 (fully opaque). This is recommended when converting an already-blended image (e.g., one obtained from [[Viewport.readImage]]).
+ * @returns an [HTMLCanvasElement](https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement) object containing the contents of the source image buffer, or undefined if the conversion fails.
  * @public
  */
-export function imageBufferToCanvas(buffer: ImageBuffer): HTMLCanvasElement | undefined {
+export function imageBufferToCanvas(buffer: ImageBuffer, preserveAlpha: boolean = true): HTMLCanvasElement | undefined {
   const canvas = document.createElement("canvas");
   if (null === canvas)
     return undefined;
@@ -94,7 +104,7 @@ export function imageBufferToCanvas(buffer: ImageBuffer): HTMLCanvasElement | un
     imageData.data[j + 0] = rgba.r;
     imageData.data[j + 1] = rgba.g;
     imageData.data[j + 2] = rgba.b;
-    imageData.data[j + 3] = rgba.a;
+    imageData.data[j + 3] = preserveAlpha ? rgba.a : 0xff;
     j += 4;
   }
 
@@ -103,7 +113,7 @@ export function imageBufferToCanvas(buffer: ImageBuffer): HTMLCanvasElement | un
 }
 
 /** Create an ImageBuffer in the specified format with the same dimensions and contents as a canvas.
- * @param canvas the source [[HTMLCanvasElement]] object from which the [[ImageBuffer]] object will be constructed.
+ * @param canvas the source [HTMLCanvasElement](https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement) object from which the [[ImageBuffer]] object will be constructed.
  * @param format the desired format of the created ImageBuffer; defaults to [[ImageBufferFormat.Rgba]].
  * @returns an [[ImageBuffer]] object containing the contents of the source canvas, or undefined if the conversion fails.
  * @public
@@ -217,26 +227,91 @@ export async function extractImageSourceDimensions(source: ImageSource): Promise
 /**
  * Produces a data url in "image/png" format from the contents of an ImageBuffer.
  * @param buffer The ImageBuffer, of any format.
+ * @param preserveAlpha If false, the alpha channel will be set to 255 (fully opaque). This is recommended when converting an already-blended image (e.g., one obtained from [[Viewport.readImage]]).
  * @returns a data url as a string suitable for setting as the `src` property of an HTMLImageElement, or undefined if the url could not be created.
  * @public
  */
-export function imageBufferToPngDataUrl(buffer: ImageBuffer): string | undefined {
+export function imageBufferToPngDataUrl(buffer: ImageBuffer, preserveAlpha = true): string | undefined {
   // The default format (and the only format required to be supported) for toDataUrl() is "image/png".
-  const canvas = imageBufferToCanvas(buffer);
+  const canvas = imageBufferToCanvas(buffer, preserveAlpha);
   return undefined !== canvas ? canvas.toDataURL() : undefined;
 }
 
 /**
  * Converts the contents of an ImageBuffer to PNG format.
  * @param buffer The ImageBuffer, of any format.
+ * @param preserveAlpha If false, the alpha channel will be set to 255 (fully opaque). This is recommended when converting an already-blended image (e.g., one obtained from [[Viewport.readImage]]).
  * @returns a base64-encoded string representing the image as a PNG, or undefined if the conversion failed.
  * @public
  */
-export function imageBufferToBase64EncodedPng(buffer: ImageBuffer): string | undefined {
+export function imageBufferToBase64EncodedPng(buffer: ImageBuffer, preserveAlpha = true): string | undefined {
   const urlPrefix = "data:image/png;base64,";
-  const url = imageBufferToPngDataUrl(buffer);
+  const url = imageBufferToPngDataUrl(buffer, preserveAlpha);
   if (undefined === url || !url.startsWith(urlPrefix))
     return undefined;
 
   return url.substring(urlPrefix.length);
+}
+
+/** Open an image specified as a data URL in a new window/tab. Works around differences between browsers and Electron.
+ * @param url The base64-encoded image URL.
+ * @param title An optional title to apply to the new window.
+ * @beta
+ */
+export function openImageDataUrlInNewWindow(url: string, title?: string): void {
+  if (ElectronRpcConfiguration.isElectron) {
+    window.open(url, title);
+  } else {
+    const win = window.open();
+    if (null === win)
+      return;
+
+    const div = win.document.createElement("div");
+    div.innerHTML = "<img src='" + url + "'/>";
+    win.document.body.append(div);
+    if (undefined !== title)
+      win.document.title = title;
+  }
+}
+
+/** Determine maximum ViewRect that can be fitted and centered in specified ViewRect given a required aspect ratio.
+ * @param viewRect view rectangle
+ * @param aspectRatio width/height ratio
+ * @returns A ViewRect centered in the input rectangle.
+ * @beta
+ */
+export function getCenteredViewRect(viewRect: ViewRect, aspectRatio = 1.4) {
+  // Determine scale that ensures ability to return an image with the prescribed aspectRatio
+  const scale = Math.min(viewRect.width / aspectRatio, viewRect.height);
+  const finalWidth = scale * aspectRatio;
+  const finalHeight = scale;
+  const left = (viewRect.width - finalWidth) / 2.0;
+  const right = left + finalWidth;
+  const top = (viewRect.height - finalHeight) / 2.0;
+  const bottom = top + finalHeight;
+  return new ViewRect(left, top, right, bottom);
+}
+
+/** Produce a jpeg compressed to no more than specified bytes and of no less than specified quality.
+ * @param canvas image source
+ * @param maxBytes Maximum size of output image in bytes.
+ * @param minCompressionQuality A Number between 0 and 1 indicating the image quality.
+ * @returns Data URL for compressed jpeg or undefined if criteria could not be met.
+ * @beta
+ */
+export function getCompressedJpegFromCanvas(canvas: HTMLCanvasElement, maxBytes = 60000, minCompressionQuality = 0.1): string | undefined {
+  const decrements = 0.1; // Decrements of quality
+  const bytesPerCharacter = 2; // Assume 16-bit per character
+  let quality = 1.0; // JPEG Compression quality
+
+  while (quality > minCompressionQuality) {
+    const data = canvas.toDataURL("image/jpeg", quality);
+    // If we are less than 60 Kb, we are good
+    if (data.length * bytesPerCharacter < maxBytes)
+      return data;
+
+    quality -= decrements;
+  }
+
+  return undefined;
 }

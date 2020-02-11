@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Zone */
+/** @packageDocumentation
+ * @module Zone
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
-import { WidgetZoneIndex } from "../manager/Zones";
+import { WidgetZoneId } from "../manager/Zones";
 import { Arrow } from "./Arrow";
 import { MergeTargetProps } from "./Merge";
 import { ZoneTarget } from "./Zone";
@@ -16,7 +18,7 @@ import { ZoneTarget } from "./Zone";
  */
 export interface BackTargetProps extends MergeTargetProps {
   /** Describes back target arrow rotation. */
-  zoneIndex: WidgetZoneIndex;
+  zoneIndex: WidgetZoneId;
 }
 
 /** Zone target used to merge widget back to initial zone.

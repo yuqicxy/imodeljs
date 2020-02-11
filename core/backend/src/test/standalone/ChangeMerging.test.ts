@@ -1,15 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { assert } from "chai";
 import * as path from "path";
 import { Id64String, ChangeSetStatus, ChangeSetApplyOption, OpenMode } from "@bentley/bentleyjs-core";
-import { Element, IModelDb, DictionaryModel, ChangeSetToken, IModelJsFs, ConcurrencyControl, SpatialCategory } from "../../imodeljs-backend";
+import { Element, IModelDb, DictionaryModel, ChangeSetToken, IModelJsFs, ConcurrencyControl, SpatialCategory, IModelJsNative } from "../../imodeljs-backend";
 import { IModelError, SubCategoryAppearance, IModel } from "@bentley/imodeljs-common";
 import { IModelTestUtils } from "../IModelTestUtils";
 import { KnownTestLocations } from "../KnownTestLocations";
-import { IModelJsNative } from "../../IModelJsNative";
+import { IModelHost } from "../../IModelHost";
 
 // Combine all local Txns and generate a changeset file. Then delete all local Txns.
 function createChangeSet(imodel: IModelDb): ChangeSetToken {
@@ -33,7 +33,7 @@ function createChangeSet(imodel: IModelDb): ChangeSetToken {
 }
 
 function applyOneChangeSet(imodel: IModelDb, cstoken: ChangeSetToken) {
-  const status: ChangeSetStatus = imodel.briefcase!.nativeDb!.applyChangeSets(JSON.stringify([cstoken]), ChangeSetApplyOption.Merge);
+  const status: ChangeSetStatus = IModelHost.platform.ApplyChangeSetsRequest.doApplySync(imodel.briefcase!.nativeDb!, JSON.stringify([cstoken]), ChangeSetApplyOption.Merge);
   imodel.onChangesetApplied.raiseEvent();
   assert.equal(status, ChangeSetStatus.Success);
 }

@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-@import "@bentley/ui-core/lib/ui-core/style/themecolors";
-@import "_variables";
+@import "@bentley/ui-core/lib/ui-core/style/index";
+@import "variables";
 
 .nz-footer-indicator {
   height: 100%;
@@ -15,20 +15,43 @@
   padding-bottom: $nz-footer-indicator-vertical-padding;
   box-sizing: border-box;
 
-  &.nz-footer-mode {
-    padding-left: $nz-footer-indicator-horizontal-padding;
-    padding-right: $nz-footer-indicator-horizontal-padding;
+  .nz-icon-padding-left {
+    padding-left: $nz-footer-indicator-space-between-text-and-icon;
   }
 
-  &:not(.nz-footer-mode) {
-    padding-left: $nz-footer-widget-indicator-horizontal-padding;
-    padding-right: $nz-footer-widget-indicator-horizontal-padding;
+  .nz-icon-padding-right {
+    padding-right: $nz-footer-indicator-space-between-text-and-icon;
   }
 
-  /* Medium devices (landscape tablets, 768px and up) */
-  @media only screen and (max-width: 768px) {
-    font-size: $text-font-size-medium;
+  .nz-icon {
+    font-size: $icon-size;
 
+    /* Medium devices */
+    @include for-tablet-landscape-down {
+      font-size: $icon-size-medium;
+    }
+
+    /* Small devices */
+    @include for-phone-only {
+      font-size: $icon-size-small;
+    }
+  }
+
+  /* Desktop */
+  @include for-medium-desktop-up {
+    &.nz-footer-mode {
+      padding-left: $nz-footer-indicator-horizontal-padding;
+      padding-right: $nz-footer-indicator-horizontal-padding;
+    }
+
+    &:not(.nz-footer-mode) {
+      padding-left: $nz-footer-widget-indicator-horizontal-padding;
+      padding-right: $nz-footer-widget-indicator-horizontal-padding;
+    }
+  }
+
+  /* Medium devices */
+  @include for-small-desktop-down {
     &.nz-footer-mode {
       padding-left: $nz-footer-indicator-horizontal-padding-medium;
       padding-right: $nz-footer-indicator-horizontal-padding-medium;
@@ -40,8 +63,12 @@
     }
   }
 
-  /* small devices (phones, 600px and down) */
-  @media only screen and (max-width: 600px) {
+  @include for-tablet-portrait-down {
+    font-size: $text-font-size-medium;
+  }
+
+  /* Small devices */
+  @include for-phone-only {
     font-size: $text-font-size-small;
 
     &.nz-footer-mode {

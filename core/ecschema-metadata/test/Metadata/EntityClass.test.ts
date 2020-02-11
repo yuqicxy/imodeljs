@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { assert, expect } from "chai";
@@ -15,13 +15,14 @@ import { Mixin } from "./../../src/Metadata/Mixin";
 import { RelationshipClass } from "./../../src/Metadata/RelationshipClass";
 import { MutableSchema, Schema } from "./../../src/Metadata/Schema";
 import { createSchemaJsonWithItems } from "./../TestUtils/DeserializationHelpers";
+import { createEmptyXmlDocument, getElementChildrenByTagName } from "../TestUtils/SerializationHelper";
 
 describe("EntityClass", () => {
   describe("get inherited properties", () => {
     let schema: Schema;
 
     beforeEach(() => {
-      schema = new Schema(new SchemaContext(), "TestSchema", 1, 0, 0);
+      schema = new Schema(new SchemaContext(), "TestSchema", "ts", 1, 0, 0);
     });
 
     it("from mixins", async () => {
@@ -489,7 +490,7 @@ describe("EntityClass", () => {
     };
 
     beforeEach(() => {
-      const schema = new Schema(new SchemaContext(), "TestSchema", 1, 0, 0);
+      const schema = new Schema(new SchemaContext(), "TestSchema", "ts", 1, 0, 0);
       testClass = new EntityClass(schema, "TestEntity");
     });
 
@@ -506,7 +507,7 @@ describe("EntityClass", () => {
     });
   });
   describe("toJson", () => {
-    const schema = new Schema(new SchemaContext(), "TestSchema", 1, 0, 0);
+    const schema = new Schema(new SchemaContext(), "TestSchema", "ts", 1, 0, 0);
     const testEntityClass = new EntityClass(schema, "testClass");
     const schemaJsonOne = {
       $schema: "https://dev.bentley.com/json_schemas/ec/32/ecschema",
@@ -556,6 +557,35 @@ describe("EntityClass", () => {
         mixins: ["TestSchema.testMixin"],
       };
       expect(entityClassSerialization).to.deep.equal(expectedResult);
+    });
+  });
+
+  describe("toXml", () => {
+    const newDom = createEmptyXmlDocument();
+    const schemaJson = createSchemaJsonWithItems({
+      testMixin: {
+        schemaItemType: "Mixin",
+        appliesTo: "TestSchema.testClass",
+      },
+      testClass: {
+        schemaItemType: "EntityClass",
+        mixins: ["TestSchema.testMixin"],
+      },
+    });
+
+    it("should properly serialize", async () => {
+      const ecschema = await Schema.fromJson(schemaJson, new SchemaContext());
+      assert.isDefined(ecschema);
+      const testClass = await ecschema.getItem<EntityClass>("testClass");
+      assert.isDefined(testClass);
+      const serialized = await testClass!.toXml(newDom);
+      expect(serialized.nodeName).to.eql("ECEntityClass");
+
+      const baseClasses = getElementChildrenByTagName(serialized, "BaseClass");
+      assert.strictEqual(baseClasses.length, 1);
+
+      const mixin = baseClasses[0];
+      expect(mixin.textContent).to.eql("testMixin");
     });
   });
 });

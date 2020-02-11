@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModels */
+/** @packageDocumentation
+ * @module iModels
+ */
 
 import { GuidString, Id64, Id64String, IModelStatus, OpenMode } from "@bentley/bentleyjs-core";
-import { AxisOrder, Matrix3d, Point3d, Range3dProps, Transform, Vector3d, XYAndZ, XYZProps, YawPitchRollAngles, YawPitchRollProps, Range3d } from "@bentley/geometry-core";
+import { AxisOrder, Matrix3d, Point3d, Range3dProps, Transform, Vector3d, XYAndZ, XYZProps, YawPitchRollAngles, YawPitchRollProps, Range3d, Angle, AxisIndex } from "@bentley/geometry-core";
 import { Cartographic } from "./geometry/Cartographic";
 import { AxisAlignedBox3d } from "./geometry/Placement";
 import { IModelError } from "./IModelError";
@@ -96,13 +98,21 @@ export class EcefLocation implements EcefLocationProps {
     this.origin.freeze(); // may not be modified
     this.orientation.freeze(); // may not be modified
   }
-  /** Construct ECEF Location from cartographic origin.   */
-  public static createFromCartographicOrigin(origin: Cartographic) {
+
+  /** Construct ECEF Location from cartographic origin with optional known point and angle.   */
+  public static createFromCartographicOrigin(origin: Cartographic, point?: Point3d, angle?: Angle) {
     const ecefOrigin = origin.toEcef();
     const zVector = Vector3d.createFrom(ecefOrigin).normalize();
-    const xVector = Vector3d.create(-Math.sin(origin.longitude), Math.cos(origin.latitude), 0.0);
-    const matrix = Matrix3d.createRigidFromColumns(zVector!, xVector, AxisOrder.ZXY);
-    return new EcefLocation({ origin: ecefOrigin, orientation: YawPitchRollAngles.createFromMatrix3d(matrix!)! });
+    const xVector = Vector3d.create(-Math.sin(origin.longitude), Math.cos(origin.longitude), 0.0);
+    const matrix = Matrix3d.createRigidFromColumns(zVector!, xVector, AxisOrder.ZXY)!;
+    if (point !== undefined) {
+      const delta = matrix.multiplyVector(Vector3d.create(-point.x, -point.y, -point.z));
+      ecefOrigin.addInPlace(delta);
+    }
+    if (angle !== undefined)
+      matrix.multiplyMatrixMatrix(Matrix3d.createRotationAroundAxisIndex(AxisIndex.Z, angle), matrix);
+
+    return new EcefLocation({ origin: ecefOrigin, orientation: YawPitchRollAngles.createFromMatrix3d(matrix)! });
   }
 }
 
@@ -187,6 +197,7 @@ export abstract class IModel implements IModelProps {
   private _globalOrigin!: Point3d;
   /** An offset to be applied to all spatial coordinates. */
   public get globalOrigin(): Point3d { return this._globalOrigin; }
+  public set globalOrigin(org: Point3d) { org.freeze(); this._globalOrigin = org; }
 
   private _ecefLocation?: EcefLocation;
   private _ecefTrans?: Transform;
@@ -213,21 +224,20 @@ export abstract class IModel implements IModelProps {
   }
 
   /** @internal */
-  protected _token: IModelToken;
+  protected _token?: IModelToken;
 
   /** The token that can be used to find this iModel instance. */
-  public get iModelToken(): IModelToken { return this._token; }
+  public get iModelToken(): IModelToken { return this._token!; }
 
   /** @internal */
-  protected constructor(iModelToken: IModelToken) { this._token = iModelToken; }
+  protected constructor(iModelToken?: IModelToken) { this._token = iModelToken; }
 
   /** @internal */
   protected initialize(name: string, props: IModelProps) {
     this.name = name;
     this.rootSubject = props.rootSubject;
     this.projectExtents = Range3d.fromJSON(props.projectExtents);
-    this._globalOrigin = Point3d.fromJSON(props.globalOrigin);
-    this._globalOrigin.freeze(); // cannot be modified
+    this.globalOrigin = Point3d.fromJSON(props.globalOrigin);
     if (props.ecefLocation)
       this.setEcefLocation(props.ecefLocation);
   }

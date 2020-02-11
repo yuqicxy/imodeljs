@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WireFormats */
+/** @packageDocumentation
+ * @module Entities
+ */
 
 import { ElementAspectProps, GeometricElement3dProps, RelatedElementProps } from "../ElementProps";
 
@@ -46,12 +48,12 @@ export interface ReferentElementProps extends GeometricElement3dProps, IReferent
  */
 export interface DistanceExpressionProps {
   distanceAlongFromStart: number;
-  lateralOffsetFromLinearElement?: number;
-  verticalOffsetFromLinearElement?: number;
+  lateralOffsetFromILinearElement?: number;
+  verticalOffsetFromILinearElement?: number;
   distanceAlongFromReferent?: number;
 }
 
-/** Core properties of a [LinearlyReferencedAtLocationAspect]($backend)
+/** Core properties of a [LinearlyReferencedAtLocation]($backend)
  * @beta
  */
 export interface LinearlyReferencedAtLocationProps {
@@ -59,7 +61,7 @@ export interface LinearlyReferencedAtLocationProps {
   fromReferent?: RelatedElementProps;
 }
 
-/** Core properties of a [LinearlyReferencedFromToLocationAspect]($backend)
+/** Core properties of a [LinearlyReferencedFromToLocation]($backend)
  * @beta
  */
 export interface LinearlyReferencedFromToLocationProps {
@@ -69,13 +71,13 @@ export interface LinearlyReferencedFromToLocationProps {
   toPositionFromReferent?: RelatedElementProps;
 }
 
-/** Properties of a [LinearlyReferencedAtLocationAspect]($backend)
+/** Properties of a [LinearlyReferencedAtLocation]($backend)
  * @beta
  */
 export interface LinearlyReferencedAtLocationAspectProps extends LinearlyReferencedAtLocationProps, ElementAspectProps {
 }
 
-/** Properties of a [LinearlyReferencedFromToLocationAspect]($backend)
+/** Properties of a [LinearlyReferencedFromToLocation]($backend)
  * @beta
  */
 export interface LinearlyReferencedFromToLocationAspectProps extends LinearlyReferencedFromToLocationProps, ElementAspectProps {

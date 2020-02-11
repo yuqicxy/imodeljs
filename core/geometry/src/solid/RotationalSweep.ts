@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Solid */
+/** @packageDocumentation
+ * @module Solid
+ */
 
 import { Range3d } from "../geometry3d/Range";
 import { Transform } from "../geometry3d/Transform";
@@ -28,6 +30,9 @@ import { StrokeOptions } from "../curve/StrokeOptions";
  * @public
  */
 export class RotationalSweep extends SolidPrimitive {
+  /** String name for schema properties */
+  public readonly solidPrimitiveType = "rotationalSweep";
+
   private _contour: SweepContour;
   private _normalizedAxis: Ray3d;
   private _sweepAngle: Angle;

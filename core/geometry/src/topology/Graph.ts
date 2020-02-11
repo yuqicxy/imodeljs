@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Topology */
+/** @packageDocumentation
+ * @module Topology
+ */
 
 import { Vector2d, Point2d } from "../geometry3d/Point2dVector2d";
 import { Point3d, Vector3d } from "../geometry3d/Point3dVector3d";
@@ -11,6 +13,8 @@ import { LineSegment3d } from "../curve/LineSegment3d";
 import { Geometry } from "../Geometry";
 import { SmallSystem } from "../numerics/Polynomials";
 import { Transform } from "../geometry3d/Transform";
+import { XYAndZ } from "../geometry3d/XYZProps";
+import { MaskManager } from "./MaskManager";
 /** function signature for function of one node with no return type restrictions
  * @internal
  */
@@ -69,9 +73,9 @@ export class HalfEdge {
   private _id: any;   // immutable id useful for debugging.
   /** id assigned sequentially during construction --- useful for debugging. */
   public get id() { return this._id; }
-  private _facePredecessor!: HalfEdge;
-  private _faceSuccessor!: HalfEdge;
-  private _edgeMate!: HalfEdge;
+  private _facePredecessor: HalfEdge;
+  private _faceSuccessor: HalfEdge;
+  private _edgeMate: HalfEdge;
   /** previous half edge "around the face"
    */
   public get facePredecessor(): HalfEdge { return this._facePredecessor; }
@@ -199,7 +203,14 @@ export class HalfEdge {
     this.x = x;
     this.y = y;
     this.z = z;
-    // Other variables are by default undefined
+    // Explicit init to undefined is important for performance here
+    this.sortAngle = undefined;
+    this.sortData = undefined;
+    this.edgeTag = undefined;
+    // Always created in pairs, init here to make TS compiler and JS runtime happy
+    this._facePredecessor = this;
+    this._faceSuccessor = this;
+    this._edgeMate = this;
   }
 
   /**
@@ -238,6 +249,17 @@ export class HalfEdge {
   }
 
   /**
+   * Set x,y,z at all nodes around a vertex.
+   * @param mask mask to apply to the half edges around this HalfEdge's vertex loop
+   */
+  public setXYZAroundVertex(x: number, y: number, z: number) {
+    let node: HalfEdge = this;
+    do {
+      node.x = x; node.y = y; node.z = z;
+      node = node.vertexSuccessor;
+    } while (node !== this);
+  }
+  /**
    * Apply a mask to all edges around a face.
    * @param mask mask to apply to the half edges around this HalfEdge's face loop
    */
@@ -247,6 +269,24 @@ export class HalfEdge {
       node.setMask(mask);
       node = node.faceSuccessor;
     } while (node !== this);
+  }
+
+  /**
+   * Apply a mask to both sides of an edge.
+   * @param mask mask to apply to this edge and its `edgeMate`
+   */
+  public setMaskAroundEdge(mask: HalfEdgeMask) {
+    this.setMask(mask);
+    this.edgeMate.setMask(mask);
+  }
+
+  /**
+   * Apply a mask to both sides of an edge.
+   * @param mask mask to apply to this edge and its `edgeMate`
+   */
+  public clearMaskAroundEdge(mask: HalfEdgeMask) {
+    this.clearMask(mask);
+    this.edgeMate.clearMask(mask);
   }
 
   /** Returns the number of edges around this face. */
@@ -441,6 +481,7 @@ export class HalfEdge {
     if (node.isMaskSet(HalfEdgeMask.BOUNDARY_EDGE)) s += "B";
     if (node.isMaskSet(HalfEdgeMask.PRIMARY_EDGE)) s += "P";
     if (node.isMaskSet(HalfEdgeMask.EXTERIOR)) s += "X";
+    if (node.isMaskSet(HalfEdgeMask.NULL_FACE)) s += "N";
     return s;
   }
   /** Return [x,y] with coordinates of node */
@@ -604,8 +645,8 @@ export class HalfEdge {
     let dy0 = 0.0;
     let dy1 = 0.0;
     let x0 = this.x;
-    let x1 = x0;
-    let node1: HalfEdge = this;  // just to initialize -- reassigned in each loop pass.
+    let x1;
+    let node1;
     let node0: HalfEdge = this;
     do {
       node1 = node0.faceSuccessor;
@@ -614,7 +655,6 @@ export class HalfEdge {
       sum += (x0 - x1) * (dy0 + dy1);
       x0 = x1;
       dy0 = dy1;
-      node0 = node1;
       node0 = node1;
     } while (node0 !== this);
     return 0.5 * sum;
@@ -629,6 +669,19 @@ export class HalfEdge {
     return Point2d.create(
       this.x + (node1.x - this.x) * fraction,
       this.y + (node1.y - this.y) * fraction,
+      result);
+  }
+  /**
+   * interpolate xy coordinates between this node and its face successor.
+   * @param fraction fractional position along this edge.
+   * @param result xy coordinates
+   */
+  public fractionToPoint3d(fraction: number, result?: Point3d): Point3d {
+    const node1 = this.faceSuccessor;
+    return Point3d.create(
+      this.x + (node1.x - this.x) * fraction,
+      this.y + (node1.y - this.y) * fraction,
+      this.z + (node1.z - this.z) * fraction,
       result);
   }
   /**
@@ -734,15 +787,32 @@ export class HalfEdge {
 /**
  * A HalfEdgeGraph has:
  * * An array of (pointers to ) HalfEdge objects.
+ * * A pool of masks for grab/drop use by algorithms.
  * @internal
  */
 export class HalfEdgeGraph {
   /** Simple array with pointers to all the half edges in the graph. */
   public allHalfEdges: HalfEdge[];
+  private _maskManager: MaskManager;
   private _numNodesCreated = 0;
   public constructor() {
     this.allHalfEdges = [];
+    this._maskManager = MaskManager.create(HalfEdgeMask.ALL_GRAB_DROP_MASKS)!;
   }
+  /** Ask for a mask (from the graph's free pool.) for caller's use.
+   * * Optionally clear the mask throughout the graph.
+   */
+  public grabMask(clearInAllHalfEdges: boolean = true): HalfEdgeMask {
+    const mask = this._maskManager.grabMask();
+    if (clearInAllHalfEdges) {
+      this.clearMask(mask);
+    }
+    return mask;
+  }
+  /**
+   * Return `mask` to the free pool.
+   */
+  public dropMask(mask: HalfEdgeMask) { this._maskManager.dropMask(mask); }
   /**
    * * Create 2 half edges forming 2 vertices, 1 edge, and 1 face
    * * The two edges are joined as edgeMate pair.
@@ -760,6 +830,49 @@ export class HalfEdgeGraph {
     zB: number = 0,
     iB: number = 0): HalfEdge {
     const a = HalfEdge.createHalfEdgePairWithCoordinates(xA, yA, zA, iA, xB, yB, zB, iB, this.allHalfEdges);
+    return a;
+  }
+  /**
+   * * create an edge from coordinates x,y,z to (the tail of) an existing half edge.
+   * @returns Return pointer to the half edge with tail at x,y,z
+   */
+  public createEdgeXYZHalfEdge(
+    xA: number = 0,
+    yA: number = 0,
+    zA: number = 0,
+    iA: number = 0,
+    node: HalfEdge,
+    iB: number = 0): HalfEdge {
+    const a = HalfEdge.createHalfEdgePairWithCoordinates(xA, yA, zA, iA, node.x, node.y, node.z, iB, this.allHalfEdges);
+    const b = a.faceSuccessor;
+    HalfEdge.pinch(node, b);
+    return a;
+  }
+  /**
+   * * create an edge from coordinates x,y,z to (the tail of) an existing half edge.
+   * @returns Return pointer to the half edge with tail at x,y,z
+   */
+  public createEdgeHalfEdgeHalfEdge(
+    nodeA: HalfEdge,
+    idA: number,
+    nodeB: HalfEdge,
+    idB: number = 0): HalfEdge {
+    const a = HalfEdge.createHalfEdgePairWithCoordinates(nodeA.x, nodeA.y, nodeA.z, idA, nodeB.x, nodeB.y, nodeB.z, idB, this.allHalfEdges);
+    const b = a.faceSuccessor;
+    HalfEdge.pinch(nodeA, a);
+    HalfEdge.pinch(nodeB, b);
+    return a;
+  }
+
+  /**
+   * * Create 2 half edges forming 2 vertices, 1 edge, and 1 face
+   * * The two edges are joined as edgeMate pair.
+   * * The two edges are a 2-half-edge face loop in both the faceSuccessor and facePredecessor directions.
+   * * The two edges are added to the graph's HalfEdge set
+   * @returns Return pointer to the first half edge created.
+   */
+  public createEdgeXYAndZ(xyz0: XYAndZ, id0: number, xyz1: XYAndZ, id1: number): HalfEdge {
+    const a = HalfEdge.createHalfEdgePairWithCoordinates(xyz0.x, xyz0.y, xyz0.z, id0, xyz1.x, xyz1.y, xyz1.z, id1, this.allHalfEdges);
     return a;
   }
 
@@ -981,24 +1094,29 @@ export enum HalfEdgeMask {
   // VSEAM_MASK = 0x00000020,
   // BOUNDARY_VERTEX_MASK = 0x00000040,
   // PRIMARY_VERTEX_MASK = 0x00000080,
-  /** Mask for use by algorithms. Only use this mask if the graph life cycle is under your control. */
-  WORK_MASK0 = 0x00000040,
-  /** Mask for use by algorithms.  Only use this mask if the graph life cycle is under your control. */
-  WORK_MASK1 = 0x00000080,
   // DIRECTED_EDGE_MASK = 0x00000100,
   /** Mask commonly set (on both sides) of original geometry edges, but NOT indicating that the edge is certainly a boundary between outside and inside.
    * * For instance, if geometry is provided as stray sticks (not loops), it can be marked PRIMARY_EDGE but neither BOUNDARY_EDGE nor EXTERIOR_EDGE
    */
-  PRIMARY_EDGE = 0x00000200,
-  // HULL_MASK = 0x00000400,
-  // SECTION_EDGE_MASK = 0x00000800,
-  // POLAR_LOOP_MASK = 0x00001000,
+  PRIMARY_EDGE = 0x00000004,
+
   /** Mask used for low level searches to identify previously-visited nodes */
-  VISITED = 0x00002000,
+  VISITED = 0x0000010,
+
   /** Mask applied to triangles by earcut triangulator */
-  TRIANGULATED_FACE = 0x00004000,
+  TRIANGULATED_FACE = 0x00000100,
+  /** mask applied in a face with 2 edges. */
+  NULL_FACE = 0x00000200,
+
   /** no mask bits */
   NULL_MASK = 0x00000000,
+/** The "upper 12 " bits of 32 bit integer. */
+  ALL_GRAB_DROP_MASKS = 0xffF00000,  // 12 masks reserved for grab/drop.
   /** all mask bits */
   ALL_MASK = 0xFFFFFFFF,
+  // informal convention on preassigned mask bit numbers:
+  // byte0 (EXTERIOR, BOUNDARY_EDGE, PRIMARY_EDGE) -- edge properties
+  // byte1 (VISITED, VISIT_A, WORK_MASK0, WORK_MASK1) -- temp masks for algorithms.
+  // byte2 (TRIANGULATED_FACE, NULL_FACE) -- face properties.
+
 }

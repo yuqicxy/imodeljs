@@ -1,19 +1,23 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { assert } from "@bentley/bentleyjs-core";
 import { VertexShaderBuilder, VariableType } from "../ShaderBuilder";
 import { Matrix4 } from "../Matrix";
 import { TextureUnit, RenderPass } from "../RenderFlags";
-import { GLSLDecode } from "./Decode";
+import { UniformHandle } from "../Handle";
+import { DrawParams } from "../DrawCommand";
+import { decodeUint16, decodeUint24 } from "./Decode";
 import { addLookupTable } from "./LookupTable";
 import { addInstanceOverrides } from "./Instancing";
 
 const initializeVertLUTCoords = `
-  g_vertexLUTIndex = decodeUInt32(a_pos);
+  g_vertexLUTIndex = decodeUInt24(a_pos);
   g_vertexBaseCoords = compute_vert_coords(g_vertexLUTIndex);
 `;
 
@@ -21,23 +25,17 @@ const unquantizePosition = `
 vec4 unquantizePosition(vec3 pos, vec3 origin, vec3 scale) { return vec4(origin + scale * pos, 1.0); }
 `;
 
-const unquantizeVertexPosition = `
+export const unquantizeVertexPosition = `
 vec4 unquantizeVertexPosition(vec3 pos, vec3 origin, vec3 scale) { return unquantizePosition(pos, origin, scale); }
 `;
 
 // Need to read 2 rgba values to obtain 6 16-bit integers for position
-const unquantizeVertexPositionFromLUTPrelude = `
+const unquantizeVertexPositionFromLUT = `
 vec4 unquantizeVertexPosition(vec3 encodedIndex, vec3 origin, vec3 scale) {
   vec2 tc = g_vertexBaseCoords;
   vec4 enc1 = floor(TEXTURE(u_vertLUT, tc) * 255.0 + 0.5);
   tc.x += g_vert_stepX;
   vec4 enc2 = floor(TEXTURE(u_vertLUT, tc) * 255.0 + 0.5);
-`;
-const computeFeatureIndexCoords = `
-  tc.x += g_vert_stepX;
-  g_featureIndexCoords = tc;
-`;
-const unquantizeVertexPositionFromLUTPostlude = `
   vec3 qpos = vec3(decodeUInt16(enc1.xy), decodeUInt16(enc1.zw), decodeUInt16(enc2.xy));
   g_vertexData2 = enc2.zw;
   return unquantizePosition(qpos, origin, scale);
@@ -46,8 +44,6 @@ const unquantizeVertexPositionFromLUTPostlude = `
 
 const computeLineWeight = "\nfloat computeLineWeight() { return g_lineWeight; }\n";
 const computeLineCode = "\nfloat computeLineCode() { return g_lineCode; }\n";
-
-const scratchMVPMatrix = new Matrix4();
 
 /** @internal */
 export function addModelViewProjectionMatrix(vert: VertexShaderBuilder): void {
@@ -59,9 +55,7 @@ export function addModelViewProjectionMatrix(vert: VertexShaderBuilder): void {
   } else {
     vert.addUniform("u_mvp", VariableType.Mat4, (prog) => {
       prog.addGraphicUniform("u_mvp", (uniform, params) => {
-        const mvp = params.projectionMatrix.clone(scratchMVPMatrix);
-        mvp.multiplyBy(params.modelViewMatrix);
-        uniform.setMatrix4(mvp);
+        params.target.uniforms.branch.bindModelViewProjectionMatrix(uniform, params.geometry, params.isViewCoords);
       });
     });
   }
@@ -71,53 +65,41 @@ export function addModelViewProjectionMatrix(vert: VertexShaderBuilder): void {
 export function addProjectionMatrix(vert: VertexShaderBuilder): void {
   vert.addUniform("u_proj", VariableType.Mat4, (prog) => {
     prog.addProgramUniform("u_proj", (uniform, params) => {
-      uniform.setMatrix4(params.projectionMatrix);
+      params.bindProjectionMatrix(uniform);
     });
   });
 }
 
-const scratchRTC = new Float32Array(3);
-
-const computeInstancedModelMatrix = `
-  g_instancedModelMatrix = g_modelMatrixRTC;
-  g_instancedModelMatrix[3].xyz = u_instancedRTC;
+const computeInstancedRtcMatrix = `
+  g_instancedRtcMatrix = u_instanced_rtc * g_modelMatrixRTC;
 `;
 
 /** @internal */
-export function addModelMatrix(vert: VertexShaderBuilder): void {
+export function addInstancedRtcMatrix(vert: VertexShaderBuilder): void {
   if (vert.usesInstancedGeometry) {
     assert(undefined !== vert.find("g_modelMatrixRTC")); // set up in VertexShaderBuilder constructor...
     if (undefined === vert.find("g_instancedModelMatrix")) {
-      vert.addUniform("u_instancedRTC", VariableType.Vec3, (prog) => {
-        prog.addGraphicUniform("u_instancedRTC", (uniform, params) => {
-          const rtc = params.geometry.asInstanced!.rtcCenter;
-          scratchRTC[0] = rtc.x;
-          scratchRTC[1] = rtc.y;
-          scratchRTC[2] = rtc.z;
-          uniform.setUniform3fv(scratchRTC);
+      vert.addUniform("u_instanced_rtc", VariableType.Mat4, (prog) => {
+        prog.addGraphicUniform("u_instanced_rtc", (uniform, params) => {
+          const modelt = params.geometry.asInstanced!.getRtcOnlyTransform();
+          uniform.setMatrix4(Matrix4.fromTransform(modelt));
         });
       });
-
-      vert.addGlobal("g_instancedModelMatrix", VariableType.Mat4);
-      vert.addInitializer(computeInstancedModelMatrix);
+      vert.addGlobal("g_instancedRtcMatrix", VariableType.Mat4);
+      vert.addInitializer(computeInstancedRtcMatrix);
     }
-  } else if (undefined === vert.find("u_modelMatrix")) {
-    vert.addUniform("u_modelMatrix", VariableType.Mat4, (prog) => {
-      // ###TODO: We only need 3 rows, not 4...
-      prog.addGraphicUniform("u_modelMatrix", (uniform, params) => {
-        uniform.setMatrix4(params.modelMatrix);
-      });
-    });
   }
 }
 
 /** @internal */
 export function addModelViewMatrix(vert: VertexShaderBuilder): void {
+  const bind = (uniform: UniformHandle, params: DrawParams) => {
+    params.target.uniforms.branch.bindModelViewMatrix(uniform, params.geometry, params.isViewCoords);
+  };
+
   if (vert.usesInstancedGeometry) {
     vert.addUniform("u_instanced_modelView", VariableType.Mat4, (prog) => {
-      prog.addGraphicUniform("u_instanced_modelView", (uniform, params) => {
-        uniform.setMatrix4(params.modelViewMatrix);
-      });
+      prog.addGraphicUniform("u_instanced_modelView", bind);
     });
 
     vert.addGlobal("g_mv", VariableType.Mat4);
@@ -125,9 +107,7 @@ export function addModelViewMatrix(vert: VertexShaderBuilder): void {
   } else {
     vert.addUniform("u_mv", VariableType.Mat4, (prog) => {
       // ###TODO: We only need 3 rows, not 4...
-      prog.addGraphicUniform("u_mv", (uniform, params) => {
-        uniform.setMatrix4(params.modelViewMatrix);
-      });
+      prog.addGraphicUniform("u_mv", bind);
     });
   }
 }
@@ -144,14 +124,9 @@ function addPositionFromLUT(vert: VertexShaderBuilder) {
   vert.addGlobal("g_vertexBaseCoords", VariableType.Vec2);
   vert.addGlobal("g_vertexData2", VariableType.Vec2);
 
-  vert.addFunction(GLSLDecode.uint32);
-  vert.addFunction(GLSLDecode.uint16);
-  if (vert.usesInstancedGeometry) {
-    vert.addFunction(unquantizeVertexPositionFromLUTPrelude + unquantizeVertexPositionFromLUTPostlude);
-  } else {
-    vert.addGlobal("g_featureIndexCoords", VariableType.Vec2);
-    vert.addFunction(unquantizeVertexPositionFromLUTPrelude + computeFeatureIndexCoords + unquantizeVertexPositionFromLUTPostlude);
-  }
+  vert.addFunction(decodeUint24);
+  vert.addFunction(decodeUint16);
+  vert.addFunction(unquantizeVertexPositionFromLUT);
 
   vert.addUniform("u_vertLUT", VariableType.Sampler2D, (prog) => {
     prog.addGraphicUniform("u_vertLUT", (uniform, params) => {
@@ -180,9 +155,6 @@ function addPositionFromLUT(vert: VertexShaderBuilder) {
 export function addPosition(vert: VertexShaderBuilder, fromLUT: boolean) {
   vert.addFunction(unquantizePosition);
 
-  vert.addAttribute("a_pos", VariableType.Vec3, (prog) => {
-    prog.addAttribute("a_pos", (attr, params) => { params.geometry.bindVertexArray(attr); });
-  });
   vert.addUniform("u_qScale", VariableType.Vec3, (prog) => {
     prog.addGraphicUniform("u_qScale", (uniform, params) => {
       uniform.setUniform3fv(params.geometry.qScale);
@@ -259,17 +231,32 @@ export function replaceLineCode(vert: VertexShaderBuilder, func: string): void {
 }
 
 /** @internal */
-export namespace GLSLVertex {
-  // This vertex belongs to a triangle which should not be rendered. Produce a degenerate triangle.
-  // Also place it outside NDC range (for GL_POINTS)
-  const discardVertex = `
+export function addFeatureAndMaterialLookup(vert: VertexShaderBuilder): void {
+  assert(!vert.usesInstancedGeometry);
+  if (undefined !== vert.find("g_featureAndMaterialIndex"))
+    return;
+
+  const computeFeatureAndMaterialIndex = `
+  vec2 tc = g_vertexBaseCoords;
+  tc.x += g_vert_stepX * 2.0;
+  g_featureAndMaterialIndex = floor(TEXTURE(u_vertLUT, tc) * 255.0 + 0.5);`;
+
+  vert.addGlobal("g_featureAndMaterialIndex", VariableType.Vec4);
+  vert.addInitializer(computeFeatureAndMaterialIndex);
+}
+
+// This vertex belongs to a triangle which should not be rendered. Produce a degenerate triangle.
+// Also place it outside NDC range (for GL_POINTS)
+const discardVertex = `
 {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   return;
 }
 `;
 
-  export const earlyDiscard = `  if (checkForEarlyDiscard(rawPosition))` + discardVertex;
-  export const discard = `  if (checkForDiscard())` + discardVertex;
-  export const lateDiscard = `  if (checkForLateDiscard())` + discardVertex;
-}
+/** @internal */
+export const earlyVertexDiscard = `  if (checkForEarlyDiscard(rawPosition))` + discardVertex;
+/** @internal */
+export const vertexDiscard = `  if (checkForDiscard())` + discardVertex;
+/** @internal */
+export const lateVertexDiscard = `  if (checkForLateDiscard())` + discardVertex;

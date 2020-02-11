@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module UnifiedSelection */
+/** @packageDocumentation
+ * @module UnifiedSelection
+ */
 
 import { IModelConnection } from "@bentley/imodeljs-frontend";
 import { KeySet } from "@bentley/presentation-common";
@@ -18,7 +20,7 @@ export interface ISelectionProvider {
 
   /** Get the selection stored in the provider.
    * @param imodel iModel connection which the selection is associated with.
-   * @param level Level of the selection (see [Selection levels]($docs/learning/unified-selection/Terminology#selection-level))
+   * @param level Level of the selection (see [Selection levels]($docs/learning/presentation/Unified-Selection/Terminology#selection-level))
    */
   getSelection(imodel: IModelConnection, level: number): Readonly<KeySet>;
 }

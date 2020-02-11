@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModels */
+/** @packageDocumentation
+ * @module iModels
+ */
 
 import { assert, DbResult, GuidString, Id64String, Logger, PerfLogger, using } from "@bentley/bentleyjs-core";
 import { AuthorizedClientRequestContext, ChangeSet, ChangeSetQuery } from "@bentley/imodeljs-clients";
@@ -14,7 +16,7 @@ import { ECSqlStatement } from "./ECSqlStatement";
 import { IModelDb } from "./IModelDb";
 import { KnownLocations } from "./IModelHost";
 import { IModelJsFs } from "./IModelJsFs";
-import { IModelJsNative } from "./IModelJsNative";
+import { IModelJsNative } from "@bentley/imodeljs-native";
 import { BackendLoggerCategory } from "./BackendLoggerCategory";
 
 const loggerCategory: string = BackendLoggerCategory.ECDb;
@@ -130,7 +132,7 @@ export class ChangeSummaryManager {
   }
 
   /** Extracts change summaries from the specified iModel.
-   * Change summaries are extracted from the specified start version up through the version the iModel was opened with.
+   * Change summaries are extracted from the version the iModel was opened with up through the specified start version.
    * If no start version has been specified, the first version will be used.
    * @param requestContext The client request context
    * @param iModel iModel to extract change summaries for. The iModel must not be a standalone iModel.
@@ -169,6 +171,11 @@ export class ChangeSummaryManager {
     requestContext.enter();
     perfLogger.dispose();
     Logger.logTrace(loggerCategory, "Retrieved changesets to extract from from cache or from hub.", () => ({ iModelId: ctx.iModelId, startChangeSetId, endChangeSetId, changeSets: changeSetInfos }));
+
+    // Detach change cache as it's being written to during the extraction
+    const isChangeCacheAttached = this.isChangeCacheAttached(iModel);
+    if (isChangeCacheAttached)
+      ChangeSummaryManager.detachChangeCache(iModel);
 
     perfLogger = new PerfLogger("ChangeSummaryManager.extractChangeSummaries>Open or create local Change Cache file");
     const changesFile: ECDb = ChangeSummaryManager.openOrCreateChangesFile(iModel);
@@ -234,6 +241,10 @@ export class ChangeSummaryManager {
       return summaries;
     } finally {
       changesFile.dispose();
+
+      // Reattach change cache if it was attached before the extraction
+      if (isChangeCacheAttached)
+        ChangeSummaryManager.attachChangeCache(iModel);
 
       perfLogger = new PerfLogger("ChangeSummaryManager.extractChangeSummaries>Move iModel to original changeset");
       if (iModel.briefcase.currentChangeSetId !== endChangeSetId)
@@ -407,22 +418,22 @@ export class ChangeSummaryManager {
 
     // query instance changes
     const instanceChange: InstanceChange = iModel.withPreparedStatement(`SELECT ic.Summary.Id summaryId, s.Name changedInstanceSchemaName, c.Name changedInstanceClassName, ic.ChangedInstance.Id changedInstanceId,
-            ic.OpCode, ic.IsIndirect FROM ecchange.change.InstanceChange ic JOIN main.meta.ECClassDef c ON c.ECInstanceId = ic.ChangedInstance.ClassId
-          JOIN main.meta.ECSchemaDef s ON c.Schema.Id = s.ECInstanceId WHERE ic.ECInstanceId =? `, (stmt: ECSqlStatement) => {
-        stmt.bindId(1, instanceChangeId);
-        if (stmt.step() !== DbResult.BE_SQLITE_ROW)
-          throw new IModelError(IModelStatus.BadArg, `No InstanceChange found for id ${instanceChangeId}.`);
+      ic.OpCode, ic.IsIndirect FROM ecchange.change.InstanceChange ic JOIN main.meta.ECClassDef c ON c.ECInstanceId = ic.ChangedInstance.ClassId
+      JOIN main.meta.ECSchemaDef s ON c.Schema.Id = s.ECInstanceId WHERE ic.ECInstanceId =? `, (stmt: ECSqlStatement) => {
+      stmt.bindId(1, instanceChangeId);
+      if (stmt.step() !== DbResult.BE_SQLITE_ROW)
+        throw new IModelError(IModelStatus.BadArg, `No InstanceChange found for id ${instanceChangeId}.`);
 
-        const row = stmt.getRow();
-        const changedInstanceId: Id64String = row.changedInstanceId;
-        const changedInstanceClassName: string = "[" + row.changedInstanceSchemaName + "].[" + row.changedInstanceClassName + "]";
-        const op: ChangeOpCode = row.opCode as ChangeOpCode;
+      const row = stmt.getRow();
+      const changedInstanceId: Id64String = row.changedInstanceId;
+      const changedInstanceClassName: string = "[" + row.changedInstanceSchemaName + "].[" + row.changedInstanceClassName + "]";
+      const op: ChangeOpCode = row.opCode as ChangeOpCode;
 
-        return {
-          id: instanceChangeId, summaryId: row.summaryId, changedInstance: { id: changedInstanceId, className: changedInstanceClassName },
-          opCode: op, isIndirect: row.isIndirect,
-        };
-      });
+      return {
+        id: instanceChangeId, summaryId: row.summaryId, changedInstance: { id: changedInstanceId, className: changedInstanceClassName },
+        opCode: op, isIndirect: row.isIndirect,
+      };
+    });
 
     return instanceChange;
   }

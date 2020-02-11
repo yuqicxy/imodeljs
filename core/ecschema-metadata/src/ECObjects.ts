@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { ECStringConstants } from "./Constants";
@@ -187,6 +187,27 @@ export function schemaItemTypeToString(value: SchemaItemType): string {
     case SchemaItemType.CustomAttributeClass: return "CustomAttributeClass";
     case SchemaItemType.RelationshipClass: return "RelationshipClass";
     case SchemaItemType.Enumeration: return "Enumeration";
+    case SchemaItemType.KindOfQuantity: return "KindOfQuantity";
+    case SchemaItemType.PropertyCategory: return "PropertyCategory";
+    case SchemaItemType.Unit: return "Unit";
+    case SchemaItemType.InvertedUnit: return "InvertedUnit";
+    case SchemaItemType.Constant: return "Constant";
+    case SchemaItemType.Phenomenon: return "Phenomenon";
+    case SchemaItemType.UnitSystem: return "UnitSystem";
+    case SchemaItemType.Format: return "Format";
+    default: throw new ECObjectsError(ECObjectsStatus.InvalidSchemaItemType, "An invalid SchemaItemType has been provided.");
+  }
+}
+
+/** @internal */
+export function schemaItemTypeToXmlString(value: SchemaItemType): string {
+  switch (value) {
+    case SchemaItemType.EntityClass: return "ECEntityClass";
+    case SchemaItemType.Mixin: return "ECEntityClass";
+    case SchemaItemType.StructClass: return "ECStructClass";
+    case SchemaItemType.CustomAttributeClass: return "ECCustomAttributeClass";
+    case SchemaItemType.RelationshipClass: return "ECRelationshipClass";
+    case SchemaItemType.Enumeration: return "ECEnumeration";
     case SchemaItemType.KindOfQuantity: return "KindOfQuantity";
     case SchemaItemType.PropertyCategory: return "PropertyCategory";
     case SchemaItemType.Unit: return "Unit";

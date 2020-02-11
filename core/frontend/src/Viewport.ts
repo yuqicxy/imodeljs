@@ -1,17 +1,19 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Views */
+/** @packageDocumentation
+ * @module Views
+ */
 
 import { assert, BeDuration, BeEvent, BeTimePoint, compareStrings, dispose, Id64, Id64Arg, Id64Set, Id64String, IDisposable, SortedArray, StopWatch } from "@bentley/bentleyjs-core";
 import {
-  Angle, AngleSweep, Arc3d, AxisOrder, Constant, Geometry, LowAndHighXY, LowAndHighXYZ, Map4d,
-  Matrix3d, Plane3dByOriginAndUnitNormal, Point2d, Point3d, Point4d, Range3d, Ray3d, SmoothTransformBetweenFrusta, Transform, Vector3d, XAndY, XYAndZ, XYZ,
+  Angle, AngleSweep, Arc3d, AxisOrder, Constant, LowAndHighXY, LowAndHighXYZ, Map4d,
+  Matrix3d, Plane3dByOriginAndUnitNormal, Point2d, Point3d, Point4d, Range3d, Ray3d, Transform, Vector3d, XAndY, XYAndZ, XYZ, Geometry,
 } from "@bentley/geometry-core";
 import {
-  AnalysisStyle, AntiAliasPref, BackgroundMapProps, BackgroundMapSettings, Camera, ColorDef, ElementProps, Frustum, Hilite, ImageBuffer, Npc, NpcCenter, NpcCorners,
-  Placement2d, Placement2dProps, Placement3d, Placement3dProps, PlacementProps, SubCategoryAppearance, SubCategoryOverride, ViewFlags,
+  AnalysisStyle, BackgroundMapProps, BackgroundMapSettings, Camera, ColorDef, ElementProps, Frustum, Hilite, ImageBuffer, Npc, NpcCenter, NpcCorners,
+  Placement2d, Placement2dProps, Placement3d, Placement3dProps, PlacementProps, SubCategoryAppearance, SubCategoryOverride, ViewFlags, Tweens, EasingFunction, Interpolation, Easing,
 } from "@bentley/imodeljs-common";
 import { AuxCoordSystemState } from "./AuxCoordSys";
 import { DisplayStyleState } from "./DisplayStyleState";
@@ -26,13 +28,16 @@ import { Decorations, GraphicList, Pixel, RenderMemory, RenderPlan, RenderTarget
 import { StandardView, StandardViewId } from "./StandardView";
 import { SubCategoriesCache } from "./SubCategoriesCache";
 import { Tile } from "./tile/Tile";
-import { TileTree, TileTreeSet } from "./tile/TileTree";
+import { TileTreeReference, TileTreeSet } from "./tile/TileTree";
 import { EventController } from "./tools/EventController";
 import { DecorateContext, SceneContext } from "./ViewContext";
-import { GridOrientationType, MarginPercent, ViewState, ViewStatus, ViewStateUndo, ViewState2d } from "./ViewState";
-import { ToolSettings } from "./tools/Tool";
+import { GridOrientationType, MarginPercent, ViewState, ViewStatus, ViewPose, ViewState2d, ViewPose3d, ViewState3d } from "./ViewState";
+import { ViewRect } from "./ViewRect";
+import { ToolSettings } from "./tools/ToolSettings";
 
-/** An object which customizes the appearance of Features within a [[Viewport]].
+// cSpell:Ignore rect's ovrs subcat subcats unmounting UI's
+
+/** An object that customizes the appearance of Features within a [[Viewport]].
  * Only one FeatureOverrideProvider may be associated with a viewport at a time. Setting a new FeatureOverrideProvider replaces any existing provider.
  *
  * If the provider's internal state changes such that the Viewport should recompute the symbology overrides, the provider should notify the viewport by
@@ -45,50 +50,15 @@ export interface FeatureOverrideProvider {
   addFeatureOverrides(overrides: FeatureSymbology.Overrides, viewport: Viewport): void;
 }
 
-/** Provides a way for applications to inject additional non-decorative graphics into a [[Viewport]] by supplying a [[TileTree.Reference]] capable of loading and drawing the graphics.
+/** Provides a way for applications to inject additional non-decorative graphics into a [[Viewport]] by supplying one or more [[TileTreeReference]]s capable of loading and drawing the graphics.
  * Typical use cases involve drawing cartographic imagery like weather, traffic conditions, etc.
  * @see [[MapTileTreeReference]] and [[MapImageryTileTreeReference]] for examples of ways to create a TileTree reference.
  * @see [[Viewport.addTiledGraphicsProvider]] and [[Viewport.dropTiledGraphicsProvider]].
  * @internal
  */
 export interface TiledGraphicsProvider {
-  /** Return the tile tree to be drawn in the specified Viewport. */
-  getTileTree(viewport: Viewport): TileTree.Reference | undefined;
-}
-
-/** Viewport synchronization flags. Synchronization is handled internally - do not use directly.
- * @internal
- */
-export class SyncFlags {
-  private _decorations = false;
-  private _scene = false;
-  private _renderPlan = false;
-  private _controller = false;
-  private _rotatePoint = false;
-  private _animationFraction = false;
-  private _redrawPending = false;
-  public get isValidDecorations(): boolean { return this._decorations; }
-  public get isValidScene(): boolean { return this._scene; }
-  public get isValidController(): boolean { return this._controller; }
-  public get isValidRenderPlan(): boolean { return this._renderPlan; }
-  public get isValidRotatePoint(): boolean { return this._rotatePoint; }
-  public get isValidAnimationFraction(): boolean { return this._animationFraction; }
-  public get isRedrawPending(): boolean { return this._redrawPending; }
-  public invalidateDecorations(): void { this._decorations = false; }
-  public invalidateScene(): void { this._scene = false; this.invalidateDecorations(); this.invalidateAnimationFraction(); }
-  public invalidateRenderPlan(): void { this._renderPlan = false; this.invalidateScene(); }
-  public invalidateController(): void { this._controller = false; this.invalidateRenderPlan(); }
-  public invalidateRotatePoint(): void { this._rotatePoint = false; }
-  public invalidateAnimationFraction(): void { this._animationFraction = false; }
-  public invalidateRedrawPending(): void { this._redrawPending = false; }
-  public setValidDecorations(): void { this._decorations = true; }
-  public setValidScene(): void { this._scene = true; }
-  public setValidController(): void { this._controller = true; }
-  public setValidRenderPlan(): void { this._renderPlan = true; }
-  public setValidRotatePoint(): void { this._rotatePoint = true; }
-  public setValidAnimationFraction(): void { this._animationFraction = true; }
-  public setRedrawPending(): void { this._redrawPending = true; }
-  public initFrom(other: SyncFlags): void { this._decorations = other._decorations; this._scene = other._scene; this._renderPlan = other._renderPlan; this._controller = other._controller; this._rotatePoint = other._rotatePoint; this._animationFraction = other._animationFraction; this._redrawPending = other._redrawPending; }
+  /** Apply the supplied function to each [[TileTreeReference]] to be drawn in the specified Viewport. */
+  forEachTileTreeRef(viewport: Viewport, func: (ref: TileTreeReference) => void): void;
 }
 
 /** @see [[ChangeFlags]]
@@ -109,7 +79,7 @@ export enum ChangeFlag {
   Initial = ChangeFlag.ViewedCategories | ChangeFlag.ViewedModels | ChangeFlag.DisplayStyle,
 }
 
-/** Viewport event synchronization flags. Used primarily for tracking changes which affect the viewport's [[FeatureSymbology.Overrides]].
+/** Viewport event synchronization flags. Used primarily for tracking changes that affect the viewport's [[FeatureSymbology.Overrides]].
  * Each time [[Viewport.renderFrame]] is invoked, the effects of any changes to these flags will be applied, and corresponding events dispatched.
  * An individual flag is true if the corresponding Viewport state has changed and needs to be synchronized.
  * @beta
@@ -162,147 +132,32 @@ export class ChangeFlags {
   public get value(): ChangeFlag { return this._flags; }
 }
 
-/** A rectangle in integer view coordinates with (0,0) corresponding to the top-left corner of the view.
- *
- * Increasing **x** moves from left to right, and increasing **y** moves from top to bottom.
- * @public
- */
-export class ViewRect {
-  private _left!: number;
-  private _top!: number;
-  private _right!: number;
-  private _bottom!: number;
+/** @alpha Source of depth point returned by [[Viewport.pickDepthPoint]]. */
+export enum DepthPointSource {
+  /** Depth point from geometry within specified radius of pick point */
+  Geometry,
+  /** Depth point from reality model within specified radius of pick point */
+  Model,
+  /** Depth point from ray projection to background map plane */
+  BackgroundMap,
+  /** Depth point from ray projection to ground plane */
+  GroundPlane,
+  /** Depth point from ray projection to grid plane */
+  Grid,
+  /** Depth point from ray projection to acs plane */
+  ACS,
+  /** Depth point from plane passing through view target point */
+  TargetPoint,
+}
 
-  /** Construct a new ViewRect. */
-  public constructor(left = 0, top = 0, right = 0, bottom = 0) { this.init(left, top, right, bottom); }
-  /** The leftmost side of this ViewRect.  */
-  public get left(): number { return this._left; }
-  public set left(val: number) { this._left = Math.floor(val); }
-  /** The topmost side of this ViewRect. */
-  public get top(): number { return this._top; }
-  public set top(val: number) { this._top = Math.floor(val); }
-  /** The rightmost side of this ViewRect. */
-  public get right(): number { return this._right; }
-  public set right(val: number) { this._right = Math.floor(val); }
-  /** The bottommost side of this ViewRect. */
-  public get bottom(): number { return this._bottom; }
-  public set bottom(val: number) { this._bottom = Math.floor(val); }
-  /** True if this ViewRect has an area > 0. */
-  public get isNull(): boolean { return this.right <= this.left || this.bottom <= this.top; }
-  /** True if `!isNull` */
-  public get isValid(): boolean { return !this.isNull; }
-  /** The width (right-left) of this ViewRect. */
-  public get width() { return this.right - this.left; }
-  public set width(width: number) { this.right = this.left + width; }
-  /** The height (bottom-top) of this ViewRect. */
-  public get height() { return this.bottom - this.top; }
-  public set height(height: number) { this.bottom = this.top + height; }
-  /** The aspect ratio (width/height) of this ViewRect. */
-  public get aspect() { return this.isNull ? 1.0 : this.width / this.height; }
-  /** The area (width*height) of this ViewRect. */
-  public get area() { return this.isNull ? 0 : this.width * this.height; }
-  /** Initialize this ViewRect from its left/top/right/bottom parameters. */
-  public init(left: number, top: number, right: number, bottom: number) { this.left = left; this.bottom = bottom, this.right = right; this.top = top; }
-  /** Initialize this ViewRect from two points.
-   * @param topLeft The top-left corner.
-   * @param bottomRight The bottom-right corner.
-   */
-  public initFromPoints(topLeft: XAndY, bottomRight: XAndY): void { this.init(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y); }
-  /** Initialize this ViewRect from a range.
-   * @param input The Range to use. `input.low` defines the top-left and `input.high` defines the bottom-right.
-   */
-  public initFromRange(input: LowAndHighXY): void { this.initFromPoints(input.low, input.high); }
-  /** Return true is this ViewRect is exactly equal to another ViewRect.
-   * @param other The other ViewRect to compare
-   */
-  public equals(other: ViewRect): boolean { return this.left === other.left && this.right === other.right && this.bottom === other.bottom && this.top === other.top; }
-  /** Initialize this ViewRect from another ViewRect. */
-  public setFrom(other: ViewRect): void { this.init(other.left, other.top, other.right, other.bottom); }
-  /** Duplicate this ViewRect.
-   * @param result Optional ViewRect for result. If undefined, a new ViewRect is created.
-   */
-  public clone(result?: ViewRect): ViewRect {
-    if (undefined !== result) {
-      result.setFrom(this);
-      return result;
-    }
-    return new ViewRect(this.left, this.top, this.right, this.bottom);
-  }
-  public extend(other: ViewRect) {
-    if (this.left > other.left) this.left = other.left;
-    if (this.top > other.top) this.top = other.top;
-    if (this.right < other.right) this.right = other.right;
-    if (this.bottom < other.bottom) this.bottom = other.bottom;
-  }
-
-  /** Inset this ViewRect by values in the x and y directions. Positive values make the ViewRect smaller, and negative values will make it larger.
-   * @param deltaX The distance to inset the ViewRect in the x direction.
-   * @param deltaY The distance to inset the ViewRect in the y direction.
-   */
-  public inset(deltaX: number, deltaY: number): void {
-    if (this.width - 2 * deltaX <= 0 || this.height - 2 * deltaY <= 0) {
-      this.init(0, 0, 0, 0);
-      return;
-    }
-    this._left += deltaX;
-    this._right -= deltaX;
-    this._top += deltaY;
-    this._bottom -= deltaY;
-  }
-
-  /** Inset this ViewRect by the same value in all directions.
-   * @param offset The distance to inset this ViewRect. Positive values will make this ViewRect smaller and negative values will make it larger.
-   * @note The inset operation can cause a previously valid ViewRect to become invalid.
-   */
-  public insetUniform(offset: number): void { this.inset(offset, offset); }
-
-  /** Scale this ViewRect about its center by the supplied scale factors. */
-  public scaleAboutCenter(xScale: number, yScale: number): void {
-    const w = this.width;
-    const h = this.height;
-    const xDelta = (w - (w * xScale)) * 0.5;
-    const yDelta = (h - (h * yScale)) * 0.5;
-    this.inset(xDelta, yDelta);
-  }
-
-  /** Inset this ViewRect by a percentage of its current width.
-   * @param percent The percentage of this ViewRect's width to inset in all directions.
-   * @note The ViewRect will become smaller (or larger, if percent is negative) by `percent * width * 2` in each direction, since each side is moved by that distance.
-   * @see [[inset]]
-   */
-  public insetByPercent(percent: number): void { this.insetUniform(this.width * percent); }
-
-  /** Determine if this ViewRect is entirely contained within the bounds of another ViewRect. */
-  public isContained(other: ViewRect): boolean { return this.left >= other.left && this.right <= other.right && this.bottom <= other.bottom && this.top >= other.top; }
-
-  /** Return true if the supplied point is contained in this ViewRect.
-   * @param point The point to test.
-   * @note if the point is exactly on the left or top edges, this method returns true. If the point is exactly on the right or bottom edge, it returns false.
-   */
-  public containsPoint(point: XAndY): boolean { return point.x >= this.left && point.x < this.right && point.y >= this.top && point.y < this.bottom; }
-
-  /** Determine whether this ViewRect overlaps another. */
-  public overlaps(other: ViewRect): boolean { return this.left <= other.right && this.top <= other.bottom && this.right >= other.left && this.bottom >= other.top; }
-
-  /** Return a ViewRect that is the overlap (intersection) of this ViewRect and another ViewRect.
-   * If the two ViewRects are equal, their value is the result. Otherwise, the result will always be smaller than either of them.
-   */
-  public computeOverlap(other: ViewRect, out?: ViewRect): ViewRect | undefined {
-    const maxOrgX = Math.max(this.left, other.left);
-    const maxOrgY = Math.max(this.top, other.top);
-    const minCrnX = Math.min(this.right, other.right);
-    const minCrnY = Math.min(this.bottom, other.bottom);
-
-    if (maxOrgX > minCrnX || maxOrgY > minCrnY)
-      return undefined;
-
-    const result = undefined !== out ? out : new ViewRect();
-    result.left = maxOrgX;
-    result.right = minCrnX;
-    result.top = maxOrgY;
-    result.bottom = minCrnY;
-    return result;
-  }
+/** @alpha Options to control behavior of [[Viewport.pickDepthPoint]]. */
+export interface DepthPointOptions {
+  /** If true, geometry with the "non-locatable" flag set will not be selected. */
+  excludeNonLocatable?: boolean;
+  /** If true, geometry from pickable decorations will not be selected. */
+  excludeDecorations?: boolean;
+  /** If true, geometry from an IModelConnection other than the one associated with the Viewport will not be selected. */
+  excludeExternalIModels?: boolean;
 }
 
 /** The minimum and maximum values for the z-depth of a rectangle of screen space.
@@ -337,144 +192,130 @@ export enum CoordSystem {
   World,
 }
 
-/** Object to animate a Frustum transition of a viewport. The [[Viewport]] will show as many frames as necessary during the supplied duration.
- * @see [[Viewport.animateFrustumChange]]
- */
-class Animator {
-  private readonly _currFrustum = new Frustum();
-  private _startTime?: BeTimePoint;
-  private _interpolator?: SmoothTransformBetweenFrusta;
-  private moveToTime(time: number) { this.interpolateFrustum(time / this.totalTime.milliseconds); }
-
-  /** Construct a new Animator.
-   * @param totalTime The duration of the animation.
-   * @param viewport The Viewport to animate.
-   * @param startFrustum The Viewport's starting Frustum at the beginning of the animation.
-   * @param endFrustum The Viewport's ending Frustum after the animation.
-   */
-  public constructor(public totalTime: BeDuration, public viewport: Viewport, public startFrustum: Frustum, public endFrustum: Frustum) {
-    this._interpolator = SmoothTransformBetweenFrusta.create(startFrustum.points, endFrustum.points);
-  }
-
-  private interpolateFrustum(fraction: number): void {
-    this._interpolator!.fractionToWorldCorners(fraction, this._currFrustum.points);
-    this.viewport.setupViewFromFrustum(this._currFrustum);
-  }
-
-  /**
-   * Move to the appropriate frame, based on the current time, for the current animation.
-   * @return true when finished to terminate the animation.
-   */
-  public animate(): boolean {
-    if (!this._interpolator) {
-      this.viewport.setupViewFromFrustum(this.endFrustum);
-      return true;
-    }
-
-    const currTime = BeTimePoint.now();
-    if (!this._startTime)
-      this._startTime = currTime;
-
-    const totalTimeMillis = this.totalTime.milliseconds;
-    const endTime = this._startTime.milliseconds + totalTimeMillis;
-
-    if (endTime <= currTime.milliseconds) {
-      this.moveToTime(totalTimeMillis);
-      return true;
-    }
-
-    let done = false;
-    let index = currTime.milliseconds - this._startTime.milliseconds;
-    if (index > totalTimeMillis) {
-      done = true;
-      index = totalTimeMillis;
-    }
-
-    this.moveToTime(index);
-    return done;
-  }
-
-  /** Abort this animation, moving immediately to the final frame. */
-  public interrupt(): void {
-    if (this._startTime)
-      this.moveToTime(this.totalTime.milliseconds); // We've been interrupted after animation began. Skip to the final animation state
-  }
-}
-
-/** Status for [[ViewportAnimator.animate]].
- * @public
- */
-export enum RemoveMe { No = 0, Yes = 1 }
-
 /** An object to animate a transition of a [[Viewport]].
  * Only one animator may be associated with a viewport at a time. Registering a new
- * animator replaces any existing animator.
+ * animator interrupts and replaces any existing animator.
  * The animator's animate() function will be invoked just prior to the rendering of each frame.
- * The return value of animate() indicates whether to keep the animator active or to remove it.
- * The animator may also be removed in response to certain changes to the viewport - e.g., when
- * the viewport is closed, or its view controller changed, etc.
- * @public
+ * The animator may be removed in response to certain changes to the viewport - e.g., when
+ * the viewport is closed, or viewing tools operate on it, etc.
+ * @beta
  */
-export interface ViewportAnimator {
-  /** Apply animation to the viewport. Return `RemoveMe.Yes` when animation is completed, causing the animator to be removed from the viewport. */
-  animate(viewport: Viewport): RemoveMe;
+export interface Animator {
+  /** Apply animation to the viewport. Return true when animation is completed, causing the animator to be removed from the viewport. */
+  animate(): boolean;
 
-  /** Invoked when this ViewportAnimator is removed from the viewport, e.g. because it was replaced by a new animator, the viewport was closed -
-   * that is, for any reason other than returning RemoveMe.Yes from animate()
-   */
-  onInterrupted(viewport: Viewport): void;
+  /** Invoked to abort this Animator. This method is called if [[Viewport.setAnimator]] is called before `animate` returns true */
+  interrupt(): void;
 }
 
-/** A ViewportAnimator that animates decorations. While the animator is
- * active, decorations will be invalidated on each frame. The animator's
- * animateDecorations() function will be invoked to update any animation state; then
- * decorations will be re-requested and rendered.
- * @alpha
- */
-export class DecorationAnimator implements ViewportAnimator {
-  private _start: BeTimePoint;
-  private _stop: BeTimePoint;
-
-  constructor(duration: BeDuration) {
-    this._start = BeTimePoint.now();
-    this._stop = this._start.plus(duration);
-  }
-
-  /** Override to update animation state, which can then be used on the next call to produce decorations.
-   * @param viewport The viewport being animated
-   * @param durationPercent The ratio of duration elapsed, in [0.0,1.0]
-   * @returns RemoveMe.Yes to immediately remove this animator, RemoveMe::No to continue animating until duration elapsed or animator interrupted.
-   * If this animator is interrupted, this function will be immediately invoked with durationPercent=1.0.
-   */
-  public animateDecorations(_viewport: Viewport, _durationPercent: number): RemoveMe { return RemoveMe.No; }
-
-  public animate(vp: Viewport): RemoveMe {
-    vp.invalidateDecorations();
-    const total = this._stop.milliseconds - this._start.milliseconds;
-    const elapsed = BeTimePoint.now().milliseconds - this._start.milliseconds;
-    const ratio = Math.min(elapsed / total, 1.0);
-    const removeMe = this.animateDecorations(vp, ratio);
-    return (RemoveMe.Yes === removeMe || ratio === 1.0) ? RemoveMe.Yes : RemoveMe.No;
-  }
-
-  public onInterrupted(vp: Viewport): void {
-    vp.invalidateDecorations();
-    this.animateDecorations(vp, 1.0);
-  }
-}
-
-/** Options that control how operations that change a view work.
+/** Options that control how an Viewport animation behaves.
  * @public
  */
-export interface ViewChangeOptions {
-  /** Whether to save the result of this change into the view undo stack. Default is yes. */
-  saveInUndo?: boolean;
-  /** Whether the change should be animated or not. Default is yes. */
+export interface ViewAnimationOptions {
+  /** Amount of time for animation, in milliseconds. Default is [[ScreenViewport.animation.time.normal]] */
+  animationTime?: number;
+  /** if animation is aborted, don't move to end, leave at current point instead. */
+  cancelOnAbort?: boolean;
+  /** easing function for animation. Default is Easing.Cubic.Out */
+  easingFunction?: EasingFunction;
+}
+
+/** Options that control how operations that change a viewport behave.
+ * @public
+ */
+export interface ViewChangeOptions extends ViewAnimationOptions {
+  /** Whether to save the result of this change into the view undo stack. Default is to save in undo. */
+  noSaveInUndo?: boolean;
+  /** Whether the change should be animated or not. Default is to not animate frustum change. */
   animateFrustumChange?: boolean;
-  /** Amount of time for animation. Default = `ToolSettings.animationTime` */
-  animationTime?: BeDuration;
   /** The percentage of the view to leave blank around the edges. */
   marginPercent?: MarginPercent;
+}
+
+/** Object to animate a Frustum transition of a viewport. The [[Viewport]] will show as many frames as necessary during the supplied duration.
+ * @internal
+ */
+class FrustumAnimator implements Animator {
+  private _tweens = new Tweens();
+
+  public constructor(public options: ViewAnimationOptions, viewport: ScreenViewport, begin: ViewPose, end: ViewPose) {
+    const settings = ScreenViewport.animation;
+    const zoomSettings = settings.zoomOut;
+
+    let duration = undefined !== options.animationTime ? options.animationTime : settings.time.normal.milliseconds;
+    if (duration <= 0 || begin.cameraOn !== end.cameraOn) // no duration means skip animation. We can't animate if the camera toggles.
+      return;
+
+    let extentBias: Vector3d | undefined;
+    let eyeBias: Vector3d | undefined;
+    const zVec = begin.zVec;
+    const view = viewport.view;
+    const view3 = view as ViewState3d;
+    const begin3 = begin as ViewPose3d;
+    const end3 = end as ViewPose3d;
+    const beginTarget = begin.target;
+    const endTarget = end.target;
+    const axis = end.rotation.multiplyMatrixMatrixInverse(begin.rotation)!.getAxisAndAngleOfRotation(); // axis to rotate begin to get to end
+    const timing = { fraction: 0.0, height: 0, position: 0 }; // updated by tween.
+
+    // don't do "zoom out" if the two views aren't pointing in the same direction, or if they request cancelOnAbort (since that implies that the view
+    // is a linear interpolation from begin to end), or if it's disabled.
+    if (zoomSettings.enable && !options.cancelOnAbort && zVec.isAlmostEqual(end.zVec)) {
+      view.applyPose(end); // start with the pose at the end
+      const viewTransform = Transform.createOriginAndMatrix(undefined, view.getRotation());
+      const endRange = Range3d.createTransformedArray(viewTransform, view.calculateFocusCorners()); // get the view-aligned range of the focus plane at the end
+      const beginRange = Range3d.createTransformedArray(viewTransform, view.applyPose(begin).calculateFocusCorners()); // get the view-aligned range of the focus plane at the beginning
+
+      // do the starting and ending views (plus the margin) overlap? If not we need to zoom out to show how to get from one to the other
+      const expand = (range: Range3d) => { const r = range.clone(); r.scaleAboutCenterInPlace(zoomSettings.margin); return r; };
+      if (!expand(beginRange).intersectsRangeXY(expand(endRange))) {
+        view3.lookAtViewAlignedVolume(beginRange.union(endRange), viewport.viewRect.aspect); // set up a view that would show both extents
+        duration *= zoomSettings.durationFactor; // increase duration so the zooming isn't too fast
+        extentBias = view.getExtents().minus(begin.extents); // if the camera is off, the "bias" is the amount the union-ed view is larger than the starting view
+        if (begin.cameraOn)
+          eyeBias = zVec.scaleToLength(zVec.dotProduct(begin3.camera.eye.vectorTo(view3.camera.eye))); // if the camera is on, the bias is the difference in height of the two eye positions
+      }
+    }
+
+    this._tweens.create(timing, {
+      to: { fraction: 1.0, height: zoomSettings.heights, position: zoomSettings.positions },
+      duration,
+      start: true,
+      easing: options.easingFunction ? options.easingFunction : settings.easing,
+      interpolation: zoomSettings.interpolation,
+      onComplete: () =>
+        viewport.setupFromView(end), // when we're done, set up from final state
+      onUpdate: () => {
+        const fraction = extentBias ? timing.position : timing.fraction; // if we're zooming, fraction comes from position interpolation
+        const rot = Matrix3d.createRotationAroundVector(axis.axis, Angle.createDegrees(fraction * axis.angle.degrees))!.multiplyMatrixMatrix(begin.rotation);
+        if (begin.cameraOn) {
+          const eye = begin3.camera.eye.interpolate(fraction, end3.camera.eye);
+          if (undefined !== eyeBias)
+            eye.plusScaled(eyeBias, timing.height, eye);
+          const target = eye.plusScaled(rot.getRow(2), -1.0 * (Geometry.interpolate(begin3.camera.focusDist, fraction, end3.camera.focusDist)));
+          const extents = begin.extents.interpolate(fraction, end.extents);
+          view3.lookAt(eye, target, rot.getRow(1), extents);
+        } else {
+          const extents = begin.extents.interpolate(timing.fraction, end.extents);
+          if (undefined !== extentBias)
+            extents.plusScaled(extentBias, timing.height, extents); // no camera, zooming out expands extents
+          view.setExtents(extents);
+          view.setRotation(rot);
+          view.setCenter(beginTarget.interpolate(fraction, endTarget)); // must be done last - depends on extents and rotation
+        }
+        viewport.setupFromView();
+      },
+    });
+  }
+
+  public animate() {
+    return !this._tweens.update();
+  }
+
+  public interrupt() {
+    if (!this.options.cancelOnAbort)
+      this._tweens.update(Infinity); // jump to end pose
+  }
 }
 
 /** Options to allow changing the view rotation with zoomTo methods.
@@ -497,19 +338,21 @@ export interface ChangeViewedModel2dOptions {
   doFit?: boolean;
 }
 
-/** Supplies facilities for interacting with a [[Viewport]]'s frustum.
+/** Describes a [[Viewport]]'s viewing volume, plus its size on the screen. A new
+ * instance of ViewingSpace is created every time the Viewport's camera or volume changes.
  * @internal
  */
-export class ViewFrustum {
-  private static get2dFrustumDepth() { return Constant.oneMeter; }
+export class ViewingSpace {
+  private static get frustumDepth2d() { return Constant.oneMeter; }
+  private readonly _viewRange = new ViewRect(); // scratch variable
+  private readonly _viewCorners = new Range3d(); // scratch variable
 
-  private readonly _viewCorners: Range3d = new Range3d();
-  private readonly _aspectRatioLocked: boolean;
   /** @internal */
-  public frustFraction: number = 1.0;
-  /** Maximum ratio of frontplane to backplane distance for 24 bit zbuffer */
-  public static nearScale24 = 0.0003;
-
+  public frustFraction = 1.0;
+  /** Maximum ratio of frontplane to backplane distance for 24 bit non-logarithmic zbuffer */
+  public static nearScaleNonLog24 = 0.0003;
+  /** Maximum fraction of frontplane to backplane distance for 24 bit logarithmic zbuffer */
+  public static nearScaleLog24 = 1.0E-8;
   /** View origin, potentially expanded */
   public readonly viewOrigin = new Point3d();
   /** View delta, potentially expanded */
@@ -524,11 +367,8 @@ export class ViewFrustum {
   public readonly worldToViewMap = Map4d.createIdentity();
   /** @internal */
   public readonly worldToNpcMap = Map4d.createIdentity();
-
   /** @internal */
   public readonly zClipAdjusted: boolean = false;    // were the view z clip planes adjusted due to front/back clipping off?
-  /** @internal */
-  public readonly invalidFrustum: boolean = false;
 
   private _view: ViewState;
 
@@ -536,12 +376,10 @@ export class ViewFrustum {
   public get view(): ViewState { return this._view; }
   public set view(view: ViewState) { this._view = view; }
 
-  private readonly _viewRange: ViewRect = new ViewRect();
-
   private readonly _clientWidth: number;
   private readonly _clientHeight: number;
 
-  private readonly _displayedPlane: Plane3dByOriginAndUnitNormal | undefined;
+  private readonly _displayedPlanes: Plane3dByOriginAndUnitNormal[] = [];
 
   /** Get the rectangle of this Viewport in ViewCoordinates. */
   private get _viewRect(): ViewRect { this._viewRange.init(0, 0, this._clientWidth, this._clientHeight); return this._viewRange; }
@@ -549,36 +387,9 @@ export class ViewFrustum {
   private static _copyOutput(from: XYZ, to?: XYZ) { let pt = from; if (to) { to.setFrom(from); pt = to; } return pt; }
 
   /** @internal */
-  public toView(from: XYZ, to?: XYZ) { this.rotation.multiplyVectorInPlace(ViewFrustum._copyOutput(from, to)); }
+  public toViewOrientation(from: XYZ, to?: XYZ) { this.rotation.multiplyVectorInPlace(ViewingSpace._copyOutput(from, to)); }
   /** @internal */
-  public fromView(from: XYZ, to?: XYZ) { this.rotation.multiplyTransposeVectorInPlace(ViewFrustum._copyOutput(from, to)); }
-
-  /** adjust the aspect ratio of the view volume to match the aspect ratio of the window of this Viewport.
-   *  modifies the point and vector given
-   *  @internal
-   */
-  protected adjustAspectRatio(origin: Point3d, delta: Vector3d) {
-    if (this._aspectRatioLocked)
-      return;
-
-    const windowAspect = this._viewRect.aspect * this.view.getAspectRatioSkew();
-    const viewAspect = delta.x / delta.y;
-
-    if (Math.abs(1.0 - (viewAspect / windowAspect)) < 1.0e-9)
-      return;
-
-    const oldDelta = delta.clone();
-    if (viewAspect > windowAspect)
-      delta.y = delta.x / windowAspect;
-    else
-      delta.x = delta.y * windowAspect;
-
-    const newOrigin = origin.clone();
-    this.toView(newOrigin);
-    newOrigin.x += ((oldDelta.x - delta.x) / 2.0);
-    newOrigin.y += ((oldDelta.y - delta.y) / 2.0);
-    this.fromView(newOrigin, origin);
-  }
+  public fromViewOrientation(from: XYZ, to?: XYZ) { this.rotation.multiplyTransposeVectorInPlace(ViewingSpace._copyOutput(from, to)); }
 
   /** Ensure the rotation matrix for this view is aligns the root z with the view out (i.e. a "2d view"). */
   private alignWithRootZ() {
@@ -611,7 +422,7 @@ export class ViewFrustum {
 
     const eyePoint = new Point3d(vDelta.x / 2.0, vDelta.y / 2.0, (vDelta.z / 2.0) + focusDistance);
 
-    this.fromView(eyePoint);
+    this.fromViewOrientation(eyePoint);
     eyePoint.plus(view.getOrigin(), eyePoint);
     camera.setEyePoint(eyePoint);
     camera.setFocusDistance(focusDistance);
@@ -625,7 +436,7 @@ export class ViewFrustum {
 
     let extents = view.getViewedExtents();
 
-    this.extendRangeForDisplayedPlane(extents);
+    this.extendRangeForDisplayedPlanes(extents);
 
     if (extents.isNull)
       return;
@@ -663,46 +474,52 @@ export class ViewFrustum {
       delta.z = eyeOrg.z;
   }
 
-  private extendRangeForDisplayedPlane(extents: Range3d) {
+  private extendRangeForDisplayedPlanes(extents: Range3d) {
     const view = this.view;
     if (!view.is3d()) // only necessary for 3d views
       return;
 
-    if (this._displayedPlane === undefined)
-      return;
+    for (const displayedPlane of this._displayedPlanes) {
+      const planeNormal = displayedPlane.getNormalRef();
+      const viewZ = this.rotation.getRow(2);
+      const onPlane = viewZ.crossProduct(planeNormal);   // vector on display plane.
+      if (onPlane.magnitude() > 1.0E-8) {
+        const intersect = new Point3d();
+        const frustum = new Frustum();
+        let includeHorizon = false;
+        const worldToNpc = this.view.computeWorldToNpc(this.rotation, this.viewOrigin, this.viewDelta, false /* if displaying background map, don't enforce front/back ratio as no Z-Buffer */).map as Map4d;
 
-    const planeNormal = this._displayedPlane.getNormalRef();
-    const viewZ = this.rotation.getRow(2);
-    const onPlane = viewZ.crossProduct(planeNormal);   // vector on display plane.
-    if (onPlane.magnitude() > 1.0E-8) {
-      const intersect = new Point3d();
-      const frustum = new Frustum();
-      let includeHorizon = false;
-      const worldToNpc = this.view.computeWorldToNpc(this.rotation, this.viewOrigin, this.viewDelta, false /* if displaying background map, don't enforce front/back ratio as no Z-Buffer */).map as Map4d;
-      const minimumEyeDistance = 10.0;
-      const horizonDistance = 10000;
-      worldToNpc.transform1.multiplyPoint3dArrayQuietNormalize(frustum.points);
+        if (worldToNpc === undefined)
+          return;
 
-      for (let i = 0; i < 4; i++) {
-        const frustumRay = Ray3d.createStartEnd(frustum.points[i + 4], frustum.points[i]);
-        const intersectDistance = frustumRay.intersectionWithPlane(this._displayedPlane, intersect);
-        if (intersectDistance !== undefined && (!view.isCameraOn || intersectDistance > 0.0))
-          extents.extend(intersect);
-        else includeHorizon = true;
-      }
-      if (includeHorizon) {
-        const rangeCenter = extents.fractionToPoint(.5, .5, .5);
-        const normal = onPlane.unitCrossProduct(planeNormal) as Vector3d; // on plane and parallel to view Z.
-        extents.extend(rangeCenter.plusScaled(normal, horizonDistance));
-      }
-      if (view.isCameraOn) {
-        extents.extend(view.getEyePoint().plusScaled(viewZ, -minimumEyeDistance));
-      }
+        worldToNpc.transform1.multiplyPoint3dArrayQuietNormalize(frustum.points);
 
-    } else {
-      // display plane parallel to view....
-      extents.extend(this._displayedPlane.getOriginRef().plusScaled(planeNormal, -1.0));
-      extents.extend(this._displayedPlane.getOriginRef().plusScaled(planeNormal, 1.0));
+        for (let i = 0; i < 4; i++) {
+          const frustumRay = Ray3d.createStartEnd(frustum.points[i + 4], frustum.points[i]);
+          const intersectDistance = frustumRay.intersectionWithPlane(displayedPlane, intersect);
+          if (intersectDistance !== undefined && (!view.isCameraOn || intersectDistance > 0.0))
+            extents.extend(intersect);
+          else includeHorizon = true;
+        }
+        if (includeHorizon) {
+          let horizonDistance = 10000;
+          const eyePoint = view.getEyePoint();
+          const eyeHeight = eyePoint.z;
+          if (eyeHeight > 0.0)          // Assume zero is ground level and increase horizon based on earth's curvature.
+            horizonDistance = Math.max(horizonDistance, Math.sqrt(eyeHeight * eyeHeight + 2 * eyeHeight * Constant.earthRadiusWGS84.equator));
+
+          extents.extend(eyePoint.plusScaled(viewZ, -horizonDistance));
+        }
+        if (view.isCameraOn) {
+          const minimumEyeDistance = 10.0;
+          extents.extend(view.getEyePoint().plusScaled(viewZ, -minimumEyeDistance));
+        }
+
+      } else {
+        // display plane parallel to view....
+        extents.extend(displayedPlane.getOriginRef().plusScaled(planeNormal, -1.0));
+        extents.extend(displayedPlane.getOriginRef().plusScaled(planeNormal, 1.0));
+      }
     }
   }
   private calcNpcToView(): Map4d {
@@ -725,28 +542,26 @@ export class ViewFrustum {
     return corners;
   }
 
-  private constructor(view: ViewState, clientWidth: number, clientHeight: number, aspectRatioLocked: boolean, displayedPlane?: Plane3dByOriginAndUnitNormal) {
-    this._view = view;
-    this._clientWidth = clientWidth;
-    this._clientHeight = clientHeight;
-    this._displayedPlane = displayedPlane;
-    this._aspectRatioLocked = aspectRatioLocked;
+  private constructor(vp: Viewport, displayedPlanes: Plane3dByOriginAndUnitNormal[]) {
+    const view = this._view = vp.view;
+    const viewRect = vp.viewRect;
+    this._clientWidth = viewRect.width;
+    this._clientHeight = viewRect.height;
+    this._displayedPlanes = displayedPlanes;
 
-    const origin = this.view.getOrigin().clone();
-    const delta = this.view.getExtents().clone();
-    this.rotation.setFrom(this.view.getRotation());
+    const origin = view.getOrigin().clone();
+    const delta = view.getExtents().clone();
+    this.rotation.setFrom(view.getRotation());
 
     // first, make sure none of the deltas are negative
     delta.x = Math.abs(delta.x);
     delta.y = Math.abs(delta.y);
     delta.z = Math.abs(delta.z);
 
-    const limits = this.view.extentLimits;
+    const limits = view.extentLimits;
     const clampRange = (val: number) => Math.min(Math.max(limits.min, val), limits.max);
     delta.x = clampRange(delta.x);
     delta.y = clampRange(delta.y);
-
-    this.adjustAspectRatio(origin, delta);
 
     this.viewOriginUnexpanded.setFrom(origin);
     this.viewDeltaUnexpanded.setFrom(delta);
@@ -754,15 +569,15 @@ export class ViewFrustum {
     this.viewDelta.setFrom(delta);
     this.zClipAdjusted = false;
 
-    if (this.view.is3d()) {  // 3d viewport
-      if (!this.view.allow3dManipulations()) {
+    if (view.is3d()) {
+      if (!view.allow3dManipulations()) {
         // we're in a "2d" view of a physical model. That means that we must have our orientation with z out of the screen with z=0 at the center.
         this.alignWithRootZ(); // make sure we're in a z Up view
 
-        const extents = this.view.getViewedExtents();
+        const extents = view.getViewedExtents();
         if (extents.isNull) {
-          extents.low.z = -ViewFrustum.get2dFrustumDepth();
-          extents.high.z = ViewFrustum.get2dFrustumDepth();
+          extents.low.z = -ViewingSpace.frustumDepth2d;
+          extents.high.z = ViewingSpace.frustumDepth2d;
         }
 
         let zMax = Math.max(Math.abs(extents.low.z), Math.abs(extents.high.z));
@@ -770,25 +585,25 @@ export class ViewFrustum {
         delta.z = 2.0 * zMax;
         origin.z = -zMax;
       } else {
-        if (this.view.isCameraOn)
+        if (view.isCameraOn)
           this.validateCamera();
 
         this.adjustZPlanes(origin, delta); // make sure view volume includes entire volume of view
 
         // if the camera is on, don't allow front plane behind camera
-        if (this.view.isCameraOn) {
-          const eyeOrg = this.view.camera.getEyePoint().minus(origin); // vector from eye to origin
-          this.toView(eyeOrg);
+        if (view.isCameraOn) {
+          const eyeOrg = view.camera.getEyePoint().minus(origin); // vector from eye to origin
+          this.toViewOrientation(eyeOrg);
 
           const frontDist = eyeOrg.z - delta.z; // front distance is backDist - delta.z
 
           // allow ViewState to specify a minimum front dist, but in no case less than 6 inches
-          const minFrontDist = Math.max(15.2 * Constant.oneCentimeter, this.view.forceMinFrontDist);
+          const minFrontDist = Math.max(15.2 * Constant.oneCentimeter, view.forceMinFrontDist);
           if (frontDist < minFrontDist) {
             // camera is too close to front plane, move origin away from eye to maintain a minimum front distance.
-            this.toView(origin);
+            this.toViewOrientation(origin);
             origin.z -= (minFrontDist - frontDist);
-            this.fromView(origin);
+            this.fromViewOrientation(origin);
           }
         }
 
@@ -798,16 +613,16 @@ export class ViewFrustum {
       }
     } else { // 2d viewport
       this.alignWithRootZ();
-      delta.z = 2 * ViewFrustum.get2dFrustumDepth();
-      origin.z = -ViewFrustum.get2dFrustumDepth();
+      delta.z = 2 * ViewingSpace.frustumDepth2d;
+      origin.z = -ViewingSpace.frustumDepth2d;
     }
 
     this.viewOrigin.setFrom(origin);
     this.viewDelta.setFrom(delta);
 
-    const newRootToNpc = this.view.computeWorldToNpc(this.rotation, origin, delta, undefined === displayedPlane /* if displaying background map, don't enforce front/back ratio as no Z-Buffer */);
-    if (newRootToNpc.map === undefined) { // invalid frustum
-      this.invalidFrustum = true;
+    const newRootToNpc = view.computeWorldToNpc(this.rotation, origin, delta, 0 === displayedPlanes.length /* if displaying background map, don't enforce front/back ratio as no Z-Buffer */);
+    if (newRootToNpc.map === undefined) {
+      this.frustFraction = 0; // invalid frustum
       return;
     }
 
@@ -817,14 +632,16 @@ export class ViewFrustum {
   }
 
   /** @internal */
-  public static createFromViewport(vp: Viewport, view?: ViewState): ViewFrustum | undefined {
-    return new ViewFrustum(view !== undefined ? view : vp.view, vp.viewRect.width, vp.viewRect.height, vp.isAspectRatioLocked);
+  public static createFromViewport(vp: Viewport): ViewingSpace | undefined {
+    return new ViewingSpace(vp, vp.getDisplayedPlanes());
   }
 
   /** @internal */
-  public static createFromViewportAndPlane(vp: Viewport, plane: Plane3dByOriginAndUnitNormal): ViewFrustum | undefined {
-    const vf = new ViewFrustum(vp.view, vp.viewRect.width, vp.viewRect.height, vp.isAspectRatioLocked, plane);
-    return vf.invalidFrustum ? undefined : vf;
+  public static createFromViewportAndPlane(vp: Viewport, plane: Plane3dByOriginAndUnitNormal): ViewingSpace | undefined {
+    const planes = vp.getDisplayedPlanes();
+    planes.push(plane);
+    const vf = new ViewingSpace(vp, planes);
+    return 0 === vf.frustFraction ? undefined : vf;
   }
 
   /** Convert an array of points from CoordSystem.View to CoordSystem.Npc */
@@ -994,6 +811,11 @@ export namespace PerModelCategoryVisibility {
     setOverride(modelIds: Id64Arg, categoryIds: Id64Arg, override: Override): void;
     /** Removes all overrides for the specified models, or for all models if `modelIds` is undefined. */
     clearOverrides(modelIds?: Id64Arg): void;
+    /** Iterates each override.
+     * @param func Accepts the model and category Ids and a boolean indicating if the category is visible. Returns `false` to terminate iteration or `true` to continue.
+     * @returns `true` if iteration completed; `false` if the callback requested early termination.
+     */
+    forEachOverride(func: (modelId: Id64String, categoryId: Id64String, visible: boolean) => boolean): boolean;
   }
 }
 
@@ -1117,8 +939,8 @@ class PerModelCategoryVisibilityOverrides extends SortedArray<PerModelCategoryVi
       /* if (!this._vp.view.viewsModel(ovr.modelId))
         continue; */
 
-      // ###TODO: Avoid recomputing upper and lower portions of model ID if model ID repeated.
-      // (Array is sorted first by model ID).
+      // ###TODO: Avoid recomputing upper and lower portions of modelId if modelId repeated.
+      // (Array is sorted first by modelId).
       // Also avoid computing if no effective overrides.
       const modelLo = Id64.getLowerUint32(ovr.modelId);
       const modelHi = Id64.getUpperUint32(ovr.modelId);
@@ -1139,6 +961,14 @@ class PerModelCategoryVisibilityOverrides extends SortedArray<PerModelCategoryVi
         }
       }
     }
+  }
+
+  public forEachOverride(func: (modelId: Id64String, categoryId: Id64String, visible: boolean) => boolean): boolean {
+    for (const entry of this)
+      if (!func(entry.modelId, entry.categoryId, entry.visible))
+        return false;
+
+    return true;
   }
 }
 
@@ -1231,15 +1061,74 @@ export abstract class Viewport implements IDisposable {
    */
   public readonly onChangeView = new BeEvent<(vp: Viewport, previousViewState: ViewState) => void>();
 
+  private _view!: ViewState;
   private readonly _viewportId: number;
-  private _animationFraction = 0.0;
+  private _scheduleScriptFraction = 0.0;
   private _doContinuousRendering = false;
+  /** @internal */
+  protected _inViewChangedEvent = false;
+  /** @internal */
+  protected _decorationsValid = false;
+  /** @internal */
+  protected _sceneValid = false;
+  /** @internal */
+  protected _renderPlanValid = false;
+  /** @internal */
+  public get renderPlanValid() { return this._renderPlanValid; }
+  /** @internal */
+  public setRenderPlanValid() { this._renderPlanValid = true; }
+  /** @internal */
+  protected _controllerValid = false;
+  /** @internal */
+  public get controllerValid() { return this._controllerValid; }
+  /** @internal */
+  protected _scheduleScriptFractionValid = false;
+  private _redrawPending = false;
+
+  /** Mark the current set of decorations invalid, so that they will be recreated on the next render frame.
+   * This can be useful, for example, if an external event causes one or more current decorations to become invalid and you wish to force
+   * them to be recreated to show the changes.
+   * @note On the next frame, the `decorate` method of all [[ViewManager.decorators]] will be called. There is no way (or need) to
+   * invalidate individual decorations.
+   * @beta
+   */
+  public invalidateDecorations(): void {
+    this._decorationsValid = false;
+    IModelApp.requestNextAnimation();
+  }
+  /** @internal */
+  public invalidateScene(): void {
+    this._sceneValid = false;
+    this._scheduleScriptFractionValid = false;
+    this.invalidateDecorations();
+  }
+  /** @internal */
+  public invalidateRenderPlan(): void {
+    this._renderPlanValid = false;
+    this.invalidateScene();
+  }
+  /** @internal */
+  public invalidateController(): void {
+    this._controllerValid = false;
+    this.invalidateRenderPlan();
+  }
+
+  /** @internal */
+  public setValidScene() {
+    this._sceneValid = true;
+  }
+  /** @internal */
+  public setRedrawPending() {
+    this._redrawPending = true;
+  }
+
   private _animator?: Animator;
   /** @internal */
   protected _changeFlags = new ChangeFlags();
   private _scheduleTime = 0.0;
   private _selectionSetDirty = true;
   private readonly _perModelCategoryVisibility = new PerModelCategoryVisibilityOverrides(this);
+  private _tileSizeModifier?: number;
 
   /** @internal */
   public readonly subcategories = new SubCategoriesCache.Queue();
@@ -1264,10 +1153,6 @@ export abstract class Viewport implements IDisposable {
    * @internal
    */
   public lastFlashedElem?: string;
-  /** Maximum ratio of frontplane to backplane distance for 24 bit zbuffer.
-   * @internal
-   */
-  public static nearScale24 = 0.0003;
 
   /** The number of tiles selected for display in the view as of the most recently-drawn frame.
    * The tiles selected may not meet the desired level-of-detail for the view, instead being temporarily drawn while
@@ -1294,7 +1179,7 @@ export abstract class Viewport implements IDisposable {
 
   private _debugBoundingBoxes: Tile.DebugBoundingBoxes = Tile.DebugBoundingBoxes.None;
   private _freezeScene = false;
-  private _viewFrustum!: ViewFrustum;
+  private _viewingSpace!: ViewingSpace;
   private _target?: RenderTarget;
   private _fadeOutActive = false;
   private _neverDrawn?: Id64Set;
@@ -1303,24 +1188,26 @@ export abstract class Viewport implements IDisposable {
   private _featureOverrideProvider?: FeatureOverrideProvider;
   private readonly _tiledGraphicsProviders = new Set<TiledGraphicsProvider>();
   private _hilite = new Hilite.Settings();
+  private _emphasis = new Hilite.Settings(ColorDef.black.clone(), 0, 0, Hilite.Silhouette.Thick);
 
   /** @internal */
-  public get viewFrustum(): ViewFrustum { return this._viewFrustum; }
+  public get viewingSpace(): ViewingSpace { return this._viewingSpace; }
 
   /** This viewport's rotation matrix. */
-  public get rotation(): Matrix3d { return this._viewFrustum.rotation; }
+  public get rotation(): Matrix3d { return this._viewingSpace.rotation; }
   /** The vector between the opposite corners of this viewport's extents. */
-  public get viewDelta(): Vector3d { return this._viewFrustum.viewDelta; }
+  public get viewDelta(): Vector3d { return this._viewingSpace.viewDelta; }
   /** Provides conversions between world and view coordinates. */
-  public get worldToViewMap(): Map4d { return this._viewFrustum.worldToViewMap; }
+  public get worldToViewMap(): Map4d { return this._viewingSpace.worldToViewMap; }
   /** @internal */
-  public get frustFraction(): number { return this._viewFrustum.frustFraction; }
+  public get frustFraction(): number { return this._viewingSpace.frustFraction; }
 
   /** @internal */
-  public get animationFraction(): number { return this._animationFraction; }
-  /** @internal */
-  public set animationFraction(fraction: number) {
-    this._animationFraction = fraction; this.sync.invalidateAnimationFraction();
+  public get scheduleScriptFraction(): number { return this._scheduleScriptFraction; }
+  public set scheduleScriptFraction(fraction: number) {
+    this._scheduleScriptFraction = fraction;
+    this._scheduleScriptFractionValid = false;
+    IModelApp.requestNextAnimation();
   }
 
   /** @internal */
@@ -1337,14 +1224,29 @@ export abstract class Viewport implements IDisposable {
     return this._target!;
   }
 
-  /** @internal */
-  public readonly sync = new SyncFlags();
+  /** Returns true if this Viewport's [[dispose]] method has been invoked. It is an error to attempt to interact with a disposed Viewport.
+   * Typically a [[ScreenViewport]] becomes disposed as a result of a call to [[ViewManager.dropViewport]], often indirectly through the unmounting of a nine-zone UI's [[ViewportComponent]] when, e.g., switching front-stages.
+   * @public
+   */
+  public get isDisposed(): boolean {
+    return undefined === this._target;
+  }
 
   /** The settings that control how elements are hilited in this Viewport. */
   public get hilite(): Hilite.Settings { return this._hilite; }
   public set hilite(hilite: Hilite.Settings) {
     this._hilite = hilite;
-    this._selectionSetDirty = true;
+    this.invalidateRenderPlan();
+  }
+
+  /** The settings that control how emphasized elements are displayed in this Viewport. The default settings apply a thick black silhouette to the emphasized elements.
+   * @see [FeatureSymbology.Appearance.emphasized].
+   * @beta
+   */
+  public get emphasisSettings(): Hilite.Settings { return this._emphasis; }
+  public set emphasisSettings(settings: Hilite.Settings) {
+    this._emphasis = settings;
+    this.invalidateRenderPlan();
   }
 
   /** Determine whether the Grid display is currently enabled in this Viewport.
@@ -1420,9 +1322,10 @@ export abstract class Viewport implements IDisposable {
    */
   public isSubCategoryVisible(id: Id64String): boolean { return this.view.isSubCategoryVisible(id); }
 
-  private invalidateSceneForCategoryChange(): void {
+  private invalidateShadows(): void {
     // When shadows are being displayed and the set of displayed categories changes, we must invalidate the scene so that shadows will be regenerated.
-    if (this.sync.isValidScene && this.view.displayStyle.wantShadows)
+    // Same occurs when changing feature symbology overrides (e.g., always/never-drawn element sets, transparency override)
+    if (this._sceneValid && this.view.displayStyle.wantShadows)
       this.invalidateScene();
   }
 
@@ -1435,7 +1338,7 @@ export abstract class Viewport implements IDisposable {
    */
   public changeCategoryDisplay(categories: Id64Arg, display: boolean, enableAllSubCategories: boolean = false): void {
     this._changeFlags.setViewedCategories();
-    this.invalidateSceneForCategoryChange();
+    this.invalidateShadows();
 
     if (!display) {
       this.view.categorySelector.dropCategories(categories);
@@ -1489,7 +1392,7 @@ export abstract class Viewport implements IDisposable {
     const json = undefined !== curOvr ? curOvr.toJSON() : {};
     json.invisible = !display;
     this.overrideSubCategory(subCategoryId, SubCategoryOverride.fromJSON(json)); // will set the ChangeFlag appropriately
-    this.invalidateSceneForCategoryChange();
+    this.invalidateShadows();
   }
 
   /** The settings controlling how a background map is displayed within a view.
@@ -1537,7 +1440,7 @@ export abstract class Viewport implements IDisposable {
     (newView.baseModelId as Id64String) = baseModelId; // change its baseModelId.
 
     await newView.load(); // make sure new model is loaded.
-    this.changeView(newView); // switch this viewport to use new ViewState2d
+    this.changeView(newView, options); // switch this viewport to use new ViewState2d
 
     if (options && options.doFit) { // optionally fit view to the extents of the new model
       const range = await this.iModel.models.queryModelRanges([baseModelId]);
@@ -1623,13 +1526,12 @@ export abstract class Viewport implements IDisposable {
       return;
 
     // Need to redraw once models are available. Don't want to trigger events again.
-    return this.iModel.models.load(models).then(() => this.invalidateScene());
+    return this.iModel.models.load(models).then(() => {
+      this.invalidateScene();
+      if (this.view.isSpatialView())
+        this.view.markModelSelectorChanged();
+    });
   }
-
-  /** @internal */
-  public get wantAntiAliasLines(): AntiAliasPref { return AntiAliasPref.Off; }
-  /** @internal */
-  public get wantAntiAliasText(): AntiAliasPref { return AntiAliasPref.Detect; }
 
   /** Determines what type (if any) of debug graphics will be displayed to visualize [[Tile]] volumes.
    * @see [[Tile.DebugBoundingBoxes]]
@@ -1645,6 +1547,7 @@ export abstract class Viewport implements IDisposable {
   /** When true, the scene will never be recreated. Chiefly for debugging purposes.
    * @internal
    */
+  public get freezeScene(): boolean { return this._freezeScene; }
   public set freezeScene(freeze: boolean) {
     if (freeze !== this._freezeScene) {
       this._freezeScene = freeze;
@@ -1679,7 +1582,7 @@ export abstract class Viewport implements IDisposable {
   public getToolTip(hit: HitDetail): HTMLElement | string {
     let toolTip: string | HTMLElement = "";
     if (this.displayStyle) {
-      this.displayStyle.forEachRealityTileTreeRef((model) => {
+      this.displayStyle.forEachTileTreeRef((model) => {
         const thisToolTip = model.getToolTip(hit);
         if (thisToolTip !== undefined)
           toolTip = thisToolTip;
@@ -1713,26 +1616,32 @@ export abstract class Viewport implements IDisposable {
    * @note An application which enables continuous rendering should disable it as soon as it is no longer needed.
    */
   public get continuousRendering(): boolean { return this._doContinuousRendering; }
-  public set continuousRendering(contRend: boolean) { this._doContinuousRendering = contRend; }
-  /** This gives each Viewport a unique ID, which can be used for comparing and sorting Viewport objects inside collections.
+  public set continuousRendering(contRend: boolean) {
+    if (contRend !== this._doContinuousRendering) {
+      this._doContinuousRendering = contRend;
+      if (contRend)
+        IModelApp.requestNextAnimation();
+    }
+  }
+  /** This gives each Viewport a unique Id, which can be used for comparing and sorting Viewport objects inside collections.
    * @internal
    */
   public get viewportId(): number { return this._viewportId; }
 
   /** The ViewState for this Viewport */
-  public get view(): ViewState { return this._viewFrustum.view; }
+  public get view(): ViewState { return this._view; }
   /** @internal */
   public get pixelsPerInch() { /* ###TODO: This is apparently unobtainable information in a browser... */ return 96; }
   /** @internal */
   public get backgroundMapPlane() { return this.view.displayStyle.backgroundMapPlane; }
 
-  /** IDs of a set of elements which should not be rendered within this view.
+  /** Ids of a set of elements which should not be rendered within this view.
    * @note Do not modify this set directly - use [[setNeverDrawn]] or [[clearNeverDrawn]] instead.
    * @note This set takes precedence over the [[alwaysDrawn]] set - if an element is present in both sets, it is never drawn.
    */
   public get neverDrawn(): Id64Set | undefined { return this._neverDrawn; }
 
-  /** IDs of a set of elements which should always be rendered within this view, regardless of category and subcategory visibility.
+  /** Ids of a set of elements which should always be rendered within this view, regardless of category and subcategory visibility.
    * If the [[isAlwaysDrawnExclusive]] flag is also set, *only* those elements in this set will be drawn.
    * @note Do not modify this set directly - use [[setAlwaysDrawn]] or [[clearAlwaysDrawn]] instead.
    * @note The [[neverDrawn]] set takes precedence - if an element is present in both sets, it is never drawn.
@@ -1749,6 +1658,7 @@ export abstract class Viewport implements IDisposable {
 
       this._alwaysDrawnExclusive = false;
       this._changeFlags.setAlwaysDrawn();
+      this.invalidateShadows();
     }
   }
 
@@ -1759,19 +1669,21 @@ export abstract class Viewport implements IDisposable {
     if (undefined !== this.neverDrawn && 0 < this.neverDrawn.size) {
       this.neverDrawn.clear();
       this._changeFlags.setNeverDrawn();
+      this.invalidateShadows();
     }
   }
 
-  /** Specify the IDs of a set of elements which should never be rendered within this view.
+  /** Specify the Ids of a set of elements which should never be rendered within this view.
    * @see [[neverDrawn]].
    */
   public setNeverDrawn(ids: Id64Set): void {
     this._neverDrawn = ids;
     this._changeFlags.setNeverDrawn();
+    this.invalidateShadows();
   }
 
-  /** Specify the IDs of a set of elements which should always be rendered within this view, regardless of category and subcategory visibility.
-   * @param ids The IDs of the elements to always draw.
+  /** Specify the Ids of a set of elements which should always be rendered within this view, regardless of category and subcategory visibility.
+   * @param ids The Ids of the elements to always draw.
    * @param exclusive If true, *only* the specified elements will be drawn.
    * @see [[alwaysDrawn]]
    * @see [[isAlwaysDrawnExclusive]]
@@ -1780,6 +1692,7 @@ export abstract class Viewport implements IDisposable {
     this._alwaysDrawn = ids;
     this._alwaysDrawnExclusive = exclusive;
     this._changeFlags.setAlwaysDrawn();
+    this.invalidateShadows();
   }
 
   /** Returns true if the set of elements in the [[alwaysDrawn]] set are the *only* elements rendered within this view. */
@@ -1798,12 +1711,15 @@ export abstract class Viewport implements IDisposable {
     this._perModelCategoryVisibility.addOverrides(fs, ovrs);
   }
 
-  /** Sets an object which can customize the appearance of [[Feature]]s within a viewport.
+  /** An object which can customize the appearance of [[Feature]]s within a viewport.
    * If defined, the provider will be invoked whenever the overrides are determined to need updating.
    * The overrides can be explicitly marked as needing a refresh by calling [[Viewport.setFeatureOverrideProviderChanged]]. This is typically called when
    * the internal state of the provider changes such that the computed overrides must also change.
    * @see [[FeatureSymbology.Overrides]]
    */
+  public get featureOverrideProvider(): FeatureOverrideProvider | undefined {
+    return this._featureOverrideProvider;
+  }
   public set featureOverrideProvider(provider: FeatureOverrideProvider | undefined) {
     if (provider !== this._featureOverrideProvider) {
       this._featureOverrideProvider = provider;
@@ -1811,29 +1727,22 @@ export abstract class Viewport implements IDisposable {
     }
   }
 
-  /** Get the current FeatureOverrideProvider for this viewport if defined. */
-  public get featureOverrideProvider(): FeatureOverrideProvider | undefined {
-    return this._featureOverrideProvider;
-  }
-
   /** Notifies this viewport that the internal state of its [[FeatureOverrideProvider]] has changed such that its
    * [[FeatureSymbology.Overrides]] should be recomputed.
    */
   public setFeatureOverrideProviderChanged(): void {
     this._changeFlags.setFeatureOverrideProvider();
+    this.invalidateShadows();
   }
 
   /** @internal */
-  protected forEachTiledGraphicsProviderTree(func: (ref: TileTree.Reference) => void): void {
-    for (const provider of this._tiledGraphicsProviders) {
-      const ref = provider.getTileTree(this);
-      if (undefined !== ref)
-        func(ref);
-    }
+  protected forEachTiledGraphicsProviderTree(func: (ref: TileTreeReference) => void): void {
+    for (const provider of this._tiledGraphicsProviders)
+      provider.forEachTileTreeRef(this, (ref) => func(ref));
   }
 
   /** @internal */
-  public forEachTileTreeRef(func: (ref: TileTree.Reference) => void): void {
+  public forEachTileTreeRef(func: (ref: TileTreeReference) => void): void {
     this.view.forEachTileTreeRef(func);
     this.forEachTiledGraphicsProviderTree(func);
   }
@@ -1849,10 +1758,24 @@ export abstract class Viewport implements IDisposable {
   /** @internal */
   public addTiledGraphicsProvider(provider: TiledGraphicsProvider): void {
     this._tiledGraphicsProviders.add(provider);
+    this.invalidateScene();
   }
   /** @internal */
   public dropTiledGraphicsProvider(provider: TiledGraphicsProvider): void {
     this._tiledGraphicsProviders.delete(provider);
+    this.invalidateScene();
+  }
+
+  /** @internal */
+  public hasTiledGraphicsProvider(provider: TiledGraphicsProvider): boolean {
+    return this._tiledGraphicsProviders.has(provider);
+  }
+
+  /** @internal */
+  public getDisplayedPlanes(): Plane3dByOriginAndUnitNormal[] {
+    const planes: Plane3dByOriginAndUnitNormal[] = [];
+    this.forEachTileTreeRef((ref) => ref.addPlanes(planes));
+    return planes;
   }
 
   /** @internal */
@@ -1864,19 +1787,8 @@ export abstract class Viewport implements IDisposable {
   public markSelectionSetDirty() { this._selectionSetDirty = true; }
 
   /** True if this is a 3d view with the camera turned on. */
-  public get isCameraOn(): boolean { return this.view.is3d() && this.view.isCameraOn; }
+  public get isCameraOn(): boolean { return this.view.isCameraEnabled(); }
 
-  /** Mark the current set of decorations invalid, so that they will be recreated on the next render frame.
-   * This can be useful, for example, if an external event causes one or more current decorations to become invalid and you wish to force
-   * them to be recreated to show the changes.
-   * @note On the next frame, the `decorate` method of all [[ViewManager.decorators]] will be called. There is no way (or need) to
-   * invalidate individual decorations.
-   * @beta
-   */
-  public invalidateDecorations() { this.sync.invalidateDecorations(); }
-
-  /** @internal */
-  public invalidateRenderPlan() { this.sync.invalidateRenderPlan(); }
   /** @internal */
   public changeDynamics(dynamics: GraphicList | undefined): void {
     this.target.changeDynamics(dynamics);
@@ -1906,20 +1818,21 @@ export abstract class Viewport implements IDisposable {
   public get numRequestedTiles(): number { return IModelApp.tileAdmin.getNumRequestsForViewport(this); }
 
   /** @internal */
-  public toView(from: XYZ, to?: XYZ) { this._viewFrustum.toView(from, to); }
+  public toViewOrientation(from: XYZ, to?: XYZ) { this._viewingSpace.toViewOrientation(from, to); }
   /** @internal */
-  public fromView(from: XYZ, to?: XYZ) { this._viewFrustum.fromView(from, to); }
+  public fromViewOrientation(from: XYZ, to?: XYZ) { this._viewingSpace.fromViewOrientation(from, to); }
 
   /** Change the ViewState of this Viewport
    * @param view a fully loaded (see discussion at [[ViewState.load]] ) ViewState
+   * @param _opts options for how the view change operation  should work
    */
-  public changeView(view: ViewState) {
-    const prevView = undefined !== this.viewFrustum ? this.view : undefined;
+  public changeView(view: ViewState, _opts?: ViewChangeOptions) {
+    const prevView = this.view;
 
     this.updateChangeFlags(view);
     this.doSetupFromView(view);
     this.invalidateScene();
-    this.sync.invalidateController();
+    this.invalidateController();
     this.target.reset();
 
     if (undefined !== prevView && prevView !== view) {
@@ -1927,9 +1840,6 @@ export abstract class Viewport implements IDisposable {
       this._changeFlags.setViewState();
     }
   }
-
-  /** @internal */
-  public invalidateScene(): void { this.sync.invalidateScene(); }
 
   /** Computes the range of npc depth values for a region of the screen
    * @param rect the rectangle to test. If undefined, test entire view
@@ -1955,9 +1865,14 @@ export abstract class Viewport implements IDisposable {
       if (!pixels)
         return;
 
+      readRect.left = this.cssPixelsToDevicePixels(readRect.left);
+      readRect.right = this.cssPixelsToDevicePixels(readRect.right);
+      readRect.bottom = this.cssPixelsToDevicePixels(readRect.bottom);
+      readRect.top = this.cssPixelsToDevicePixels(readRect.top);
+
       let maximum = 0;
       let minimum = 1;
-      const frac = this._viewFrustum.frustFraction;
+      const frac = this._viewingSpace.frustFraction;
       for (let x = readRect.left; x < readRect.right; ++x) {
         for (let y = readRect.top; y < readRect.bottom; ++y) {
           let npcZ = pixels.getPixel(x, y).distanceFraction;
@@ -2008,7 +1923,7 @@ export abstract class Viewport implements IDisposable {
     // We need to figure out a new camera target. To do that, we need to know where the geometry is in the view.
     // We use the depth of the center of the view for that.
     let depthRange = this.determineVisibleDepthRange();
-    if (!depthRange)
+    if (undefined === depthRange || Geometry.isAlmostEqualNumber(depthRange.minimum, depthRange.maximum))
       depthRange = { minimum: 0, maximum: 1 };
 
     const middle = depthRange.minimum + ((depthRange.maximum - depthRange.minimum) / 2.0);
@@ -2035,83 +1950,98 @@ export abstract class Viewport implements IDisposable {
   }
 
   private doSetupFromView(view: ViewState) {
-    const vf = ViewFrustum.createFromViewport(this, view);
-    if (undefined === vf)
+    if (this._inViewChangedEvent)
+      return ViewStatus.Success; // ignore echos
+
+    if (!this.isAspectRatioLocked)
+      view.fixAspectRatio(this.viewRect.aspect);
+
+    this._view = view;
+
+    const viewSpace = ViewingSpace.createFromViewport(this);
+    if (undefined === viewSpace)
       return ViewStatus.InvalidViewport;
 
-    this._viewFrustum = vf;
+    this._viewingSpace = viewSpace;
 
-    this.sync.invalidateRenderPlan();
-    this.sync.setValidController();
+    this.invalidateRenderPlan();
+    this._controllerValid = true;
 
+    this._inViewChangedEvent = true;
     this.onViewChanged.raiseEvent(this);
+    this._inViewChangedEvent = false;
     return ViewStatus.Success;
   }
 
   /** Establish the parameters of this Viewport from the current information in its ViewState */
-  public setupFromView(): ViewStatus {
+  public setupFromView(pose?: ViewPose): ViewStatus {
+    if (undefined !== pose)
+      this.view.applyPose(pose);
     return this.doSetupFromView(this.view);
   }
 
-  /** Call [[setupFromView]] on this Viewport and optionally save previous state in view undo stack */
-  public synchWithView(_saveInUndo: boolean): void { this.setupFromView(); }
+  /** Call [[setupFromView]] on this Viewport and then apply optional behavior.
+   * @param options _options for behavior of view change. If undefined, all options have their default values (see [[ViewChangeOptions]] for details.)
+   * @note In previous versions, the argument was a boolean `saveInUndo`. For backwards compatibility, if `_options` is a boolean, it is interpreted as "{ noSaveInUndo: !_options }"
+   */
+  public synchWithView(_options?: ViewChangeOptions | boolean): void { this.setupFromView(); }
 
   /** Convert an array of points from CoordSystem.View to CoordSystem.Npc */
-  public viewToNpcArray(pts: Point3d[]): void { this._viewFrustum.viewToNpcArray(pts); }
+  public viewToNpcArray(pts: Point3d[]): void { this._viewingSpace.viewToNpcArray(pts); }
   /** Convert an array of points from CoordSystem.Npc to CoordSystem.View */
-  public npcToViewArray(pts: Point3d[]): void { this._viewFrustum.npcToViewArray(pts); }
+  public npcToViewArray(pts: Point3d[]): void { this._viewingSpace.npcToViewArray(pts); }
   /** Convert a point from CoordSystem.View to CoordSystem.Npc
    * @param pt the point to convert
    * @param out optional location for result. If undefined, a new Point3d is created.
    */
-  public viewToNpc(pt: Point3d, out?: Point3d): Point3d { return this._viewFrustum.viewToNpc(pt, out); }
+  public viewToNpc(pt: Point3d, out?: Point3d): Point3d { return this._viewingSpace.viewToNpc(pt, out); }
   /** Convert a point from CoordSystem.Npc to CoordSystem.View
    * @param pt the point to convert
    * @param out optional location for result. If undefined, a new Point3d is created.
    */
-  public npcToView(pt: Point3d, out?: Point3d): Point3d { return this._viewFrustum.npcToView(pt, out); }
+  public npcToView(pt: Point3d, out?: Point3d): Point3d { return this._viewingSpace.npcToView(pt, out); }
   /** Convert an array of points from CoordSystem.World to CoordSystem.Npc */
-  public worldToNpcArray(pts: Point3d[]): void { this._viewFrustum.worldToNpcArray(pts); }
+  public worldToNpcArray(pts: Point3d[]): void { this._viewingSpace.worldToNpcArray(pts); }
   /** Convert an array of points from CoordSystem.Npc to CoordSystem.World */
-  public npcToWorldArray(pts: Point3d[]): void { this._viewFrustum.npcToWorldArray(pts); }
+  public npcToWorldArray(pts: Point3d[]): void { this._viewingSpace.npcToWorldArray(pts); }
   /** Convert an array of points from CoordSystem.World to CoordSystem.View */
-  public worldToViewArray(pts: Point3d[]): void { this._viewFrustum.worldToViewArray(pts); }
+  public worldToViewArray(pts: Point3d[]): void { this._viewingSpace.worldToViewArray(pts); }
   /** Convert an array of points from CoordSystem.World to CoordSystem.View, as Point4ds */
-  public worldToView4dArray(worldPts: Point3d[], viewPts: Point4d[]): void { this._viewFrustum.worldToView4dArray(worldPts, viewPts); }
+  public worldToView4dArray(worldPts: Point3d[], viewPts: Point4d[]): void { this._viewingSpace.worldToView4dArray(worldPts, viewPts); }
   /** Convert an array of points from CoordSystem.View to CoordSystem.World */
-  public viewToWorldArray(pts: Point3d[]) { this._viewFrustum.viewToWorldArray(pts); }
+  public viewToWorldArray(pts: Point3d[]) { this._viewingSpace.viewToWorldArray(pts); }
   /** Convert an array of points from CoordSystem.View as Point4ds to CoordSystem.World */
-  public view4dToWorldArray(viewPts: Point4d[], worldPts: Point3d[]): void { this._viewFrustum.view4dToWorldArray(viewPts, worldPts); }
+  public view4dToWorldArray(viewPts: Point4d[], worldPts: Point3d[]): void { this._viewingSpace.view4dToWorldArray(viewPts, worldPts); }
   /** Convert a point from CoordSystem.World to CoordSystem.Npc
    * @param pt the point to convert
    * @param out optional location for result. If undefined, a new Point3d is created.
    */
-  public worldToNpc(pt: XYAndZ, out?: Point3d): Point3d { return this._viewFrustum.worldToNpc(pt, out); }
+  public worldToNpc(pt: XYAndZ, out?: Point3d): Point3d { return this._viewingSpace.worldToNpc(pt, out); }
   /** Convert a point from CoordSystem.Npc to CoordSystem.World
    * @param pt the point to convert
    * @param out optional location for result. If undefined, a new Point3d is created.
    */
-  public npcToWorld(pt: XYAndZ, out?: Point3d): Point3d { return this._viewFrustum.npcToWorld(pt, out); }
+  public npcToWorld(pt: XYAndZ, out?: Point3d): Point3d { return this._viewingSpace.npcToWorld(pt, out); }
   /** Convert a point from CoordSystem.World to CoordSystem.View
    * @param pt the point to convert
    * @param out optional location for result. If undefined, a new Point3d is created.
    */
-  public worldToView(input: XYAndZ, out?: Point3d): Point3d { return this._viewFrustum.worldToView(input, out); }
+  public worldToView(input: XYAndZ, out?: Point3d): Point3d { return this._viewingSpace.worldToView(input, out); }
   /** Convert a point from CoordSystem.World to CoordSystem.View as Point4d
    * @param input the point to convert
    * @param out optional location for result. If undefined, a new Point4d is created.
    */
-  public worldToView4d(input: XYAndZ, out?: Point4d): Point4d { return this._viewFrustum.worldToView4d(input, out); }
+  public worldToView4d(input: XYAndZ, out?: Point4d): Point4d { return this._viewingSpace.worldToView4d(input, out); }
   /** Convert a point from CoordSystem.View to CoordSystem.World
    * @param pt the point to convert
    * @param out optional location for result. If undefined, a new Point3d is created.
    */
-  public viewToWorld(input: XYAndZ, out?: Point3d): Point3d { return this._viewFrustum.viewToWorld(input, out); }
+  public viewToWorld(input: XYAndZ, out?: Point3d): Point3d { return this._viewingSpace.viewToWorld(input, out); }
   /** Convert a point from CoordSystem.View as a Point4d to CoordSystem.View
    * @param input the point to convert
    * @param out optional location for result. If undefined, a new Point3d is created.
    */
-  public view4dToWorld(input: Point4d, out?: Point3d): Point3d { return this._viewFrustum.view4dToWorld(input, out); }
+  public view4dToWorld(input: Point4d, out?: Point3d): Point3d { return this._viewingSpace.view4dToWorld(input, out); }
 
   /** Converts inches to pixels based on screen DPI.
    * @Note this information may not be accurate in some browsers.
@@ -2132,56 +2062,47 @@ export abstract class Viewport implements IDisposable {
    * @return the view frustum
    * @note The "adjusted" box may be either larger or smaller than the "unadjusted" box.
    */
-  public getFrustum(sys: CoordSystem = CoordSystem.World, adjustedBox: boolean = true, box?: Frustum): Frustum { return this._viewFrustum.getFrustum(sys, adjustedBox, box); }
+  public getFrustum(sys: CoordSystem = CoordSystem.World, adjustedBox: boolean = true, box?: Frustum): Frustum { return this._viewingSpace.getFrustum(sys, adjustedBox, box); }
 
-  /** Get a copy of the current (adjusted) frustum of this viewport, in world coordinates. */
-  public getWorldFrustum(box?: Frustum): Frustum { return this.getFrustum(CoordSystem.World, true, box); }
-
-  private finishViewChange(startFrust: Frustum, options?: ViewChangeOptions) {
-    options = options === undefined ? {} : options;
-    this.synchWithView(options.saveInUndo === undefined || options.saveInUndo);
-    if (options.animateFrustumChange === undefined || options.animateFrustumChange)
-      this.animateFrustumChange(startFrust, this.getFrustum(), options.animationTime);
-  }
+  /** Get a copy of the current (unadjusted) frustum of this viewport, in world coordinates. */
+  public getWorldFrustum(box?: Frustum): Frustum { return this.getFrustum(CoordSystem.World, false, box); }
 
   /** Scroll the view by a given number of pixels.
    * @param screenDist distance to scroll, in pixels
    */
-  public scroll(screenDist: Point2d, options?: ViewChangeOptions) {
+  public scroll(screenDist: XAndY, options?: ViewChangeOptions) {
     const view = this.view;
     if (!view)
       return;
 
-    const startFrust = this.getFrustum().clone();
-    if (view.is3d() && view.isCameraOn) {
-      const offset = new Vector3d(screenDist.x, screenDist.y, 0.0);
+    const distXYZ = new Point3d(screenDist.x, screenDist.y, 0);
+    if (view.isCameraEnabled()) {
       const frust = this.getFrustum(CoordSystem.View, false)!;
-      frust.translate(offset);
+      frust.translate(distXYZ);
       this.viewToWorldArray(frust.points);
       view.setupFromFrustum(frust);
       view.centerEyePoint();
     } else {
-      const pts = [new Point3d(), new Point3d(screenDist.x, screenDist.y, 0)];
+      const pts = [new Point3d(), distXYZ];
       this.viewToWorldArray(pts);
       const dist = pts[1].minus(pts[0]);
-      const newOrg = view.getOrigin().plus(dist);
-      view.setOrigin(newOrg);
+      view.setOrigin(view.getOrigin().plus(dist));
     }
 
-    this.finishViewChange(startFrust, options);
+    this.synchWithView(options);
   }
 
-  /** Zoom the view by a scale factor, placing the new center at the projection of the given point (world coordinates)
-   * on the focal plane.
-   * Updates ViewState and re-synchs Viewport. Does not save in view undo buffer.
+  /** Zoom the view by a scale factor, placing the new center at the given point (world coordinates).
+   * @param newCenter The new center point of the view, in world coordinates. If undefined, use current center.
+   * @param factor the zoom factor.
+   * @param options options for behavior of view change
    */
   public zoom(newCenter: Point3d | undefined, factor: number, options?: ViewChangeOptions): void {
     const view = this.view;
-    if (!view)
+    if (undefined === view)
       return;
 
-    const startFrust = this.getFrustum().clone();
-    if (view.is3d() && view.isCameraOn) {
+    if (view.isCameraEnabled()) {
       const centerNpc = newCenter ? this.worldToNpc(newCenter) : NpcCenter.clone();
       const scaleTransform = Transform.createFixedPointAndMatrix(centerNpc, Matrix3d.createScale(factor, factor, 1.0));
 
@@ -2200,37 +2121,29 @@ export abstract class Viewport implements IDisposable {
     } else {
       // for non-camera views, do the zooming by adjusting the origin and delta directly so there can be no
       // chance of the rotation changing due to numerical precision errors calculating it from the frustum corners.
-      const delta = view.getExtents().clone();
-      delta.x *= factor;
-      delta.y *= factor;
+      const delta = view.getExtents().scale(factor);
 
       // first check to see whether the zoom operation results in an invalid view. If so, make sure we don't change anything
-      view.validateViewDelta(delta, true);
+      if (ViewStatus.Success !== view.validateViewDelta(delta, true))
+        return;
 
-      const center = newCenter ? newCenter.clone() : view.getCenter().clone();
+      const rot = view.getRotation();
+      const center = rot.multiplyVector(newCenter ? newCenter : view.getCenter());
 
       if (!view.allow3dManipulations())
         center.z = 0.0;
 
-      const newOrg = view.getOrigin().clone();
-      this.toView(newOrg);
-      this.toView(center);
-
+      view.setOrigin(rot.multiplyTransposeVector(delta.scale(.5).vectorTo(center)));
       view.setExtents(delta);
-
-      newOrg.x = center.x - delta.x / 2.0;
-      newOrg.y = center.y - delta.y / 2.0;
-      this.fromView(newOrg);
-      view.setOrigin(newOrg);
     }
 
-    this.finishViewChange(startFrust, options);
+    this.synchWithView(options);
   }
 
   /** Zoom the view to a show the tightest box around a given set of PlacementProps. Optionally, change view rotation.
    * @param props array of PlacementProps. Will zoom to the union of the placements.
    * @param options options that control how the view change works and whether to change view rotation.
-   * @note any invalid placements are ignored (e.g., those having null range of nonsensical origin). If no valid placements are supplied, this function does nothing.
+   * @note any invalid placements are ignored. If no valid placements are supplied, this function does nothing.
    */
   public zoomToPlacementProps(placementProps: PlacementProps[], options?: ViewChangeOptions & ZoomToOptions) {
     const toPlacement = (placement: Placement2dProps | Placement3dProps): Placement2d | Placement3d => {
@@ -2242,20 +2155,21 @@ export abstract class Viewport implements IDisposable {
     if (-1 === indexOfFirstValidPlacement)
       return;
 
+    const view = this.view;
     if (undefined !== options) {
       if (undefined !== options.standardViewId) {
-        this.view.setStandardRotation(options.standardViewId);
+        view.setStandardRotation(options.standardViewId);
       } else if (undefined !== options.placementRelativeId) {
         const firstPlacement = toPlacement(placementProps[indexOfFirstValidPlacement]);
         const viewRotation = StandardView.getStandardRotation(options.placementRelativeId).clone();
         viewRotation.multiplyMatrixMatrixTranspose(firstPlacement.transform.matrix, viewRotation);
-        this.view.setRotation(viewRotation);
+        view.setRotation(viewRotation);
       } else if (undefined !== options.viewRotation) {
-        this.view.setRotation(options.viewRotation);
+        view.setRotation(options.viewRotation);
       }
     }
 
-    const viewTransform = Transform.createOriginAndMatrix(undefined, this.view.getRotation());
+    const viewTransform = Transform.createOriginAndMatrix(undefined, view.getRotation());
     const frust = new Frustum();
     const viewRange = new Range3d();
     for (let i = indexOfFirstValidPlacement; i < placementProps.length; i++) {
@@ -2264,8 +2178,8 @@ export abstract class Viewport implements IDisposable {
         viewRange.extendArray(placement.getWorldCorners(frust).points, viewTransform);
     }
 
-    this.view.lookAtViewAlignedVolume(viewRange, this.viewRect.aspect, options ? options.marginPercent : undefined);
-    this.finishViewChange(this.getFrustum().clone(), options);
+    view.lookAtViewAlignedVolume(viewRange, this.viewRect.aspect, options ? options.marginPercent : undefined);
+    this.synchWithView(options);
   }
 
   /** Zoom the view to a show the tightest box around a given set of ElementProps. Optionally, change view rotation.
@@ -2277,8 +2191,9 @@ export abstract class Viewport implements IDisposable {
       return;
     const placementProps: PlacementProps[] = [];
     for (const props of elementProps) {
-      if (props.placement !== undefined && this.view.viewsModel(props.model))
-        placementProps.push(props.placement);
+      const placement = (props as any).placement;
+      if (placement !== undefined && this.view.viewsModel(props.model))
+        placementProps.push(placement);
     }
     this.zoomToPlacementProps(placementProps, options);
   }
@@ -2297,7 +2212,7 @@ export abstract class Viewport implements IDisposable {
    */
   public zoomToVolume(volume: LowAndHighXYZ | LowAndHighXY, options?: ViewChangeOptions) {
     this.view.lookAtVolume(volume, this.viewRect.aspect, options ? options.marginPercent : undefined);
-    this.finishViewChange(this.getFrustum().clone(), options);
+    this.synchWithView(options);
   }
 
   /** Shortcut to call view.setupFromFrustum and then [[setupFromView]]
@@ -2313,29 +2228,22 @@ export abstract class Viewport implements IDisposable {
   /** @internal */
   public computeViewRange(): Range3d {
     this.setupFromView(); // can't proceed if viewport isn't valid (not active)
-    return this.view.computeFitRange();
+    const fitRange = this.view.computeFitRange();
+    this.forEachTiledGraphicsProviderTree((ref) => {
+      ref.unionFitRange(fitRange);
+    });
+    return fitRange;
   }
 
-  /** @internal */
-  public animate() {
-    if (this._animator && this._animator.animate())
-      this._animator = undefined;
-  }
-
-  /** @internal */
-  public removeAnimator() { this.setAnimator(undefined); }
-  private setAnimator(animator: Animator | undefined) {
+  /** Set or clear the animator for this Viewport.
+   * @param animator The new animator for this Viewport, or undefined to remove current animator.
+   * @note current animator's `interrupt` method will be called (if it has not completed yet)
+   * @beta
+   */
+  public setAnimator(animator?: Animator) {
     if (this._animator)
-      this._animator.interrupt(); // will be destroyed
+      this._animator.interrupt();
     this._animator = animator;
-  }
-
-  /** @internal */
-  public animateFrustumChange(start: Frustum, end: Frustum, animationTime?: BeDuration) {
-    if (!animationTime || 0.0 >= animationTime.milliseconds)
-      animationTime = ToolSettings.animationTime;
-
-    this.setAnimator(new Animator(animationTime, this, start, end));
   }
 
   /** Used strictly by TwoWayViewportSync to change the reactive viewport's view to a clone of the active viewport's ViewState.
@@ -2343,15 +2251,16 @@ export abstract class Viewport implements IDisposable {
    * @internal
    */
   public applyViewState(val: ViewState) {
+    this._view = val;
     this.updateChangeFlags(val);
-    this._viewFrustum.view = val;
-    this.synchWithView(false);
+    this._viewingSpace.view = val;
+    this.synchWithView({ noSaveInUndo: true });
   }
 
   /** Invoked from finishUndoRedo, applyViewState, and changeView to potentially recompute change flags based on differences between current and new ViewState. */
   protected updateChangeFlags(newView: ViewState): void {
     // Before the first call to changeView, this.view is undefined because we have no frustum. Our API pretends it is never undefined.
-    const oldView = undefined !== this.viewFrustum ? this.view : undefined;
+    const oldView = undefined !== this.viewingSpace ? this.view : undefined;
 
     if (undefined === oldView || oldView === newView)
       return;
@@ -2405,10 +2314,10 @@ export abstract class Viewport implements IDisposable {
     switch (this.view.getGridOrientation()) {
       case GridOrientationType.View: {
         const center = this.view.getCenter();
-        this.toView(center);
-        this.toView(origin);
+        this.toViewOrientation(center);
+        this.toViewOrientation(origin);
         origin.z = center.z;
-        this.fromView(origin);
+        this.fromViewOrientation(origin);
         break;
       }
 
@@ -2431,10 +2340,10 @@ export abstract class Viewport implements IDisposable {
     const planeNormal = rMatrix.getRow(2);
 
     let eyeVec: Vector3d;
-    if (this.view.is3d() && this.isCameraOn)
+    if (this.view.isCameraEnabled())
       eyeVec = this.view.camera.eye.vectorTo(point);
     else
-      eyeVec = this._viewFrustum.rotation.getRow(2).clone();
+      eyeVec = this._viewingSpace.rotation.getRow(2);
 
     eyeVec.normalizeInPlace();
     linePlaneIntersect(point, point, eyeVec, origin, planeNormal, false);
@@ -2442,8 +2351,8 @@ export abstract class Viewport implements IDisposable {
     // // get origin and point in view coordinate system
     const pointView = point.clone();
     const originView = origin.clone();
-    this.toView(pointView);
-    this.toView(originView);
+    this.toViewOrientation(pointView);
+    this.toViewOrientation(originView);
 
     // subtract off the origin
     pointView.y -= originView.y;
@@ -2459,7 +2368,7 @@ export abstract class Viewport implements IDisposable {
     pointView.y += originView.y;
 
     // go back to root coordinate system
-    this.fromView(pointView);
+    this.fromViewOrientation(pointView);
     point.setFrom(pointView);
   }
 
@@ -2537,29 +2446,33 @@ export abstract class Viewport implements IDisposable {
   public readonly onRender = new BeEvent<(vp: Viewport) => void>();
 
   /** @internal */
-  public renderFrame(): boolean {
+  protected validateRenderPlan() {
+    this.target.changeRenderPlan(RenderPlan.createFromViewport(this));
+    this._renderPlanValid = true;
+  }
+
+  /** @internal */
+  public renderFrame(): void {
     const changeFlags = this._changeFlags;
     if (changeFlags.hasChanges)
       this._changeFlags = new ChangeFlags(ChangeFlag.None);
 
-    const sync = this.sync;
     const view = this.view;
     const target = this.target;
 
     // Start timer for tile loading time
     const timer = new StopWatch(undefined, true);
 
-    this.animate();
+    // if any animation is active, perform it now
+    if (this._animator && this._animator.animate())
+      this._animator = undefined; // animation completed
 
-    // Allow ViewState instance to change any state which might affect logic below...
-    view.onRenderFrame(this);
-
-    let isRedrawNeeded = sync.isRedrawPending || this._doContinuousRendering;
-    sync.invalidateRedrawPending();
+    let isRedrawNeeded = this._redrawPending || this._doContinuousRendering;
+    this._redrawPending = false;
 
     if (target.updateViewRect()) {
       target.onResized();
-      sync.invalidateController();
+      this.invalidateController();
     }
 
     if (this._selectionSetDirty) {
@@ -2570,10 +2483,10 @@ export abstract class Viewport implements IDisposable {
 
     let overridesNeeded = changeFlags.areFeatureOverridesDirty;
 
-    if (!sync.isValidAnimationFraction) {
-      target.animationFraction = this.animationFraction;
+    if (!this._scheduleScriptFractionValid) {
+      target.animationFraction = this.scheduleScriptFraction;
       isRedrawNeeded = true;
-      sync.setValidAnimationFraction();
+      this._scheduleScriptFractionValid = true;
       const scheduleScript = view.displayStyle.scheduleScript;
       if (scheduleScript) {
         const scheduleTime = scheduleScript.duration.fractionToPoint(target.animationFraction);
@@ -2592,10 +2505,10 @@ export abstract class Viewport implements IDisposable {
       isRedrawNeeded = true;
     }
 
-    if (!sync.isValidController)
+    if (!this._controllerValid)
       this.setupFromView();
 
-    if (!sync.isValidScene) {
+    if (!this._sceneValid) {
       if (!this._freezeScene) {
         this.numSelectedTiles = this.numReadyTiles = 0;
         const context = this.createSceneContext();
@@ -2606,32 +2519,35 @@ export abstract class Viewport implements IDisposable {
 
         target.changeScene(context.graphics);
         target.changeBackgroundMap(context.backgroundGraphics);
+        target.changeOverlayGraphics(context.overlayGraphics);
         target.changePlanarClassifiers(context.planarClassifiers);
-        target.changeSolarShadowMap(context.solarShadowMap);
+        target.changeActiveVolumeClassifierProps(context.getActiveVolumeClassifierProps(), context.getActiveVolumeClassifierModelId());
         target.changeTextureDrapes(context.textureDrapes);
 
         isRedrawNeeded = true;
       }
 
-      sync.setValidScene();
+      this._sceneValid = true;
     }
 
-    if (!sync.isValidRenderPlan) {
-      target.changeRenderPlan(RenderPlan.createFromViewport(this));
-      sync.setValidRenderPlan();
+    if (!this._renderPlanValid) {
+      this.validateRenderPlan();
       isRedrawNeeded = true;
     }
 
-    if (!sync.isValidDecorations) {
+    if (!this._decorationsValid) {
       const decorations = new Decorations();
       this.addDecorations(decorations);
       target.changeDecorations(decorations);
+      this._decorationsValid = true;
       isRedrawNeeded = true;
     }
 
+    let requestNextAnimation = false;
     if (this.processFlash()) {
       target.setFlashed(undefined !== this._flashedElem ? this._flashedElem : Id64.invalid, this.flashIntensity);
       isRedrawNeeded = true;
+      requestNextAnimation = undefined !== this._flashedElem;
     }
 
     timer.stop();
@@ -2670,16 +2586,17 @@ export abstract class Viewport implements IDisposable {
       }
     }
 
-    return true;
+    if (requestNextAnimation || undefined !== this._animator || this.continuousRendering)
+      IModelApp.requestNextAnimation();
   }
 
   /** @internal */
-  public addDecorations(_decorations: Decorations): void { }
+  protected addDecorations(_decorations: Decorations): void { }
 
   /** Read selected data about each pixel within a rectangular region of this Viewport.
-   * @param rect The area of the viewport's contents to read. The origin specifies the upper-left corner. Must lie entirely within the viewport's dimensions.
+   * @param rect The area of the viewport's contents to read. The origin specifies the upper-left corner. Must lie entirely within the viewport's dimensions. This input viewport is specified using CSS pixels not device pixels.
    * @param selector Specifies which aspect(s) of data to read.
-   * @param receiver A function accepting a [[Pixel.Buffer]] object from which the selected data can be retrieved, or receiving undefined if the viewport is not active, the rect is out of bounds, or some other error.
+   * @param receiver A function accepting a [[Pixel.Buffer]] object from which the selected data can be retrieved, or receiving undefined if the viewport is not active, the rect is out of bounds, or some other error. The pixels received will be device pixels, not CSS pixels. See [[Viewport.devicePixelRatio]] and [[Viewport.cssPixelsToDevicePixels]].
    * @param excludeNonLocatable If true, geometry with the "non-locatable" flag set will not be drawn.
    * @note The [[Pixel.Buffer]] supplied to the `receiver` function becomes invalid once that function exits. Do not store a reference to it.
    * @beta
@@ -2697,10 +2614,17 @@ export abstract class Viewport implements IDisposable {
    * @param targetSize The size of the image to be returned. The size can be larger or smaller than the original view.
    * @param flipVertically If true, the image is flipped along the x-axis.
    * @returns The contents of the viewport within the specified rectangle as a bitmap image, or undefined if the image could not be read.
-   * @note By default the image is returned upside-down. Pass `true` for `flipVertically` to flip it along the x-axis.
+   * @note By default the image is returned with the coordinate (0,0) referring to the bottom-most pixel. Pass `true` for `flipVertically` to flip it along the x-axis.
    */
   public readImage(rect: ViewRect = new ViewRect(0, 0, -1, -1), targetSize: Point2d = Point2d.createZero(), flipVertically: boolean = false): ImageBuffer | undefined {
     return this.target.readImage(rect, targetSize, flipVertically);
+  }
+
+  /** Reads the current image from this viewport into an HTMLCanvasElement with a Canvas2dRenderingContext such that additional 2d graphics can be drawn onto it.
+   * @internal
+   */
+  public readImageToCanvas(): HTMLCanvasElement {
+    return this.target.readImageToCanvas();
   }
 
   /** Get the point at the specified x and y location in the pixel buffer in npc coordinates
@@ -2711,14 +2635,18 @@ export abstract class Viewport implements IDisposable {
     if (z <= 0.0)
       return undefined;
 
-    const vf = this._viewFrustum;
+    const viewSpace = this._viewingSpace;
 
     const result = undefined !== out ? out : new Point3d();
-    const viewRect = this.viewRect;
+    const viewRect = this.viewRect.clone();
+    viewRect.left = this.cssPixelsToDevicePixels(viewRect.left);
+    viewRect.right = this.cssPixelsToDevicePixels(viewRect.right);
+    viewRect.bottom = this.cssPixelsToDevicePixels(viewRect.bottom);
+    viewRect.top = this.cssPixelsToDevicePixels(viewRect.top);
     result.x = (x + 0.5 - viewRect.left) / viewRect.width;
     result.y = 1.0 - (y + 0.5 - viewRect.top) / viewRect.height;
-    if (vf.frustFraction < 1.0)
-      result.z = z * vf.frustFraction / (1.0 + z * (vf.frustFraction - 1.0)); // correct to npc if camera on.
+    if (viewSpace.frustFraction < 1.0)
+      result.z = z * viewSpace.frustFraction / (1.0 + z * (viewSpace.frustFraction - 1.0)); // correct to npc if camera on.
     else
       result.z = z;
 
@@ -2742,8 +2670,57 @@ export abstract class Viewport implements IDisposable {
     this.discloseTileTrees(trees);
     for (const tree of trees.trees)
       tree.collectStatistics(stats);
+  }
 
-    // ###TODO: Want to record memory used by RenderTarget?
+  /** Intended strictly as a temporary solution for interactive editing applications, until official support for such apps is implemented.
+   * Invalidates tile trees for all specified models (or all viewed models, if none specified), causing subsequent requests for tiles to make new requests to back-end for updated tiles.
+   * @internal
+   */
+  public refreshForModifiedModels(modelIds: Id64Arg | undefined): void {
+    if (this.view.refreshForModifiedModels(modelIds))
+      this.invalidateScene();
+  }
+
+  /** A multiplier applied to the size in pixels of a [[Tile]] during tile selection for this viewport. Defaults to [[TileAdmin.defaultTileSizeModifier]] but can be overridden per-viewport.
+   * A value greater than 1.0 causes lower-resolution tiles to be selected; a value less than 1.0 causes higher-resolution tiles to be selected.
+   * This can allow an application to sacrifice quality for performance or vice-versa.
+   * @alpha
+   */
+  public get tileSizeModifier(): number {
+    return undefined !== this._tileSizeModifier ? this._tileSizeModifier : IModelApp.tileAdmin.defaultTileSizeModifier;
+  }
+
+  /** Controls this Viewport's [[tileSizeModifier]].
+   * @param modifier If defined, overrides [[TileAdmin.defaultTileSizeModifier]]; otherwise, resets it to that default. Must be greater than zero.
+   * @alpha
+   */
+  public setTileSizeModifier(modifier: number | undefined) {
+    if (modifier === this._tileSizeModifier)
+      return;
+
+    if (undefined !== modifier && (Number.isNaN(modifier) || modifier <= 0))
+      return;
+
+    this._tileSizeModifier = modifier;
+    this.invalidateScene();
+  }
+
+  /** The device pixel ratio used by this Viewport. This value is *not* necessarily equal to `window.devicePixelRatio`.
+   * See: https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio
+   * @beta
+   */
+  public get devicePixelRatio(): number {
+    return this.target.devicePixelRatio;
+  }
+
+  /** Convert a number in CSS pixels to device pixels using this Viewport's device pixel ratio.
+   * See: https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio
+   * @param num The number in CSS pixels to scale
+   * @returns The resulting number in device pixels
+   * @beta
+   */
+  public cssPixelsToDevicePixels(cssPixels: number): number {
+    return this.target.cssPixelsToDevicePixels(cssPixels);
   }
 }
 
@@ -2775,13 +2752,56 @@ export abstract class Viewport implements IDisposable {
  * @public
  */
 export class ScreenViewport extends Viewport {
+
+  /** Settings that may be adjusted to control the way animations of viewing operations work.
+   * @beta
+   */
+  public static animation = {
+    /** Duration of animations of viewing operations. */
+    time: {
+      fast: BeDuration.fromSeconds(.75),
+      normal: BeDuration.fromSeconds(1.25),
+      slow: BeDuration.fromSeconds(2.0),
+      wheel: BeDuration.fromSeconds(.175), // zooming with the wheel
+    },
+    /** The easing function to use for view animations. */
+    easing: Easing.Cubic.Out,
+    /** ZoomOut pertains to view transitions that move far distances, but maintain the same view direction.
+     * In that case we zoom out, move the camera, and zoom back in rather than transitioning linearly to
+     * provide context for the starting and ending positions. These settings control how and when that happens.
+     */
+    zoomOut: {
+      /** whether to allow zooming out. If you don't want it, set this to false. */
+      enable: true,
+      /** The interpolation function used for camera height and position over the zoomOut operation. */
+      interpolation: Interpolation.Bezier,
+      /** Array of fractional height the camera rises over the animation. Height is interpolated over the array during the duration of the zoom operation.
+       * At 1.0 it will be high enough that both are visible if the camera were centered between then.
+       * Must start and end at 0.
+       */
+      heights: [0, 1.5, 2.0, 1.8, 1.5, 1.2, 1, 0],
+      /** Array of fractional positions of the camera from starting to ending location when zooming.
+       * Position is interpolated from the array using the interpolation function over the duration of the zoom operation (see tween.ts)
+       * Must start at 0 and end at 1.
+       */
+      positions: [0, 0, .1, .3, .5, .8, 1],
+      /** zoom out/in only if the beginning and ending view's range, each expanded by this factor, overlap. */
+      margin: 2.5,
+      /** multiply the duration of the animation by this factor if perform a zoom out. */
+      durationFactor: 2,
+    },
+  };
+
   private _evController?: EventController;
   private _viewCmdTargetCenter?: Point3d;
   /** The number of entries in the view undo/redo buffer. */
   public maxUndoSteps = 20;
-  private readonly _forwardStack: ViewStateUndo[] = [];
-  private readonly _backStack: ViewStateUndo[] = [];
-  private _currentBaseline?: ViewStateUndo;
+  private readonly _forwardStack: ViewPose[] = [];
+  private readonly _backStack: ViewPose[] = [];
+  private _currentBaseline?: ViewPose;
+  private _lastPose?: ViewPose; // the pose the last time this view was rendered
+  private _webglCanvas?: HTMLCanvasElement;
+  private _logo!: HTMLImageElement;
 
   /** The parent HTMLDivElement of the canvas. */
   public readonly parentDiv: HTMLDivElement;
@@ -2828,12 +2848,11 @@ export class ScreenViewport extends Viewport {
     style.top = style.left = "0";
     style.height = style.width = "100%";
   }
+
   /**  add a child element to this.vpDiv and set its size and position the same as the parent.  */
   private addChildDiv(parent: HTMLElement, element: HTMLElement, zIndex: number) {
     ScreenViewport.setToParentSize(element);
-    // get the (computed) z-index value of the parent, as an integer.
-    const parentZ = parseInt(window.getComputedStyle(this.vpDiv).zIndex || "0", 10);
-    element.style.zIndex = (parentZ + zIndex).toString();
+    element.style.zIndex = zIndex.toString();
     parent.appendChild(element);
   }
 
@@ -2847,8 +2866,32 @@ export class ScreenViewport extends Viewport {
     return div;
   }
 
+  /** The HTMLImageElement of the iModel.js logo displayed in this ScreenViewport
+   * @beta
+   */
+  public get logo() { return this._logo; }
+
   /** @internal */
-  constructor(canvas: HTMLCanvasElement, parentDiv: HTMLDivElement, target: RenderTarget) {
+  protected addLogo() {
+    const logo = this._logo = IModelApp.makeHTMLElement("img", { parent: this.vpDiv, className: "imodeljs-icon" });
+    logo.src = "images/imodeljs-icon.svg";
+
+    const showLogos = (ev: Event) => {
+      const aboutBox = IModelApp.makeModalDiv({ autoClose: true, width: 460, closeBox: true }).modal;
+      const logos = IModelApp.makeHTMLElement("table", { parent: aboutBox, className: "logo-cards" });
+      if (undefined !== IModelApp.applicationLogoCard)
+        logos.appendChild(IModelApp.applicationLogoCard());
+      logos.appendChild(IModelApp.makeIModelJsLogoCard());
+      this.displayStyle.getAttribution(logos, this);
+      ev.stopPropagation();
+    };
+    logo.onclick = showLogos;
+    logo.addEventListener("touchstart", showLogos);
+    logo.onmousemove = logo.onmousedown = logo.onmouseup = (ev) => ev.stopPropagation();
+  }
+
+  /** @internal */
+  protected constructor(canvas: HTMLCanvasElement, parentDiv: HTMLDivElement, target: RenderTarget) {
     super(target);
     this.canvas = canvas;
     this.parentDiv = parentDiv;
@@ -2856,8 +2899,7 @@ export class ScreenViewport extends Viewport {
     // first remove all children of the parent Div
     ScreenViewport.removeAllChildren(parentDiv);
 
-    const div = this.vpDiv = document.createElement("div");
-    div.className = "imodeljs-vp";
+    const div = this.vpDiv = IModelApp.makeHTMLElement("div", { className: "imodeljs-vp" });
     this.addChildDiv(this.parentDiv, div, 0);
 
     this.addChildDiv(this.vpDiv, canvas, 10);
@@ -2866,6 +2908,7 @@ export class ScreenViewport extends Viewport {
     this.decorationDiv = this.addNewDiv("overlay-decorators", true, 30);
     this.toolTipDiv = this.addNewDiv("overlay-tooltip", false, 40);
     this.setCursor();
+    this.addLogo();
   }
 
   /** Open the toolTip window in this ScreenViewport with the supplied message and location. The tooltip will be a child of [[ScreenViewport.toolTipDiv]].
@@ -2878,8 +2921,24 @@ export class ScreenViewport extends Viewport {
     IModelApp.notifications.openToolTip(this.toolTipDiv, message, location, options);
   }
 
+  /** @internal */
+  public mousePosFromEvent(ev: MouseEvent): XAndY {
+    const rect = this.getClientRect();
+    return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
+  }
+
+  /** @internal */
+  public mouseMovementFromEvent(ev: MouseEvent): XAndY {
+    return { x: ev.movementX, y: ev.movementY };
+  }
+
   /** Set the event controller for this Viewport. Destroys previous controller, if one was defined. */
-  public setEventController(controller: EventController | undefined) { if (this._evController) { this._evController.destroy(); } this._evController = controller; }
+  public setEventController(controller?: EventController) {
+    if (this._evController)
+      this._evController.destroy();
+
+    this._evController = controller;
+  }
 
   /** Find a point on geometry visible in this Viewport, within a radius of supplied pick point.
    * @param pickPoint Point to search about, in world coordinates
@@ -2888,17 +2947,42 @@ export class ScreenViewport extends Viewport {
    * @param out Optional Point3d to hold the result. If undefined, a new Point3d is returned.
    * @returns The point, in world coordinates, on the element closest to `pickPoint`, or undefined if no elements within `radius`.
    */
-  public pickNearestVisibleGeometry(pickPoint: Point3d, radius: number, allowNonLocatable = true, out?: Point3d): Point3d | undefined {
-    const picker = new ElementPicker();
-    const options = new LocateOptions();
-    options.allowNonLocatable = allowNonLocatable;
-    if (0 !== picker.doPick(this, pickPoint, radius, options)) {
-      const result = undefined !== out ? out : new Point3d();
-      result.setFrom(picker.getHit(0)!.getPoint());
-      return result;
-    }
-    if (undefined === this.backgroundMapPlane)
+  public pickNearestVisibleGeometry(pickPoint: Point3d, radius?: number, allowNonLocatable = true, out?: Point3d): Point3d | undefined {
+    const depthResult = this.pickDepthPoint(pickPoint, radius, { excludeNonLocatable: !allowNonLocatable });
+    if (DepthPointSource.TargetPoint === depthResult.source)
       return undefined;
+    const result = undefined !== out ? out : new Point3d();
+    result.setFrom(depthResult.plane.getOriginRef());
+    return result;
+  }
+
+  /** Find a point on geometry visible in this Viewport, within a radius of supplied pick point.
+   * If no geometry is selected, return the point projected to the most appropriate reference plane.
+   * @param pickPoint Point to search about, in world coordinates
+   * @param radius Radius, in pixels, of the circular area to search.
+   * @param options Optional settings to control what can be selected.
+   * @returns A plane with origin from closest geometry point or reference plane projection and the source of the depth point.
+   * @note The result plane normal is valid when the source is not geometry or a reality model.
+   * @alpha
+   */
+  public pickDepthPoint(pickPoint: Point3d, radius?: number, options?: DepthPointOptions): { plane: Plane3dByOriginAndUnitNormal, source: DepthPointSource, sourceId?: string } {
+    if (!this.view.is3d())
+      return { plane: Plane3dByOriginAndUnitNormal.createXYPlane(pickPoint), source: DepthPointSource.ACS };
+
+    if (undefined === radius)
+      radius = this.pixelsFromInches(ToolSettings.viewToolPickRadiusInches);
+
+    const picker = new ElementPicker();
+    const locateOpts = new LocateOptions();
+    locateOpts.allowNonLocatable = (undefined === options || !options.excludeNonLocatable);
+    locateOpts.allowDecorations = (undefined === options || !options.excludeDecorations);
+    locateOpts.allowExternalIModels = (undefined === options || !options.excludeExternalIModels);
+
+    if (0 !== picker.doPick(this, pickPoint, radius, locateOpts)) {
+      const hitDetail = picker.getHit(0)!;
+      const geomPlane = Plane3dByOriginAndUnitNormal.create(hitDetail.getPoint(), this.view.getZVector())!;
+      return { plane: geomPlane, source: (hitDetail.isModelHit ? DepthPointSource.Model : DepthPointSource.Geometry), sourceId: hitDetail.sourceId };
+    }
 
     const eyePoint = this.worldToViewMap.transform1.columnZ();
     const direction = Vector3d.createFrom(eyePoint);
@@ -2908,14 +2992,43 @@ export class ScreenViewport extends Viewport {
       direction.setFrom(pickPoint.vectorTo(xyzEye));
     }
     direction.scaleToLength(-1.0, direction);
-    const rayToEye = Ray3d.create(pickPoint, direction);
+    const boresite = Ray3d.create(pickPoint, direction);
     const projectedPt = Point3d.createZero();
-    if (undefined === rayToEye.intersectionWithPlane(this.backgroundMapPlane, projectedPt))
-      return undefined;
 
-    const mapResult = undefined !== out ? out : new Point3d();
-    mapResult.setFrom(projectedPt);
-    return mapResult;
+    // returns true if there's an intersection that isn't behind the front plane
+    const boresiteIntersect = (plane: Plane3dByOriginAndUnitNormal) => {
+      const dist = boresite.intersectionWithPlane(plane, projectedPt);
+      if (undefined === dist)
+        return false;
+      const npcPt = this.worldToNpc(projectedPt);
+      return npcPt.z < 1.0;
+    };
+
+    if (undefined !== this.backgroundMapPlane && boresiteIntersect(this.backgroundMapPlane))
+      return { plane: Plane3dByOriginAndUnitNormal.create(projectedPt, this.backgroundMapPlane.getNormalRef())!, source: DepthPointSource.BackgroundMap };
+
+    if (this.view.getDisplayStyle3d().environment.ground.display) {
+      const groundPlane = Plane3dByOriginAndUnitNormal.create(Point3d.create(0, 0, this.view.getGroundElevation()), Vector3d.unitZ());
+      if (undefined !== groundPlane && boresiteIntersect(groundPlane))
+        return { plane: Plane3dByOriginAndUnitNormal.create(projectedPt, groundPlane.getNormalRef())!, source: DepthPointSource.GroundPlane };
+    }
+
+    const acsPlane = Plane3dByOriginAndUnitNormal.create(this.getAuxCoordOrigin(), this.getAuxCoordRotation().getRow(2));
+    if (undefined !== acsPlane && boresiteIntersect(acsPlane))
+      return { plane: Plane3dByOriginAndUnitNormal.create(projectedPt, acsPlane.getNormalRef())!, source: (this.isGridOn && GridOrientationType.AuxCoord === this.view.getGridOrientation() ? DepthPointSource.Grid : DepthPointSource.ACS) };
+
+    const targetPointNpc = this.worldToNpc(this.view.getTargetPoint());
+    if (targetPointNpc.z < 0.0 || targetPointNpc.z > 1.0)
+      targetPointNpc.z = 0.5;
+
+    this.worldToNpc(pickPoint, projectedPt); projectedPt.z = targetPointNpc.z; this.npcToWorld(projectedPt, projectedPt);
+    return { plane: Plane3dByOriginAndUnitNormal.create(projectedPt, this.view.getZVector())!, source: DepthPointSource.TargetPoint };
+  }
+
+  /** @internal */
+  public animateFrustumChange(options?: ViewAnimationOptions) {
+    if (this._lastPose && this._currentBaseline)
+      this.setAnimator(new FrustumAnimator(options ? options : {}, this, this._lastPose, this.view.savePose()));
   }
 
   /** @internal */
@@ -2928,7 +3041,7 @@ export class ScreenViewport extends Viewport {
   public get viewRect(): ViewRect { this._viewRange.init(0, 0, this.canvas.clientWidth, this.canvas.clientHeight); return this._viewRange; }
 
   /** @internal */
-  public addDecorations(decorations: Decorations): void {
+  protected addDecorations(decorations: Decorations): void {
     ScreenViewport.removeAllChildren(this.decorationDiv);
     const context = new DecorateContext(this, decorations);
     this.view.decorate(context);
@@ -2936,32 +3049,58 @@ export class ScreenViewport extends Viewport {
 
     for (const decorator of IModelApp.viewManager.decorators)
       decorator.decorate(context);
-
-    this.sync.setValidDecorations();
   }
 
   /** Change the cursor for this Viewport */
-  public setCursor(cursor: string = "default"): void { this.canvas.style.cursor = cursor; }
-
-  /** @internal */
-  public synchWithView(saveInUndo: boolean): void {
-    super.setupFromView();
-    if (saveInUndo)
-      this.saveViewUndo();
+  public setCursor(cursor: string = "default"): void {
+    this.canvas.style.cursor = cursor;
   }
 
+  /** @internal */
+  public synchWithView(options?: ViewChangeOptions | boolean): void {
+    options = (undefined === options) ? {} :
+      (typeof options !== "boolean") ? options : { noSaveInUndo: !options }; // for backwards compatibility, was "saveInUndo"
+
+    super.synchWithView(options);
+
+    if (true !== options.noSaveInUndo)
+      this.saveViewUndo();
+    if (true === options.animateFrustumChange)
+      this.animateFrustumChange(options);
+  }
+
+  /** @internal */
+  protected validateRenderPlan() {
+    super.validateRenderPlan();
+    this._lastPose = this.view.savePose();
+  }
   /** Change the ViewState of this Viewport
    * @param view a fully loaded (see discussion at [[ViewState.load]] ) ViewState
+   * @param opts options for how the view change operation should work
    */
-  public changeView(view: ViewState) {
-    this.clearViewUndo();
-    super.changeView(view);
+  public changeView(view: ViewState, opts?: ViewChangeOptions) {
+    if (view === this.view) // nothing to do
+      return;
+
+    this.setAnimator(undefined); // make sure we clear any active animators before we change views.
+
+    if (opts === undefined)
+      opts = { animationTime: ScreenViewport.animation.time.slow.milliseconds };
+
+    // determined whether we can animate this ViewState change
+    const doAnimate = this.view && this.view.hasSameCoordinates(view) && false !== opts.animateFrustumChange;
+    if (!doAnimate)
+      this.clearViewUndo(); // if we can animate, don't throw out view undo.
+
+    super.changeView(view, opts);
     this.saveViewUndo();
+
+    if (doAnimate)
+      this.animateFrustumChange(opts);
   }
 
   /** @internal */
   public get viewCmdTargetCenter(): Point3d | undefined { return this._viewCmdTargetCenter; }
-  /** @internal */
   public set viewCmdTargetCenter(center: Point3d | undefined) { this._viewCmdTargetCenter = center ? center.clone() : undefined; }
   /** True if an undoable viewing operation exists on the stack */
   public get isUndoPossible(): boolean { return 0 < this._backStack.length; }
@@ -2974,16 +3113,17 @@ export class ScreenViewport extends Viewport {
     this._currentBaseline = undefined;
     this._forwardStack.length = 0;
     this._backStack.length = 0;
+    this._lastPose = undefined;
   }
 
   /** Saves the current state of this viewport's [[ViewState]] in the undo stack, such that it can be restored by a call to [[ScreenViewport.doUndo]]. */
   public saveViewUndo(): void {
-    if (!this.view)
+    if (this._inViewChangedEvent) // echo from a view changed event.
       return;
 
     // the first time we're called we need to establish the baseline
     if (!this._currentBaseline)
-      this._currentBaseline = this.view.saveForUndo();
+      this._currentBaseline = this.view.savePose();
 
     if (this._currentBaseline.equalState(this.view))
       return; // nothing changed, we're done
@@ -3003,7 +3143,7 @@ export class ScreenViewport extends Viewport {
       this._forwardStack.length = 0; // not possible to do redo after this
     }
 
-    this._currentBaseline = this.view.saveForUndo();
+    this._currentBaseline = this.view.savePose();
   }
 
   /** Reverses the most recent change to the Viewport from the undo stack. */
@@ -3013,7 +3153,7 @@ export class ScreenViewport extends Viewport {
 
     this._forwardStack.push(this._currentBaseline);
     this._currentBaseline = this._backStack.pop()!;
-    this.view.setFromUndo(this._currentBaseline);
+    this.view.applyPose(this._currentBaseline);
     this.finishUndoRedo(animationTime);
     this.onViewUndoRedo.raiseEvent(this, ViewUndoEvent.Undo);
   }
@@ -3025,18 +3165,17 @@ export class ScreenViewport extends Viewport {
 
     this._backStack.push(this._currentBaseline!);
     this._currentBaseline = this._forwardStack.pop()!;
-    this.view.setFromUndo(this._currentBaseline);
+    this.view.applyPose(this._currentBaseline);
     this.finishUndoRedo(animationTime);
     this.onViewUndoRedo.raiseEvent(this, ViewUndoEvent.Redo);
   }
 
   /** @internal */
-  private finishUndoRedo(animationTime?: BeDuration): void {
+  private finishUndoRedo(duration?: BeDuration): void {
     this.updateChangeFlags(this.view);
-    const startFrust = undefined !== animationTime ? this.getFrustum() : undefined;
-    this.synchWithView(false);
-    if (undefined !== animationTime && undefined !== startFrust)
-      this.animateFrustumChange(startFrust, this.getFrustum(), animationTime);
+    this.setupFromView();
+    if (undefined !== duration)
+      this.animateFrustumChange({ animationTime: duration.milliseconds });
   }
 
   /** Clear the view undo buffer and establish the current ViewState as the new baseline. */
@@ -3085,14 +3224,16 @@ export class ScreenViewport extends Viewport {
   }
 
   /** @internal */
-  public drawLocateCursor(context: DecorateContext, pt: Point3d, aperture: number, isLocateCircleOn: boolean, hit?: HitDetail): void {
+  public drawLocateCursor(context: DecorateContext, viewPt: Point3d, aperture: number, isLocateCircleOn: boolean, hit?: HitDetail): void {
     if (hit)
       ScreenViewport.drawLocateHitDetail(context, aperture, hit);
 
     if (isLocateCircleOn) {
       // draw a filled and outlined circle to represent the size of the location aperture in the current view.
       const radius = Math.floor(aperture * 0.5) + 0.5;
-      const position = this.worldToView(pt); position.x = Math.floor(position.x) + 0.5; position.y = Math.floor(position.y) + 0.5;
+      const position = viewPt.clone();
+      position.x = Math.floor(position.x) + 0.5;
+      position.y = Math.floor(position.y) + 0.5;
       const drawDecoration = (ctx: CanvasRenderingContext2D) => {
         ctx.beginPath();
         ctx.strokeStyle = "rgba(255,255,255,.4)";
@@ -3108,6 +3249,35 @@ export class ScreenViewport extends Viewport {
       };
       context.addCanvasDecoration({ position, drawDecoration }, true);
     }
+  }
+
+  /** By default, a Viewport's webgl content is rendered to an off-screen canvas owned by the RenderSystem, then the resultant image is copied to the 2d rendering context
+   * belonging to the Viewport's own canvas. However, on non-chromium-based browsers this copying incurs a significant performance penalty. So, when only one Viewport
+   * needs to be drawn, we can switch to rendering the webgl content directly to the screen to improve performance in those browsers.
+   * ViewManager takes care of toggling this behavior.
+   * @internal
+   */
+  public get rendersToScreen(): boolean { return undefined !== this._webglCanvas; }
+  public set rendersToScreen(toScreen: boolean) {
+    if (toScreen === this.rendersToScreen)
+      return;
+
+    // Returns a webgl canvas if we're rendering webgl directly to the screen.
+    const webglCanvas = this.target.setRenderToScreen(toScreen);
+    if (undefined === webglCanvas) {
+      assert(undefined !== this._webglCanvas); // see getter...
+      this.vpDiv.removeChild(this._webglCanvas!);
+      this._webglCanvas = undefined;
+    } else {
+      assert(undefined === this._webglCanvas); // see getter...
+      this._webglCanvas = webglCanvas;
+
+      // this.canvas has zIndex 10. Make webgl canvas' zIndex lower so that canvas decorations draw on top.
+      this.addChildDiv(this.vpDiv, webglCanvas, 5);
+    }
+
+    this.target.updateViewRect();
+    this.invalidateRenderPlan();
   }
 }
 
@@ -3130,7 +3300,8 @@ export class TwoWayViewportSync {
   public connect(view1: Viewport, view2: Viewport) {
     this.disconnect();
 
-    view2.applyViewState(view1.view.clone(view2.iModel)); // use view1 as the starting point
+    const viewState2 = view1.view.clone(view2.iModel); // use view1 as the starting point
+    view2.applyViewState(viewState2);
 
     // listen to the onViewChanged events from both views
     this._removals.push(view1.onViewChanged.addListener(() => this.syncView(view1, view2)));
@@ -3153,7 +3324,7 @@ export class OffScreenViewport extends Viewport {
 
     const vp = new this(IModelApp.renderSystem.createOffscreenTarget(rect));
     vp.changeView(view);
-    vp.sync.setValidDecorations();  // decorations are not used offscreen
+    vp._decorationsValid = true;
     return vp;
   }
 

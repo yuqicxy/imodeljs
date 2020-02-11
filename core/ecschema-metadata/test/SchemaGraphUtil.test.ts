@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import * as path from "path";
@@ -42,8 +42,8 @@ describe("SchemaGraphUtil tests:", () => {
 
   it("buildDependencyOrderedSchemaList with same schema references, contains schema once", () => {
     // Arrange
-    const importSchema = new Schema(context, new SchemaKey("SchemaA", 1, 0, 0));
-    const refSchema = new Schema(context, new SchemaKey("SchemaB", 1, 0, 0));
+    const importSchema = new Schema(context, new SchemaKey("SchemaA", 1, 0, 0), "A");
+    const refSchema = new Schema(context, new SchemaKey("SchemaB", 1, 0, 0), "B");
     importSchema.references.push(refSchema);
     importSchema.references.push(refSchema);
 

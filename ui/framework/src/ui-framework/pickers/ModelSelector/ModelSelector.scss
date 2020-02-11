@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/index";
 
@@ -112,17 +112,6 @@
     transition: .2s linear;
     background-color: $buic-background-widget;
 
-    .core-tree  {
-      .core-tree-node {
-        &:not(:hover):not(.is-selected) {
-          background-color: $buic-background-control;
-        }
-        &.is-selected {
-          background-color: white;
-        }
-      }
-    }
-
     &.show {
       opacity: 1;
       transform: translateX(0%);
@@ -143,6 +132,12 @@
         margin: 10px 0 10px auto;
 
         .icon-search {
+          margin-left: auto;
+          margin-right: 6px;
+          font-size: 14;
+        }
+
+        .icon-close {
           margin-left: auto;
           margin-right: 6px;
           font-size: 14;

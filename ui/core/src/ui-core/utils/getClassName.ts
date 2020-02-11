@@ -1,21 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Utilities */
+/** @packageDocumentation
+ * @module Utilities
+ */
+
+import { getClassName as Abstract_getClassName } from "@bentley/ui-abstract";
 
 /** Gets the class name for an object.
  * @internal
+ * @deprecated - use getClassName in bentley/ui-abstract instead
  */
-export const getClassName = (obj: any): string => {
-  let className = "";
-
-  if (obj) {
-    if (obj.name)
-      className = obj.name;
-    else if (obj.constructor && obj.constructor.name)
-      className = obj.constructor.name;
-  }
-
-  return className;
-};
+export const getClassName = Abstract_getClassName;

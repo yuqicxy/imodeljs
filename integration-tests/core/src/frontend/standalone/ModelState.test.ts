@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Id64 } from "@bentley/bentleyjs-core";
 import { Code, IModel, ModelSelectorProps } from "@bentley/imodeljs-common";
@@ -42,7 +42,7 @@ describe("ModelState", () => {
     const out = selector.toJSON();
     assert.isArray(out.models);
     assert.equal(out.models.length, 3);
-    out.iModel = imodel;
+    (out as any).iModel = imodel;
     const sel3 = selector.clone();
     assert.deepEqual(sel3, selector, "clone worked");
   });

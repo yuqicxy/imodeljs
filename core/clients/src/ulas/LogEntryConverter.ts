@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Guid, GuidString, Logger } from "@bentley/bentleyjs-core";
 import { UsageLogEntry, FeatureLogEntry, FeatureStartedLogEntry, FeatureEndedLogEntry, ProductVersion, UsageType } from "./UlasClient";
@@ -123,8 +123,8 @@ export class LogEntryConverter {
     let sub1: number | undefined;
     let sub2: number | undefined;
     if (length > 2) {
-      sub1 = parseInt(versionSplit[2], 10) || undefined;
-      if (length > 3 && sub1) {
+      sub1 = parseInt(versionSplit[2], 10);
+      if (length > 3 && !isNaN(sub1)) {
         sub2 = parseInt(versionSplit[3], 10) || undefined;
       }
     }

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module NavigationAids */
+/** @packageDocumentation
+ * @module NavigationAids
+ */
 
 import * as React from "react";
 import * as classnames from "classnames";
@@ -166,12 +168,16 @@ export class SheetNavigationAid extends React.Component<SheetNavigationProps, Sh
 
   /** Updates view to the next lowest index in sheetData */
   private _handleOnClickLeftArrow = () => {
-    this.setState({ index: this.state.index <= 0 ? this.state.sheetData.length - 1 : this.state.index - 1 }, async () => this._updateView());
+    this.setState(
+      (prevState) => ({ index: prevState.index <= 0 ? prevState.sheetData.length - 1 : prevState.index - 1 }),
+      async () => this._updateView());
   }
 
   /** Updates view to next highest index in sheetData */
   private _handleOnClickRightArrow = () => {
-    this.setState({ index: (this.state.index + 1) % this.state.sheetData.length }, async () => this._updateView());
+    this.setState(
+      (prevState) => ({ index: (prevState.index + 1) % prevState.sheetData.length }),
+      async () => this._updateView());
   }
 
   /** Handles a Viewport change & synchs the index */

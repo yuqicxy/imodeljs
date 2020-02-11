@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { SortDirection } from "@bentley/ui-core";
 import { PropertyValue, PropertyDescription, PropertyRecord, PropertyValueFormat } from "@bentley/imodeljs-frontend";
@@ -120,7 +120,7 @@ export class DemoMutableTableDataProvider implements MutableTableDataProvider {
   }
   public getRow = async (rowIndex: number, unfiltered?: boolean): Promise<RowItem> => {
     if (rowIndex > this._data.length || this._data[rowIndex] === undefined) return { key: "", cells: [] };
-    if (unfiltered && !unfiltered) // surpress warning, unfiltered unused
+    if (unfiltered && !unfiltered) // suppress warning, unfiltered unused
       return { key: "", cells: [] };
     return mutableRowToRowItem(this._data[rowIndex], this);
   }
@@ -225,16 +225,15 @@ export const onDropTargetDrop = (args: DropTargetArguments<DemoTableDragDropType
             }),
         },
         {
-          key: "description", record: new PropertyRecord(
-            {
-              value: description,
-              valueFormat: PropertyValueFormat.Primitive,
-              displayValue: description,
-            }, {
-              name: "description",
-              displayLabel: "description",
-              typename: "text",
-            }),
+          key: "description", record: new PropertyRecord({
+            value: description,
+            valueFormat: PropertyValueFormat.Primitive,
+            displayValue: description,
+          }, {
+            name: "description",
+            displayLabel: "description",
+            typename: "text",
+          }),
         },
       ],
     };

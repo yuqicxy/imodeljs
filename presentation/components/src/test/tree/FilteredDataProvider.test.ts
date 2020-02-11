@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 /* tslint:disable:no-direct-imports */
 
@@ -90,6 +90,14 @@ describe("FilteredTreeDataProvider", () => {
         .verifiable();
       expect(provider.imodel).to.eq(imodelMock.object);
       parentProviderMock.verifyAll();
+    });
+
+  });
+
+  describe("parentDataProvider", () => {
+
+    it("returns parent data provider", () => {
+      expect(provider.parentDataProvider).to.eq(parentProviderMock.object);
     });
 
   });
@@ -187,6 +195,7 @@ describe("FilteredTreeDataProvider", () => {
       const paths: NodePathElement[] = [];
       paths[0] = createRandomNodePathElement();
       paths[0].node.label = "A-1";
+      paths[0].filteringData = undefined;
       expect(provider.countFilteringResults(paths)).to.eq(0);
     });
   });

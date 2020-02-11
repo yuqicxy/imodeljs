@@ -1,11 +1,26 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module RpcInterface */
+/** @packageDocumentation
+ * @module RpcInterface
+ */
 
-import { assert, BeDuration, ClientRequestContext, Logger } from "@bentley/bentleyjs-core";
-import { IModelTileRpcInterface, IModelToken, RpcInterface, RpcManager, RpcPendingResponse, TileTreeProps, CloudStorageContainerDescriptor, CloudStorageContainerUrl, TileContentIdentifier, CloudStorageTileCache, IModelTokenProps } from "@bentley/imodeljs-common";
+import { assert, BeDuration, ClientRequestContext, Id64Array, Logger } from "@bentley/bentleyjs-core";
+import {
+  CloudStorageContainerDescriptor,
+  CloudStorageContainerUrl,
+  CloudStorageTileCache,
+  IModelTileRpcInterface,
+  IModelToken,
+  IModelTokenProps,
+  RpcInterface,
+  RpcInvocation,
+  RpcManager,
+  RpcPendingResponse,
+  TileTreeContentIds,
+  TileTreeProps,
+} from "@bentley/imodeljs-common";
 import { IModelDb } from "../IModelDb";
 import { IModelHost } from "../IModelHost";
 import { BackendLoggerCategory } from "../BackendLoggerCategory";
@@ -58,9 +73,8 @@ abstract class TileRequestMemoizer<Result, Props extends TileRequestProps> exten
     this.log("received", props);
 
     const tileQP = this.memoize(props);
-    const waitPromise = BeDuration.wait(this._timeoutMilliseconds);
 
-    await Promise.race([tileQP.promise, waitPromise]).catch(() => Promise.resolve());
+    await BeDuration.race(this._timeoutMilliseconds, tileQP.promise).catch(() => { });
     // Note: Rejections must be caught so that the memoization entry can be deleted
 
     props.requestContext.enter();
@@ -138,11 +152,15 @@ class RequestTileContentMemoizer extends TileRequestMemoizer<Uint8Array, TileCon
     super(getTileContent, generateTileContentKey);
   }
 
-  public static async perform(props: TileContentRequestProps): Promise<Uint8Array> {
+  public static get instance() {
     if (undefined === this._instance)
       this._instance = new RequestTileContentMemoizer();
 
-    return this._instance.perform(props);
+    return this._instance;
+  }
+
+  public static async perform(props: TileContentRequestProps): Promise<Uint8Array> {
+    return this.instance.perform(props);
   }
 }
 
@@ -156,38 +174,60 @@ export class IModelTileRpcImpl extends RpcInterface implements IModelTileRpcInte
     return RequestTileTreePropsMemoizer.perform({ requestContext, iModelToken, treeId });
   }
 
-  public async requestTileContent(tokenProps: IModelTokenProps, treeId: string, contentId: string, _unused?: () => boolean): Promise<Uint8Array> {
+  public async purgeTileTrees(tokenProps: IModelTokenProps, modelIds: Id64Array | undefined): Promise<void> {
+    // `undefined` gets forwarded as `null`...
+    if (null === modelIds)
+      modelIds = undefined;
+
+    const token = IModelToken.fromJSON(tokenProps);
+    const db = IModelDb.find(token);
+    return db.nativeDb.purgeTileTrees(modelIds);
+  }
+
+  public async requestTileContent(tokenProps: IModelTokenProps, treeId: string, contentId: string, _unused?: () => boolean, guid?: string): Promise<Uint8Array> {
     const requestContext = ClientRequestContext.current;
     const iModelToken = IModelToken.fromJSON(tokenProps);
-    const content = RequestTileContentMemoizer.perform({ requestContext, iModelToken, treeId, contentId });
-    this.cacheTile(tokenProps, treeId, contentId, content); // tslint:disable-line:no-floating-promises
+    const content = await RequestTileContentMemoizer.perform({ requestContext, iModelToken, treeId, contentId });
+
+    // ###TODO: Verify the guid supplied by the front-end matches the guid stored in the model?
+    if (IModelHost.usingExternalTileCache)
+      IModelHost.tileUploader.cacheTile(tokenProps, treeId, contentId, content, guid);
+
     return content;
-  } // tslint:disable-line:no-floating-promises
+  }
 
   public async getTileCacheContainerUrl(_tokenProps: IModelTokenProps, id: CloudStorageContainerDescriptor): Promise<CloudStorageContainerUrl> {
+    const invocation = RpcInvocation.current(this);
+
     if (!IModelHost.usingExternalTileCache) {
       return CloudStorageContainerUrl.empty();
     }
 
     const expiry = CloudStorageTileCache.getCache().supplyExpiryForContainerUrl(id);
-    return IModelHost.tileCacheService.obtainContainerUrl(id, expiry);
+    const clientIp = (IModelHost.restrictTileUrlsByClientIp && invocation.request.ip) ? invocation.request.ip : undefined;
+    return IModelHost.tileCacheService.obtainContainerUrl(id, expiry, clientIp);
   }
+}
 
-  private async cacheTile(tokenProps: IModelTokenProps, treeId: string, contentId: string, content: Promise<Uint8Array>) {
-    if (!IModelHost.usingExternalTileCache) {
-      return;
+/** @internal */
+export function cancelTileContentRequests(tokenProps: IModelTokenProps, contentIds: TileTreeContentIds[]): void {
+  const iModelToken = IModelToken.fromJSON(tokenProps);
+  const iModel = IModelDb.find(iModelToken);
+
+  const props: TileContentRequestProps = {
+    requestContext: ClientRequestContext.current,
+    iModelToken,
+    treeId: "",
+    contentId: "",
+  };
+
+  for (const entry of contentIds) {
+    props.treeId = entry.treeId;
+    for (const contentId of entry.contentIds) {
+      props.contentId = contentId;
+      RequestTileContentMemoizer.instance.deleteMemoized(props);
     }
 
-    const iModelToken = IModelToken.fromJSON(tokenProps);
-    const id: TileContentIdentifier = { iModelToken, treeId, contentId };
-
-    setTimeout(async () => {
-      try {
-        const cache = CloudStorageTileCache.getCache();
-        await IModelHost.tileCacheService.upload(cache.formContainerName(id), cache.formResourceName(id), await content);
-      } catch (err) {
-        Logger.logError(BackendLoggerCategory.IModelTileRequestRpc, err.toString());
-      }
-    });
+    iModel.nativeDb.cancelTileContentRequests(entry.treeId, entry.contentIds);
   }
 }

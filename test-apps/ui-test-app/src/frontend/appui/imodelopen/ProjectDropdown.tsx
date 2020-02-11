@@ -1,18 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import * as classnames from "classnames";
 import { ProjectInfo } from "@bentley/ui-framework";
 import { ProjectDialog } from "./ProjectDialog";
-import { AccessToken } from "@bentley/imodeljs-clients";
 import { Popup, Position } from "@bentley/ui-core";
 import "./ProjectDropdown.scss";
 
 /** Properties for the [[ProjectDropdown]] component */
 export interface ProjectDropdownProps {
-  accessToken: AccessToken;
   numVisibleProjects?: number;
   recentProjects?: ProjectInfo[];
   currentProject?: ProjectInfo;
@@ -43,7 +41,7 @@ export class ProjectDropdown extends React.Component<ProjectDropdownProps, Proje
 
   private _onMoreClicked = (_event: React.MouseEvent<HTMLDivElement>) => {
     this.closeDropdown();
-    this.setState((_prevState) => ({ showProjectsDialog: true }));
+    this.setState({ showProjectsDialog: true });
   }
 
   private _onCloseProjectDialog = () => {
@@ -61,7 +59,7 @@ export class ProjectDropdown extends React.Component<ProjectDropdownProps, Proje
   }
 
   private _splitterClicked = (_event: React.MouseEvent<HTMLElement>) => {
-    this.setState((_prevState) => ({ isDropdownOpen: !this.state.isDropdownOpen }));
+    this.setState((prevState) => ({ isDropdownOpen: !prevState.isDropdownOpen }));
   }
 
   private _handleOnOutsideClick = () => {
@@ -69,11 +67,11 @@ export class ProjectDropdown extends React.Component<ProjectDropdownProps, Proje
   }
 
   private closeDropdown() {
-    this.setState((_prevState) => ({ isDropdownOpen: false }));
+    this.setState({ isDropdownOpen: false });
   }
 
   private closeDialog() {
-    this.setState((_prevState) => ({ showProjectsDialog: false }));
+    this.setState({ showProjectsDialog: false });
   }
 
   private getProjects(): ProjectInfo[] {
@@ -145,7 +143,7 @@ export class ProjectDropdown extends React.Component<ProjectDropdownProps, Proje
         <div className="pp-highlight" />
         {this.renderDropdown()}
         {this.state.showProjectsDialog &&
-          <ProjectDialog accessToken={this.props.accessToken} onClose={this._onCloseProjectDialog} onProjectSelected={this._onProjectSelected} />
+          <ProjectDialog onClose={this._onCloseProjectDialog} onProjectSelected={this._onProjectSelected} />
         }
       </div>
     );

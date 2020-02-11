@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import { mount, shallow } from "enzyme";
@@ -13,7 +13,6 @@ import {
   AnyWidgetProps,
   NavigationWidgetDef,
   ConfigurableUiManager,
-  WidgetDefFactory,
 } from "../../ui-framework";
 import TestUtils from "../TestUtils";
 import { IModelConnection, MockRender } from "@bentley/imodeljs-frontend";
@@ -31,6 +30,7 @@ describe("SheetNavigationAid", () => {
 
   after(() => {
     MockRender.App.shutdown();
+    TestUtils.terminateUiFramework();
   });
 
   const connection = moq.Mock.ofType<IModelConnection>();
@@ -56,7 +56,7 @@ describe("SheetNavigationAid", () => {
 
     it("SheetNavigationAidControl creates SheetNavigationAid", () => {
 
-      const widgetDef = WidgetDefFactory.create(widgetProps);
+      const widgetDef = new NavigationWidgetDef(widgetProps);
       expect(widgetDef).to.be.instanceof(NavigationWidgetDef);
 
       const navigationWidgetDef = widgetDef as NavigationWidgetDef;

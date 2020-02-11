@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tools */
+/** @packageDocumentation
+ * @module Tools
+ */
 
 import { BeButtonEvent, InputCollector, BeButton, EventHandled, BeTouchEvent, InputSource, Tool, CoordinateLockOverrides } from "./Tool";
 import { DecorateContext } from "../ViewContext";
@@ -11,8 +13,12 @@ import { ManipulatorToolEvent } from "./ToolAdmin";
 import { IModelConnection } from "../IModelConnection";
 import { SelectionSetEvent } from "../SelectionSet";
 import { HitDetail } from "../HitDetail";
-import { Viewport } from "../Viewport";
+import { Viewport, CoordSystem } from "../Viewport";
 import { Point3d, Vector3d, Transform, Matrix3d, AxisOrder, Geometry, Ray3d, Plane3dByOriginAndUnitNormal } from "@bentley/geometry-core";
+import { Npc } from "@bentley/imodeljs-common";
+import { StandardViewId } from "../StandardView";
+import { TentativeOrAccuSnap } from "../AccuSnap";
+import { AccuDraw } from "../AccuDraw";
 
 /** A manipulator maintains a set of controls used to modify element(s) or pickable decorations.
  * Interactive modification is handled by installing an InputCollector tool.
@@ -20,6 +26,7 @@ import { Point3d, Vector3d, Transform, Matrix3d, AxisOrder, Geometry, Ray3d, Pla
  */
 export namespace EditManipulator {
   export enum EventType { Synch, Cancel, Accept }
+  export enum RotationType { Top, Front, Left, Bottom, Back, Right, View, Face }
 
   export abstract class HandleTool extends InputCollector {
     public static toolId = "Select.Manipulator";
@@ -183,6 +190,17 @@ export namespace EditManipulator {
       return Ray3d.create(origin, direction);
     }
 
+    public static isPointVisible(testPt: Point3d, vp: Viewport, borderPaddingFactor: number = 0.0): boolean {
+      const testPtView = vp.worldToView(testPt);
+      const frustum = vp.getFrustum(CoordSystem.View);
+      const screenRange = Point3d.create();
+      screenRange.x = frustum.points[Npc._000].distance(frustum.points[Npc._100]);
+      screenRange.y = frustum.points[Npc._000].distance(frustum.points[Npc._010]);
+      const xBorder = screenRange.x * borderPaddingFactor;
+      const yBorder = screenRange.y * borderPaddingFactor;
+      return (!(testPtView.x < xBorder || testPtView.x > (screenRange.x - xBorder) || testPtView.y < yBorder || testPtView.y > (screenRange.y - yBorder)));
+    }
+
     public static projectPointToPlaneInView(spacePt: Point3d, planePt: Point3d, planeNormal: Vector3d, vp: Viewport, checkAccuDraw: boolean = false, checkACS: boolean = false): Point3d | undefined {
       const plane = Plane3dByOriginAndUnitNormal.create(planePt, planeNormal);
       if (undefined === plane)
@@ -211,6 +229,37 @@ export namespace EditManipulator {
       return lineRay.projectPointToRay(projectedPt);
     }
 
+    public static getRotation(rotation: RotationType, viewport: Viewport): Matrix3d | undefined {
+      switch (rotation) {
+        case RotationType.Top:
+          return AccuDraw.getStandardRotation(StandardViewId.Top, viewport, viewport.isContextRotationRequired).inverse();
+        case RotationType.Front:
+          return AccuDraw.getStandardRotation(StandardViewId.Front, viewport, viewport.isContextRotationRequired).inverse();
+        case RotationType.Left:
+          return AccuDraw.getStandardRotation(StandardViewId.Left, viewport, viewport.isContextRotationRequired).inverse();
+        case RotationType.Bottom:
+          return AccuDraw.getStandardRotation(StandardViewId.Bottom, viewport, viewport.isContextRotationRequired).inverse();
+        case RotationType.Back:
+          return AccuDraw.getStandardRotation(StandardViewId.Back, viewport, viewport.isContextRotationRequired).inverse();
+        case RotationType.Right:
+          return AccuDraw.getStandardRotation(StandardViewId.Right, viewport, viewport.isContextRotationRequired).inverse();
+        case RotationType.View:
+          return viewport.view.getRotation().inverse();
+        case RotationType.Face:
+          const snap = TentativeOrAccuSnap.getCurrentSnap(false);
+          if (undefined === snap || undefined === snap.normal)
+            return undefined;
+          const normal = Vector3d.createZero();
+          const boresite = EditManipulator.HandleUtils.getBoresite(snap.hitPoint, viewport);
+          if (snap.normal.dotProduct(boresite.direction) < 0.0)
+            normal.setFrom(snap.normal);
+          else
+            snap.normal.negate(normal);
+          return Matrix3d.createRigidHeadsUp(normal);
+      }
+      return undefined;
+    }
+
     /** Get a transform to orient arrow shape to view direction. If arrow direction is close to perpendicular to view direction will return undefined. */
     public static getArrowTransform(vp: Viewport, base: Point3d, direction: Vector3d, sizeInches: number): Transform | undefined {
       const boresite = EditManipulator.HandleUtils.getBoresite(base, vp);
@@ -218,7 +267,7 @@ export namespace EditManipulator {
         return undefined;
 
       const pixelSize = vp.pixelsFromInches(sizeInches);
-      const scale = vp.viewFrustum.getPixelSizeAtPoint(base) * pixelSize;
+      const scale = vp.viewingSpace.getPixelSizeAtPoint(base) * pixelSize;
       const matrix = Matrix3d.createRigidFromColumns(direction, boresite.direction, AxisOrder.XZY);
       if (undefined === matrix)
         return undefined;

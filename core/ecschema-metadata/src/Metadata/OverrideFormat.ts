@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
+import { Schema } from "./Schema";
 import { Format } from "./Format";
 import { InvertedUnit } from "./InvertedUnit";
 import { Unit } from "./Unit";
-import { DecimalPrecision, FormatTraits, FormatType, FractionalPrecision, ScientificType, ShowSignOption } from "./../utils/FormatEnums";
+import { DecimalPrecision, FormatTraits, FormatType, FractionalPrecision, ScientificType, ShowSignOption } from "../utils/FormatEnums";
+import { XmlSerializationUtils } from "../Deserialization/XmlSerializationUtils";
 
 /**
  * Overrides of a Format, from a Schema, and is SchemaItem that is used specifically on KindOfQuantity.
@@ -21,13 +23,13 @@ export class OverrideFormat {
 
   /** The name of this OverrideFormat.
    *
-   * This should be set to the FormatString which represents the format override.
+   * This should be set to the [FormatString]($docs/bis/ec/kindofquantity/#format-string) which represents the format override.
    */
   public readonly name: string;
 
-  constructor(parent: Format, name: string, precision?: DecimalPrecision | FractionalPrecision, unitAndLabels?: Array<[Unit | InvertedUnit, string | undefined]>) {
+  constructor(parent: Format, precision?: DecimalPrecision | FractionalPrecision, unitAndLabels?: Array<[Unit | InvertedUnit, string | undefined]>) {
     this.parent = parent;
-    this.name = name;
+    this.name = OverrideFormat.createOverrideFormatFullName(parent, precision, unitAndLabels);
     this._precision = precision;
     this._units = unitAndLabels;
   }
@@ -54,5 +56,45 @@ export class OverrideFormat {
 
   public hasFormatTrait(formatTrait: FormatTraits) {
     return (this.parent.formatTraits & formatTrait) === formatTrait;
+  }
+
+  /** Returns the format string of this override in the Xml full name format.
+   * @alpha
+   */
+  public fullNameXml(koqSchema: Schema): string {
+    let fullName = XmlSerializationUtils.createXmlTypedName(koqSchema, this.parent.schema, this.parent.name);
+
+    if (undefined !== this.precision)
+      fullName += `(${this.precision.toString()})`;
+
+    if (undefined === this._units)
+      return fullName;
+    for (const [unit, unitLabel] of this._units) {
+      fullName += "[";
+      fullName += XmlSerializationUtils.createXmlTypedName(koqSchema, unit.schema, unit.name);
+      fullName += `|${unitLabel}]`;
+    }
+    return fullName;
+  }
+
+  /**
+   * Creates a valid OverrideFormat fullName from the parent Format and overridden units.
+   * @param parent The parent Format.
+   * @param unitAndLabels The overridden unit and labels collection.
+   */
+  public static createOverrideFormatFullName(parent: Format, precision?: DecimalPrecision | FractionalPrecision, unitAndLabels?: Array<[Unit | InvertedUnit, string | undefined]>): string {
+    let fullName = parent.fullName;
+
+    if (precision)
+      fullName += `(${precision.toString()})`;
+
+    if (undefined === unitAndLabels)
+      return fullName;
+    for (const [unit, unitLabel] of unitAndLabels)
+      if (undefined === unitLabel)
+        fullName += `[${unit.fullName}]`;
+      else
+        fullName += `[${unit.fullName}|${unitLabel}]`;
+    return fullName;
   }
 }

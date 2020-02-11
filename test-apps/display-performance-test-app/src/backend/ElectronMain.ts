@@ -1,12 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as path from "path";
 
 import { ElectronRpcManager } from "@bentley/imodeljs-common";
 import { initializeBackend, getRpcInterfaces } from "./backend";
-import { Logger, LogLevel } from "@bentley/bentleyjs-core";
 import { IModelJsElectronManager } from "@bentley/electron-manager";
 import DisplayPerfRpcInterface from "../common/DisplayPerfRpcInterface";
 
@@ -17,11 +16,6 @@ import * as electron from "electron";
 
 // Start the backend
 initializeBackend();
-
-// Set up logging (by default, no logging is enabled)
-const logLevelEnv = process.env.SVT_LOG_LEVEL as string;
-const logLevel = undefined !== logLevelEnv ? Logger.parseLogLevel(logLevelEnv) : LogLevel.None;
-Logger.setLevelDefault(logLevel);
 
 if (process.argv.length > 2 && process.argv[2].split(".").pop() === "json")
   DisplayPerfRpcInterface.jsonFilePath = process.argv[2];
@@ -38,6 +32,7 @@ const maximizeWindow = (undefined === process.env.SVT_NO_MAXIMIZE_WINDOW); // Ma
     width: 1280,
     height: 800,
     webPreferences: {
+      nodeIntegration: true,
       experimentalFeatures: true, // Needed for CSS Grid support
     },
     autoHideMenuBar: true,

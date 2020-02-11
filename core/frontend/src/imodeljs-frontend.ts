@@ -1,86 +1,108 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-export * from "./tools/AccuDrawTool";
-export * from "./tools/EditManipulator";
-export * from "./tools/ElementSetTool";
-export * from "./tools/EventController";
-export * from "./tools/MeasureTool";
-export * from "./tools/SelectTool";
-export * from "./tools/ToolAdmin";
-export * from "./tools/Tool";
-export * from "./tools/ViewTool";
-export * from "./tools/ClipViewTool";
-export * from "./tools/PrimitiveTool";
-export * from "./tools/IdleTool";
 export * from "./AccuDraw";
 export * from "./AccuSnap";
 export * from "./AuxCoordSys";
-export * from "./DevTools";
-export * from "./FrontendRequestContext";
 export * from "./CategorySelectorState";
 export * from "./ContextRealityModelState";
-export * from "./SpatialClassification";
+export * from "./DevTools";
 export * from "./DisplayStyleState";
 export * from "./ElementLocateManager";
 export * from "./EmphasizeElements";
 export * from "./EntityState";
+export * from "./FrontendLoggerCategory";
+export * from "./FrontendRequestContext";
 export * from "./FuzzySearch";
 export * from "./GeoServices";
 export * from "./HitDetail";
+export * from "./IModelApp";
 export * from "./IModelConnection";
 export * from "./ImageUtil";
-export * from "./FrontendLoggerCategory";
 export * from "./Marker";
 export * from "./ModelSelectorState";
 export * from "./ModelState";
+export * from "./NoRenderApp";
 export * from "./NotificationManager";
-export * from "./Plugin";
+export * from "./QuantityFormatter";
+export * from "./RelativePosition";
+export * from "./RenderCompatibility";
+export * from "./RenderScheduleState";
 export * from "./SelectionSet";
 export * from "./Sheet";
+export * from "./SolarCalculate";
+export * from "./SpatialClassification";
 export * from "./Sprites";
 export * from "./StandardView";
 export * from "./SubCategoriesCache";
 export * from "./TentativePoint";
-export * from "./QuantityFormatter";
+export * from "./TerrainProvider";
 export * from "./ViewContext";
 export * from "./ViewManager";
-export * from "./Viewport";
+export * from "./ViewRect";
 export * from "./ViewState";
-export * from "./IModelApp";
-export * from "./NoRenderApp";
-export * from "./tile/TileAdmin";
-export * from "./tile/Tile";
-export * from "./tile/TileTree";
-export * from "./tile/WebMapTileTree";
-export * from "./tile/BingElevation";
+export * from "./Viewport";
+export * from "./oidc/OidcBrowserClient";
+export * from "./oidc/OidcDesktopClientRenderer";
+export * from "./plugin/Plugin";
+export * from "./properties/AngleDescription";
+export * from "./properties/BaseQuantityDescription";
+export * from "./properties/Description";
+export * from "./properties/EditorParams";
+export * from "./properties/LengthDescription";
+export * from "./properties/PrimitiveTypes";
+export * from "./properties/Record";
+export * from "./properties/ToolSettingsValue";
+export * from "./properties/Value";
 export * from "./render/FeatureSymbology";
+export * from "./FeatureToggleClient";
 export * from "./render/GraphicBuilder";
 export * from "./render/MockRender";
 export * from "./render/System";
+export * from "./render/webgl/PerformanceMetrics";
 export * from "./render/webgl/Target";
-export * from "./oidc/OidcBrowserClient";
-export * from "./TerrainProvider";
-export * from "./properties/Description";
-export * from "./properties/EditorParams";
-export * from "./properties/Record";
-export * from "./properties/Value";
-export * from "./properties/ToolSettingsValue";
-export * from "./properties/PrimitiveTypes";
-export * from "./SolarCalculate";
+export * from "./tile/A3xTile";
+export * from "./tile/A3xTileIO";
+export * from "./tile/BackgroundTerrainTileTree";
+export * from "./tile/BingElevation";
+export * from "./tile/CesiumWorldTerrainTileTree";
+export * from "./tile/GltfReader";
+export * from "./tile/IModelTileLoader";
+export * from "./tile/ImdlReader";
+export * from "./tile/Tile";
+export * from "./tile/TileAdmin";
+export * from "./tile/TileRequest";
+export * from "./tile/TileTree";
+export * from "./tile/WebMapTileTree";
+export * from "./tools/AccuDrawTool";
+export * from "./tools/ClipViewTool";
+export * from "./tools/EditManipulator";
+export * from "./tools/ElementSetTool";
+export * from "./tools/EventController";
+export * from "./tools/IdleTool";
+export * from "./tools/MeasureTool";
+export * from "./tools/PrimitiveTool";
+export * from "./tools/SelectTool";
+export * from "./tools/Tool";
+export * from "./tools/ToolSettings";
+export * from "./tools/ToolAdmin";
+export * from "./tools/ToolAssistance";
+export * from "./tools/ViewTool";
 
 // Set the version number so it can be found at runtime. BUILD_SEMVER is replaced at build time by the webpack DefinePlugin.
 declare var BUILD_SEMVER: string;
+declare var BUILD_TYPE: string;
 if ((typeof (BUILD_SEMVER) !== "undefined") && (typeof window !== "undefined") && window) {
   if (!(window as any).iModelJsVersions)
     (window as any).iModelJsVersions = new Map<string, string>();
   (window as any).iModelJsVersions.set("imodeljs-frontend", BUILD_SEMVER);
+  (window as any).iModelJsVersions.set("buildType", BUILD_TYPE);
 }
 
 /** @docs-package-description
- * The ($frontend) package always runs in a web browser. It contains classes for [querying iModels and showing views]($docs/learning/frontend/index.md).
+ * The imodeljs-frontend package always runs in a web browser. It contains classes for [querying iModels and showing views]($docs/learning/frontend/index.md).
  */
 
 /**
@@ -141,4 +163,24 @@ if ((typeof (BUILD_SEMVER) !== "undefined") && (typeof window !== "undefined") &
  * @docs-group-description SelectionSet
  * Classes for working with the set of selected elements.
  * See [the learning articles]($docs/learning/frontend/index.md).
+ */
+/**
+ * @docs-group-description OIDC
+ * Classes for working with the OpenID Connect (OIDC) protocol
+ */
+/**
+ * @docs-group-description Utils
+ * Miscellaneous utility classes.
+ */
+/**
+ * @docs-group-description Logging
+ * Logger categories used by this package
+ */
+/**
+ * @docs-group-description SpatialClassification
+ * Classes for spatial classification.
+ */
+/**
+ * @docs-group-description Features
+ * Classes for Feature Tracking classification.
  */

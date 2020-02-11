@@ -1,18 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { VariableType, FragmentShaderComponent, VariablePrecision } from "../ShaderBuilder";
 import { TextureUnit } from "../RenderFlags";
 import { ShaderProgram } from "../ShaderProgram";
 import { createViewportQuadBuilder } from "./ViewportQuad";
-import { GLSLFragment, addWindowToTexCoords } from "./Fragment";
+import { assignFragColor, addWindowToTexCoords } from "./Fragment";
 import { BlurGeometry } from "../CachedGeometry";
 import { Texture2DHandle } from "../Texture";
 import { addViewport } from "./Viewport";
-import { GLSLDecode } from "./Decode";
+import { decodeDepthRgb } from "./Decode";
 
 // This shader applies a Gaussian blur in one dimension.
 const computeBlur = `
@@ -21,7 +23,7 @@ const computeBlur = `
   float texelStepSize = u_blurSettings.z;
 
   vec2 tc = windowCoordsToTexCoords(gl_FragCoord.xy);
-  vec2 step = texelStepSize / u_viewport.zw;
+  vec2 step = texelStepSize / u_viewport;
 
   vec3 gaussian;
   const float twoPi = 6.283185307179586;
@@ -52,10 +54,10 @@ export function createBlurProgram(context: WebGLRenderingContext): ShaderProgram
 
   addWindowToTexCoords(frag);
 
-  frag.addFunction(GLSLDecode.depthRgb);
+  frag.addFunction(decodeDepthRgb);
 
   frag.set(FragmentShaderComponent.ComputeBaseColor, computeBlur);
-  frag.set(FragmentShaderComponent.AssignFragData, GLSLFragment.assignFragColor);
+  frag.set(FragmentShaderComponent.AssignFragData, assignFragColor);
 
   addViewport(frag);
 
@@ -77,9 +79,9 @@ export function createBlurProgram(context: WebGLRenderingContext): ShaderProgram
     prog.addProgramUniform("u_blurSettings", (uniform, params) => {
       const hbaoSettings = new Float32Array([
         // ###TODO: If we want to apply this blur shader to situations other than AO, we should move these settings away from the ambient occlusion params.
-        params.target.ambientOcclusionSettings.blurDelta!,
-        params.target.ambientOcclusionSettings.blurSigma!,
-        params.target.ambientOcclusionSettings.blurTexelStepSize!]);
+        params.target.ambientOcclusionSettings.blurDelta,
+        params.target.ambientOcclusionSettings.blurSigma,
+        params.target.ambientOcclusionSettings.blurTexelStepSize]);
       uniform.setUniform3fv(hbaoSettings);
     });
   }, VariablePrecision.High);

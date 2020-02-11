@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Content */
+/** @packageDocumentation
+ * @module Content
+ */
 
 import {
   PropertyInfo, PropertyInfoJSON,
@@ -38,8 +40,8 @@ export interface Property {
   /** ECProperty information */
   property: PropertyInfo;
   /**
-   * Relationship path from [Primary instance]($docs/learning/content/Terminology#primary-instance) to
-   * this property. This array is not empty only for [Related properties]($docs/learning/content/Terminology#related-properties).
+   * Relationship path from [Primary instance]($docs/learning/presentation/Content/Terminology#primary-instance) to
+   * this property. This array is not empty only for [Related properties]($docs/learning/presentation/Content/Terminology#related-properties).
    */
   relatedClassPath: RelationshipPath;
 }

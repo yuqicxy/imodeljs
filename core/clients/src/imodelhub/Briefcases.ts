@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModelHub */
+/** @packageDocumentation
+ * @module iModelHubClient
+ */
 
 import { GuidString, Logger } from "@bentley/bentleyjs-core";
 import { AuthorizedClientRequestContext } from "../AuthorizedClientRequestContext";
@@ -10,9 +12,10 @@ import { FileHandler } from "../FileHandler";
 import { ClientsLoggerCategory } from "../ClientsLoggerCategory";
 import { ProgressInfo } from "../Request";
 import { ECJsonTypeMap, WsgInstance } from "./../ECJsonTypeMap";
+import { WsgQuery } from "../WsgQuery";
 import { IModelBaseHandler } from "./BaseHandler";
 import { ArgumentCheck, IModelHubClientError } from "./Errors";
-import { addSelectFileAccessKey, Query } from "./Query";
+import { addSelectFileAccessKey, addSelectApplicationData } from "./HubQuery";
 
 const loggerCategory: string = ClientsLoggerCategory.IModelHub;
 
@@ -78,6 +81,14 @@ export class Briefcase extends WsgInstance {
   @ECJsonTypeMap.propertyToJson("wsg", "relationshipInstances[FileAccessKey].relatedInstance[AccessKey].properties.DownloadUrl")
   public downloadUrl?: string;
 
+  /** Id of the application that created this Briefcase. */
+  @ECJsonTypeMap.propertyToJson("wsg", "relationshipInstances[CreatedByApplication].relatedInstance[Application].properties.Id")
+  public applicationId?: string;
+
+  /** Name of the application that created this Briefcase. */
+  @ECJsonTypeMap.propertyToJson("wsg", "relationshipInstances[CreatedByApplication].relatedInstance[Application].properties.Name")
+  public applicationName?: string;
+
   @ECJsonTypeMap.propertyToJson("ecdb", "accessMode")
   public accessMode?: BriefcaseAccessMode;
 
@@ -95,7 +106,7 @@ export class Briefcase extends WsgInstance {
  * Query object for getting [[Briefcase]]s. You can use this to modify the [[BriefcaseHandler.get]] results.
  * @internal
  */
-export class BriefcaseQuery extends Query {
+export class BriefcaseQuery extends WsgQuery {
   private _byId?: number;
   /**
    * Query single [[Briefcase]] by its id. If briefcase is not found, request will be rejected with a [[WsgError]] and status [WSStatus.InstanceNotFound]($bentley).
@@ -124,6 +135,15 @@ export class BriefcaseQuery extends Query {
    */
   public selectDownloadUrl(): this {
     addSelectFileAccessKey(this._query);
+    return this;
+  }
+
+  /**
+   * Query will additionally select data about application that created this [[Briefcase]].
+   * @returns This query.
+   */
+  public selectApplicationData() {
+    addSelectApplicationData(this._query);
     return this;
   }
 

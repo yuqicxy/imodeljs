@@ -1,62 +1,57 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Base */
+/** @packageDocumentation
+ * @module Base
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
 import { CommonProps } from "@bentley/ui-core";
+import { useRefEffect } from "./useRefEffect";
 import "./PointerCaptor.scss";
 
 /** Properties of [[PointerCaptor]] component.
  * @internal
  */
 export interface PointerCaptorProps extends CommonProps {
-  /** Describes if the mouse is down. */
-  isMouseDown?: boolean;
-  /** Function called when the mouse is pressed. */
-  onMouseDown?: (e: MouseEvent) => void;
-  /** Function called when the mouse is moved. */
-  onMouseMove?: (e: MouseEvent) => void;
-  /** Function called when the mouse is released. */
-  onMouseUp?: (e: MouseEvent) => void;
-}
-
-/** State of [[PointerCaptor]] component. */
-interface PointerCaptorState {
-  isMouseDown: boolean;
+  /** Describes if the pointer is down. */
+  isPointerDown: boolean;
+  /** Function called when component is clicked. */
+  onClick?: () => void;
+  /** Function called when the pointer is pressed. */
+  onPointerDown?: (e: PointerEvent) => void;
+  /** Function called when the pointer is moved. */
+  onPointerMove?: (e: PointerEvent) => void;
+  /** Function called when the pointer is released. */
+  onPointerUp?: (e: PointerEvent) => void;
 }
 
 /** A component which will capture the pointer down event.
- * @note While captured will overlay the screen to capture iframe events too.
  * @internal
  */
-export class PointerCaptor extends React.PureComponent<PointerCaptorProps, PointerCaptorState> {
-  public readonly state: PointerCaptorState = {
-    isMouseDown: false,
-  };
-
+export class PointerCaptor extends React.PureComponent<PointerCaptorProps> {
   public componentDidMount() {
-    document.addEventListener("mouseup", this._handleDocumentMouseUp);
-    document.addEventListener("mousemove", this._handleDocumentMouseMove);
+    document.addEventListener("pointerup", this._handleDocumentPointerUp);
+    document.addEventListener("pointermove", this._handleDocumentPointerMove);
   }
 
   public componentWillUnmount() {
-    document.removeEventListener("mouseup", this._handleDocumentMouseUp);
-    document.removeEventListener("mousemove", this._handleDocumentMouseMove);
+    document.removeEventListener("pointerup", this._handleDocumentPointerUp);
+    document.removeEventListener("pointermove", this._handleDocumentPointerMove);
   }
 
   public render() {
     const className = classnames(
       "nz-base-pointerCaptor",
-      this.isMouseDown() && "nz-captured",
+      this.props.isPointerDown && "nz-captured",
       this.props.className);
-
     return (
       <div
         className={className}
-        onMouseDown={this._handleMouseDown}
+        onPointerDown={this._handlePointerDown}
+        onClick={this.props.onClick}
         style={this.props.style}
       >
         <div className="nz-overlay" />
@@ -65,37 +60,60 @@ export class PointerCaptor extends React.PureComponent<PointerCaptorProps, Point
     );
   }
 
-  private isMouseDown() {
-    if (this.props.isMouseDown === undefined)
-      return this.state.isMouseDown;
-    return this.props.isMouseDown;
+  private _handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    this.props.onPointerDown && this.props.onPointerDown(e.nativeEvent);
   }
 
-  private setIsMouseDown(isMouseDown: boolean) {
-    this.setState(() => {
-      return {
-        isMouseDown,
-      };
-    });
-  }
-
-  private _handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    this.setIsMouseDown(true);
-    this.props.onMouseDown && this.props.onMouseDown(e.nativeEvent);
-  }
-
-  private _handleDocumentMouseUp = (e: MouseEvent) => {
-    if (!this.isMouseDown())
+  private _handleDocumentPointerUp = (e: PointerEvent) => {
+    if (!this.props.isPointerDown)
       return;
-
-    this.setIsMouseDown(false);
-    this.props.onMouseUp && this.props.onMouseUp(e);
+    this.props.onPointerUp && this.props.onPointerUp(e);
   }
 
-  private _handleDocumentMouseMove = (e: MouseEvent) => {
-    if (!this.isMouseDown())
+  private _handleDocumentPointerMove = (e: PointerEvent) => {
+    if (!this.props.isPointerDown)
       return;
-
-    this.props.onMouseMove && this.props.onMouseMove(e);
+    this.props.onPointerMove && this.props.onPointerMove(e);
   }
+}
+
+/** Captures pointer events of an element. Used in drag or resize interactions.
+ * @internal
+ */
+export function usePointerCaptor<T extends HTMLElement>(
+  onPointerDown?: () => void,
+  onPointerMove?: () => void,
+  onPointerUp?: () => void,
+) {
+  const isDown = React.useRef(false);
+  React.useEffect(() => {
+    const handlePointerMove = () => {
+      isDown.current && onPointerMove && onPointerMove();
+    };
+    document.addEventListener("pointermove", handlePointerMove);
+    return () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, [onPointerMove]);
+  React.useEffect(() => {
+    const handlePointerUp = () => {
+      isDown.current && onPointerUp && onPointerUp();
+    };
+    document.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [onPointerUp]);
+  const setRef = useRefEffect((instance: T | null) => {
+    const handlePointerDown = (e: PointerEvent) => {
+      e.preventDefault();
+      onPointerDown && onPointerDown();
+      isDown.current = true;
+    };
+    instance && instance.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      instance && instance.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [onPointerDown]);
+  return setRef;
 }

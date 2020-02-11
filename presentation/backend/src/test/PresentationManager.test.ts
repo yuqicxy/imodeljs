@@ -1,18 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import * as moq from "typemoq";
 import * as faker from "faker";
 import * as path from "path";
+import * as hash from "object-hash";
+import * as sinon from "sinon";
 const deepEqual = require("deep-equal"); // tslint:disable-line:no-var-requires
 import {
   createRandomNodePathElementJSON, createRandomECInstanceNodeKey,
   createRandomECInstanceNodeKeyJSON,
   createRandomECClassInfoJSON, createRandomRelationshipPathJSON,
   createRandomECInstanceKeyJSON, createRandomECInstanceKey,
-  createRandomDescriptor, createRandomCategory, createRandomId, createRandomDescriptorJSON,
+  createRandomDescriptor, createRandomCategory, createRandomId, createRandomDescriptorJSON, createRandomRelatedClassInfoJSON, createRandomRuleset, createRandomLabelDefinition, createRandomLabelDefinitionJSON,
 } from "@bentley/presentation-common/lib/test/_helpers/random";
 import "@bentley/presentation-common/lib/test/_helpers/Promises";
 import "./IModelHostSetup";
@@ -24,6 +26,7 @@ import {
   HierarchyRequestOptions, Paged, ContentRequestOptions, ContentFlags,
   PrimitiveTypeDescription, ArrayTypeDescription, StructTypeDescription,
   KindOfQuantityInfo, DefaultContentDisplayTypes, LabelRequestOptions, InstanceKey,
+  Ruleset, VariableValueTypes, RequestPriority, LOCALES_DIRECTORY, LabelDefinition,
 } from "@bentley/presentation-common";
 import { PropertyInfoJSON } from "@bentley/presentation-common/lib/EC";
 import { NodeKeyJSON, ECInstanceNodeKeyJSON, NodeKey } from "@bentley/presentation-common/lib/hierarchy/Key";
@@ -34,7 +37,7 @@ import { ItemJSON } from "@bentley/presentation-common/lib/content/Item";
 import { PropertiesFieldJSON, NestedContentFieldJSON, FieldJSON } from "@bentley/presentation-common/lib/content/Fields";
 import { DescriptorJSON, SelectClassInfoJSON } from "@bentley/presentation-common/lib/content/Descriptor";
 import { NativePlatformDefinition, NativePlatformRequestTypes } from "../NativePlatform";
-import { PresentationManager } from "../PresentationManager";
+import { PresentationManager, PresentationManagerMode } from "../PresentationManager";
 import { RulesetManagerImpl } from "../RulesetManager";
 import { RulesetVariablesManagerImpl } from "../RulesetVariablesManager";
 
@@ -76,10 +79,42 @@ describe("PresentationManager", () => {
 
   describe("constructor", () => {
 
-    it("uses default native library implementation if not overridden", () => {
-      using(new PresentationManager(), (manager) => {
-        expect((manager.getNativePlatform() as any)._nativeAddon).instanceOf(IModelHost.platform.ECPresentationManager);
+    describe("uses default native library implementation if not overridden", () => {
+
+      it("creates without props", () => {
+        const constructorSpy = sinon.spy(IModelHost.platform, "ECPresentationManager");
+        using(new PresentationManager(), (manager) => {
+          expect((manager.getNativePlatform() as any)._nativeAddon).instanceOf(IModelHost.platform.ECPresentationManager);
+          expect(constructorSpy).to.be.calledOnceWithExactly(
+            "",
+            [LOCALES_DIRECTORY],
+            { [RequestPriority.Preload]: 1, [RequestPriority.Max]: 1 },
+            IModelHost.platform.ECPresentationManagerMode.ReadWrite,
+          );
+        });
       });
+
+      it("creates with props", () => {
+        const constructorSpy = sinon.spy(IModelHost.platform, "ECPresentationManager");
+        const testLocale = faker.random.locale();
+        const testTaskAllocations = { [999]: 111 };
+        const props = {
+          id: faker.random.uuid(),
+          localeDirectories: [testLocale, testLocale],
+          taskAllocationsMap: testTaskAllocations,
+          mode: PresentationManagerMode.ReadOnly,
+        };
+        using(new PresentationManager(props), (manager) => {
+          expect((manager.getNativePlatform() as any)._nativeAddon).instanceOf(IModelHost.platform.ECPresentationManager);
+          expect(constructorSpy).to.be.calledOnceWithExactly(
+            props.id,
+            [LOCALES_DIRECTORY, testLocale],
+            testTaskAllocations,
+            IModelHost.platform.ECPresentationManagerMode.ReadOnly,
+          );
+        });
+      });
+
     });
 
     it("uses addon implementation supplied through props", () => {
@@ -103,11 +138,13 @@ describe("PresentationManager", () => {
         addon.verifyAll();
       });
 
-      it("sets up locale directories if supplied", () => {
-        const suppliedDirs = ["test1", "test2", "test2"];
-        const addonDirs = [path.resolve(__dirname, "../assets/locales"), "test1", "test2"];
-        addon.setup((x) => x.setupLocaleDirectories(addonDirs)).verifiable();
-        using(new PresentationManager({ addon: addon.object, localeDirectories: suppliedDirs }), (pm: PresentationManager) => { pm; });
+      it("sets up supplemental ruleset directories if supplied", () => {
+        const dirs = ["test1", "test2", "test2"];
+        const addonDirs = [path.join(__dirname, "../assets/supplemental-presentation-rules"), "test1", "test2"];
+        addon
+          .setup((x) => x.setupSupplementalRulesetDirectories(addonDirs))
+          .verifiable();
+        using(new PresentationManager({ addon: addon.object, supplementalRulesetDirectories: dirs }), (pm: PresentationManager) => { pm; });
         addon.verifyAll();
       });
 
@@ -243,6 +280,38 @@ describe("PresentationManager", () => {
 
   });
 
+  describe("handling options", () => {
+
+    const addonMock = moq.Mock.ofType<NativePlatformDefinition>();
+    const imodelMock = moq.Mock.ofType<IModelDb>();
+    let manager: PresentationManager;
+
+    beforeEach(() => {
+      addonMock.reset();
+      manager = new PresentationManager({ addon: addonMock.object });
+    });
+
+    it("adds ruleset variables from options", async () => {
+      const rulesetId = faker.random.word();
+      const variable = { id: faker.random.word(), type: VariableValueTypes.String, value: faker.random.word() };
+      const rulesetVariables = [variable];
+      addonMock
+        .setup((x) => x.handleRequest(ClientRequestContext.current, moq.It.isAny(), moq.It.isAny()))
+        .returns(async () => "{}")
+        .verifiable(moq.Times.once());
+      addonMock
+        .setup((x) => x.setRulesetVariableValue(rulesetId, variable.id, variable.type, variable.value))
+        .verifiable(moq.Times.once());
+      await manager.getNodesCount(ClientRequestContext.current, { imodel: imodelMock.object, rulesetId, rulesetVariables });
+      addonMock.verifyAll();
+    });
+
+    it("throws if ruleset or ruleset id is not provided", async () => {
+      await expect(manager.getNodesCount(ClientRequestContext.current, { imodel: imodelMock.object })).to.be.rejectedWith(PresentationError);
+    });
+
+  });
+
   describe("preloading schemas", () => {
 
     it("calls addon's `forceLoadSchemas` on `IModelDb.onOpened` events", () => {
@@ -258,16 +327,15 @@ describe("PresentationManager", () => {
 
   });
 
-
   describe("addon results conversion to Presentation objects", () => {
 
     let testData: any;
     const nativePlatformMock = moq.Mock.ofType<NativePlatformDefinition>();
     const imodelMock = moq.Mock.ofType<IModelDb>();
     let manager: PresentationManager;
-    beforeEach(() => {
+    beforeEach(async () => {
       testData = {
-        rulesetId: faker.random.word(),
+        rulesetOrId: await createRandomRuleset(),
         pageOptions: { start: faker.random.number(), size: faker.random.number() } as PageOptions,
         displayType: faker.random.word(),
         selectionInfo: {
@@ -284,6 +352,11 @@ describe("PresentationManager", () => {
       nativePlatformMock.verifyAll();
     });
 
+    const getRulesetId = (rulesetOrId: Ruleset | string) => {
+      if (typeof rulesetOrId === "object")
+        return `${rulesetOrId.id}-${hash.MD5(rulesetOrId)}`;
+      return rulesetOrId;
+    };
     const setup = (addonResponse: any) => {
       // nativePlatformMock the handleRequest function
       nativePlatformMock.setup(async (x) => x.handleRequest(ClientRequestContext.current, moq.It.isAny(), moq.It.isAnyString()))
@@ -316,7 +389,7 @@ describe("PresentationManager", () => {
         requestId: NativePlatformRequestTypes.GetRootNodes,
         params: {
           paging: testData.pageOptions,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -326,7 +399,7 @@ describe("PresentationManager", () => {
           type: "type1",
           pathFromRoot: ["p1", "p2", "p3"],
         } as NodeKeyJSON,
-        label: "test1",
+        labelDefinition: LabelDefinition.fromLabelString("test1"),
         description: "description1",
         imageId: "img_1",
         foreColor: "foreColor1",
@@ -345,7 +418,7 @@ describe("PresentationManager", () => {
           pathFromRoot: ["p1"],
           instanceKey: createRandomECInstanceKeyJSON(),
         } as ECInstanceNodeKeyJSON,
-        label: "test2",
+        labelDefinition: LabelDefinition.fromLabelString("test2"),
         description: "description2",
         imageId: "",
         foreColor: "",
@@ -363,14 +436,14 @@ describe("PresentationManager", () => {
           type: "some node",
           pathFromRoot: ["p1", "p3"],
         } as NodeKeyJSON,
-        label: "test2",
+        labelDefinition: LabelDefinition.fromLabelString("test2"),
       }];
       setup(addonResponse);
 
       // test
       const options: Paged<HierarchyRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: testData.pageOptions,
       };
       const result = await manager.getNodes(ClientRequestContext.current, options);
@@ -382,7 +455,7 @@ describe("PresentationManager", () => {
       const expectedParams = {
         requestId: NativePlatformRequestTypes.GetRootNodesCount,
         params: {
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -393,7 +466,7 @@ describe("PresentationManager", () => {
       // test
       const options: HierarchyRequestOptions<IModelDb> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
       };
       const result = await manager.getNodesCount(ClientRequestContext.current, options);
       verifyWithExpectedResult(result, addonResponse, expectedParams);
@@ -406,13 +479,13 @@ describe("PresentationManager", () => {
         requestId: NativePlatformRequestTypes.GetRootNodes,
         params: {
           paging: pageOptions,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
       const expectedGetRootNodesCountParams = {
         requestId: NativePlatformRequestTypes.GetRootNodesCount,
         params: {
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
           paging: pageOptions,
         },
       };
@@ -423,7 +496,7 @@ describe("PresentationManager", () => {
           type: "type1",
           pathFromRoot: ["p1", "p2", "p3"],
         } as NodeKeyJSON,
-        label: "test1",
+        labelDefinition: LabelDefinition.fromLabelString("test1"),
         description: "description1",
         imageId: "img_1",
         foreColor: "foreColor1",
@@ -442,7 +515,7 @@ describe("PresentationManager", () => {
           pathFromRoot: ["p1"],
           instanceKey: createRandomECInstanceKeyJSON(),
         } as ECInstanceNodeKeyJSON,
-        label: "test2",
+        labelDefinition: LabelDefinition.fromLabelString("test2"),
         description: "description2",
         imageId: "",
         foreColor: "",
@@ -460,7 +533,7 @@ describe("PresentationManager", () => {
           type: "some node",
           pathFromRoot: ["p1", "p3"],
         } as NodeKeyJSON,
-        label: "test2",
+        labelDefinition: LabelDefinition.fromLabelString("test2"),
       }];
       const addonGetRootNodesCountResponse = 456;
 
@@ -469,7 +542,7 @@ describe("PresentationManager", () => {
 
       const options: Paged<HierarchyRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: pageOptions,
       };
       const result = await manager.getNodesAndCount(ClientRequestContext.current, options);
@@ -486,7 +559,7 @@ describe("PresentationManager", () => {
         params: {
           nodeKey: parentNodeKeyJSON,
           paging: testData.pageOptions,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -497,20 +570,20 @@ describe("PresentationManager", () => {
           pathFromRoot: ["p1"],
           instanceKey: createRandomECInstanceKeyJSON(),
         } as ECInstanceNodeKeyJSON,
-        label: "test2",
+        labelDefinition: LabelDefinition.fromLabelString("test2"),
       }, {
         key: {
           type: "type 2",
           pathFromRoot: ["p1", "p3"],
         } as NodeKeyJSON,
-        label: "test3",
+        labelDefinition: LabelDefinition.fromLabelString("test3"),
       }];
       setup(addonResponse);
 
       // test
       const options: Paged<HierarchyRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: testData.pageOptions,
       };
       const result = await manager.getNodes(ClientRequestContext.current, options, NodeKey.fromJSON(parentNodeKeyJSON));
@@ -524,7 +597,7 @@ describe("PresentationManager", () => {
         requestId: NativePlatformRequestTypes.GetChildrenCount,
         params: {
           nodeKey: parentNodeKeyJSON,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -535,7 +608,7 @@ describe("PresentationManager", () => {
       // test
       const options: HierarchyRequestOptions<IModelDb> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
       };
       const result = await manager.getNodesCount(ClientRequestContext.current, options, NodeKey.fromJSON(parentNodeKeyJSON));
       verifyWithExpectedResult(result, addonResponse, expectedParams);
@@ -549,7 +622,7 @@ describe("PresentationManager", () => {
         requestId: NativePlatformRequestTypes.GetChildren,
         params: {
           nodeKey: parentNodeKeyJSON,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
           paging: pageOptions,
         },
       };
@@ -557,7 +630,7 @@ describe("PresentationManager", () => {
         requestId: NativePlatformRequestTypes.GetChildrenCount,
         params: {
           nodeKey: parentNodeKeyJSON,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
           paging: pageOptions,
         },
       };
@@ -569,13 +642,13 @@ describe("PresentationManager", () => {
           pathFromRoot: ["p1"],
           instanceKey: createRandomECInstanceKeyJSON(),
         } as ECInstanceNodeKeyJSON,
-        label: "test2",
+        labelDefinition: LabelDefinition.fromLabelString("test2"),
       }, {
         key: {
           type: "type 2",
           pathFromRoot: ["p1", "p3"],
         } as NodeKeyJSON,
-        label: "test3",
+        labelDefinition: LabelDefinition.fromLabelString("test3"),
       }];
       const addonGetChildNodeCountResponse = 789;
 
@@ -585,7 +658,7 @@ describe("PresentationManager", () => {
       // test
       const options: Paged<HierarchyRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: pageOptions,
       };
       const result = await manager.getNodesAndCount(ClientRequestContext.current, options, NodeKey.fromJSON(parentNodeKeyJSON));
@@ -600,7 +673,7 @@ describe("PresentationManager", () => {
         requestId: NativePlatformRequestTypes.GetFilteredNodePaths,
         params: {
           filterText: "filter",
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -611,7 +684,7 @@ describe("PresentationManager", () => {
       // test
       const options: HierarchyRequestOptions<IModelDb> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
       };
       const result = await manager.getFilteredNodePaths(ClientRequestContext.current, options, "filter");
       verifyWithSnapshot(result, expectedParams);
@@ -627,7 +700,7 @@ describe("PresentationManager", () => {
         params: {
           paths: keyJsonArray,
           markedIndex,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -638,10 +711,33 @@ describe("PresentationManager", () => {
       // test
       const options: HierarchyRequestOptions<IModelDb> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
       };
       const result = await manager.getNodePaths(ClientRequestContext.current, options, keyArray, markedIndex);
       verifyWithSnapshot(result, expectedParams);
+    });
+
+    it("requests hierarchy load", async () => {
+      // what the addon receives
+      const expectedParams = {
+        requestId: NativePlatformRequestTypes.LoadHierarchy,
+        params: {
+          rulesetId: getRulesetId(testData.rulesetOrId),
+        },
+      };
+
+      // what addon returns
+      setup("");
+
+      // test
+      const options: HierarchyRequestOptions<IModelDb> = {
+        imodel: imodelMock.object,
+        rulesetOrId: testData.rulesetOrId,
+      };
+      await manager.loadHierarchy(ClientRequestContext.current, options);
+
+      // verify the addon was called with correct params
+      verifyMockRequest(expectedParams);
     });
 
     it("returns content descriptor", async () => {
@@ -653,7 +749,7 @@ describe("PresentationManager", () => {
           displayType: testData.displayType,
           keys: keys.toJSON(),
           selection: testData.selectionInfo,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -668,6 +764,8 @@ describe("PresentationManager", () => {
           isSelectPolymorphic: true,
           pathToPrimaryClass: createRandomRelationshipPathJSON(1),
           relatedPropertyPaths: [createRandomRelationshipPathJSON(1)],
+          navigationPropertyClasses: [createRandomRelatedClassInfoJSON()],
+          relatedInstanceClasses: [createRandomRelatedClassInfoJSON()],
         }],
         fields: [{
           name: "Primitive property field with editor",
@@ -781,6 +879,7 @@ describe("PresentationManager", () => {
           } as FieldJSON],
           isReadonly: faker.random.boolean(),
           priority: faker.random.number(),
+          autoExpand: faker.random.boolean(),
         } as NestedContentFieldJSON],
         contentFlags: 0,
       };
@@ -789,7 +888,7 @@ describe("PresentationManager", () => {
       // test
       const options: ContentRequestOptions<IModelDb> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
       };
       const result = await manager.getContentDescriptor(ClientRequestContext.current, options, testData.displayType,
         keys, testData.selectionInfo);
@@ -805,7 +904,7 @@ describe("PresentationManager", () => {
         params: {
           keys: keys.toJSON(),
           descriptorOverrides: descriptor.createDescriptorOverrides(),
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -816,7 +915,7 @@ describe("PresentationManager", () => {
       // test
       const options: ContentRequestOptions<IModelDb> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
       };
       const result = await manager.getContentSetSize(ClientRequestContext.current, options, descriptor, keys);
       verifyWithExpectedResult(result, addonResponse, expectedParams);
@@ -835,7 +934,7 @@ describe("PresentationManager", () => {
             hiddenFieldNames: [],
             contentFlags: 0,
           },
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -846,7 +945,7 @@ describe("PresentationManager", () => {
       // test
       const options: ContentRequestOptions<IModelDb> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
       };
       const result = await manager.getContentSetSize(ClientRequestContext.current, options, descriptor.createDescriptorOverrides(), keys);
       verifyWithExpectedResult(result, addonResponse, expectedParams);
@@ -862,7 +961,7 @@ describe("PresentationManager", () => {
           keys: keys.toJSON(),
           descriptorOverrides: descriptor.createDescriptorOverrides(),
           paging: testData.pageOptions,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -876,6 +975,8 @@ describe("PresentationManager", () => {
             isSelectPolymorphic: true,
             pathToPrimaryClass: [],
             relatedPropertyPaths: [],
+            navigationPropertyClasses: [],
+            relatedInstanceClasses: [],
           } as SelectClassInfoJSON],
           fields: [{
             name: fieldName,
@@ -901,7 +1002,7 @@ describe("PresentationManager", () => {
         contentSet: [{
           primaryKeys: [createRandomECInstanceKeyJSON()],
           classInfo: createRandomECClassInfoJSON(),
-          label: faker.random.words(),
+          labelDefinition: createRandomLabelDefinitionJSON(),
           imageId: faker.random.uuid(),
           values: {
             [fieldName]: faker.random.words(),
@@ -917,7 +1018,7 @@ describe("PresentationManager", () => {
       // test
       const options: Paged<ContentRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: testData.pageOptions,
       };
       const result = await manager.getContent(ClientRequestContext.current, options, descriptor, keys);
@@ -936,7 +1037,7 @@ describe("PresentationManager", () => {
           keys: new KeySet([concreteClassKey]).toJSON(),
           descriptorOverrides: descriptor.createDescriptorOverrides(),
           paging: testData.pageOptions,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -950,6 +1051,8 @@ describe("PresentationManager", () => {
             isSelectPolymorphic: true,
             pathToPrimaryClass: [],
             relatedPropertyPaths: [],
+            navigationPropertyClasses: [],
+            relatedInstanceClasses: [],
           } as SelectClassInfoJSON],
           fields: [{
             name: fieldName,
@@ -975,7 +1078,7 @@ describe("PresentationManager", () => {
         contentSet: [{
           primaryKeys: [createRandomECInstanceKeyJSON()],
           classInfo: createRandomECClassInfoJSON(),
-          label: faker.random.words(),
+          labelDefinition: createRandomLabelDefinitionJSON(),
           imageId: faker.random.uuid(),
           values: {
             [fieldName]: faker.random.words(),
@@ -991,7 +1094,7 @@ describe("PresentationManager", () => {
       // test
       const options: Paged<ContentRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: testData.pageOptions,
       };
       const result = await manager.getContent(ClientRequestContext.current, options, descriptor, new KeySet([baseClassKey]));
@@ -1009,7 +1112,7 @@ describe("PresentationManager", () => {
           keys: new KeySet([baseClassKey]).toJSON(),
           descriptorOverrides: descriptor.createDescriptorOverrides(),
           paging: testData.pageOptions,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -1023,6 +1126,8 @@ describe("PresentationManager", () => {
             isSelectPolymorphic: true,
             pathToPrimaryClass: [],
             relatedPropertyPaths: [],
+            navigationPropertyClasses: [],
+            relatedInstanceClasses: [],
           } as SelectClassInfoJSON],
           fields: [{
             name: fieldName,
@@ -1048,7 +1153,7 @@ describe("PresentationManager", () => {
         contentSet: [{
           primaryKeys: [createRandomECInstanceKeyJSON()],
           classInfo: createRandomECClassInfoJSON(),
-          label: faker.random.words(),
+          labelDefinition: createRandomLabelDefinitionJSON(),
           imageId: faker.random.uuid(),
           values: {
             [fieldName]: faker.random.words(),
@@ -1064,7 +1169,7 @@ describe("PresentationManager", () => {
       // test
       const options: Paged<ContentRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: testData.pageOptions,
       };
       const result = await manager.getContent(ClientRequestContext.current, options, descriptor, new KeySet([baseClassKey]));
@@ -1085,7 +1190,7 @@ describe("PresentationManager", () => {
             contentFlags: 0,
           },
           paging: testData.pageOptions,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
 
@@ -1099,6 +1204,8 @@ describe("PresentationManager", () => {
             isSelectPolymorphic: true,
             pathToPrimaryClass: [],
             relatedPropertyPaths: [],
+            navigationPropertyClasses: [],
+            relatedInstanceClasses: [],
           } as SelectClassInfoJSON],
           fields: [{
             name: fieldName,
@@ -1124,7 +1231,7 @@ describe("PresentationManager", () => {
         contentSet: [{
           primaryKeys: [createRandomECInstanceKeyJSON()],
           classInfo: createRandomECClassInfoJSON(),
-          label: faker.random.words(),
+          labelDefinition: createRandomLabelDefinitionJSON(),
           imageId: faker.random.uuid(),
           values: {
             [fieldName]: faker.random.words(),
@@ -1140,7 +1247,7 @@ describe("PresentationManager", () => {
       // test
       const options: Paged<ContentRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: testData.pageOptions,
       };
       const result = await manager.getContent(ClientRequestContext.current, options, descriptor.createDescriptorOverrides(), keys);
@@ -1158,7 +1265,7 @@ describe("PresentationManager", () => {
           keys: keys.toJSON(),
           descriptorOverrides: descriptor.createDescriptorOverrides(),
           paging: pageOptions,
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
         },
       };
       const expectedGetContentSetSizeParams = {
@@ -1166,7 +1273,7 @@ describe("PresentationManager", () => {
         params: {
           keys: keys.toJSON(),
           descriptorOverrides: descriptor.createDescriptorOverrides(),
-          rulesetId: testData.rulesetId,
+          rulesetId: getRulesetId(testData.rulesetOrId),
           paging: pageOptions,
         },
       };
@@ -1181,6 +1288,8 @@ describe("PresentationManager", () => {
             isSelectPolymorphic: true,
             pathToPrimaryClass: [],
             relatedPropertyPaths: [],
+            navigationPropertyClasses: [],
+            relatedInstanceClasses: [],
           } as SelectClassInfoJSON],
           fields: [{
             name: fieldName,
@@ -1206,7 +1315,7 @@ describe("PresentationManager", () => {
         contentSet: [{
           primaryKeys: [createRandomECInstanceKeyJSON()],
           classInfo: createRandomECClassInfoJSON(),
-          label: faker.random.words(),
+          labelDefinition: createRandomLabelDefinitionJSON(),
           imageId: faker.random.uuid(),
           values: {
             [fieldName]: faker.random.words(),
@@ -1225,7 +1334,7 @@ describe("PresentationManager", () => {
       // test
       const options: Paged<ContentRequestOptions<IModelDb>> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
         paging: pageOptions,
       };
       const result = await manager.getContentAndSize(ClientRequestContext.current, options, descriptor, keys);
@@ -1249,7 +1358,7 @@ describe("PresentationManager", () => {
             keys: keys.toJSON(),
             fieldName,
             maximumValueCount,
-            rulesetId: testData.rulesetId,
+            rulesetId: getRulesetId(testData.rulesetOrId),
           },
         };
 
@@ -1260,7 +1369,7 @@ describe("PresentationManager", () => {
         // test
         const options: ContentRequestOptions<IModelDb> = {
           imodel: imodelMock.object,
-          rulesetId: testData.rulesetId,
+          rulesetOrId: testData.rulesetOrId,
         };
         const result = await manager.getDistinctValues(ClientRequestContext.current, options, descriptor,
           keys, fieldName, maximumValueCount);
@@ -1277,7 +1386,7 @@ describe("PresentationManager", () => {
             keys: { instanceKeys: [], nodeKeys: [] },
             fieldName: "",
             maximumValueCount: 0,
-            rulesetId: testData.rulesetId,
+            rulesetId: getRulesetId(testData.rulesetOrId),
           },
         };
 
@@ -1288,7 +1397,7 @@ describe("PresentationManager", () => {
         // test
         const options: ContentRequestOptions<IModelDb> = {
           imodel: imodelMock.object,
-          rulesetId: testData.rulesetId,
+          rulesetOrId: testData.rulesetOrId,
         };
         const result = await manager.getDistinctValues(ClientRequestContext.current, options, descriptor, new KeySet(), "");
         verifyWithExpectedResult(result, addonResponse, expectedParams);
@@ -1309,7 +1418,7 @@ describe("PresentationManager", () => {
         };
 
         // what the addon returns
-        const addonResponse = faker.random.word();
+        const addonResponse = createRandomLabelDefinitionJSON();
         setup(addonResponse);
 
         // test
@@ -1317,6 +1426,32 @@ describe("PresentationManager", () => {
           imodel: imodelMock.object,
         };
         const result = await manager.getDisplayLabel(ClientRequestContext.current, options, key);
+        verifyWithExpectedResult(result, addonResponse.displayValue, expectedParams);
+      });
+
+    });
+
+    describe("getDisplayLabelDefinition", () => {
+
+      it("returns label from native addon", async () => {
+        // what the addon receives
+        const key = createRandomECInstanceKey();
+        const expectedParams = {
+          requestId: NativePlatformRequestTypes.GetDisplayLabel,
+          params: {
+            key,
+          },
+        };
+
+        // what the addon returns
+        const addonResponse = createRandomLabelDefinitionJSON();
+        setup(addonResponse);
+
+        // test
+        const options: LabelRequestOptions<IModelDb> = {
+          imodel: imodelMock.object,
+        };
+        const result = await manager.getDisplayLabelDefinition(ClientRequestContext.current, options, key);
         verifyWithExpectedResult(result, addonResponse, expectedParams);
       });
 
@@ -1327,7 +1462,7 @@ describe("PresentationManager", () => {
       it("returns labels from list content", async () => {
         // what the addon receives
         const keys = [createRandomECInstanceKey(), createRandomECInstanceKey()];
-        const labels = [faker.random.word(), faker.random.word()];
+        const labelsDefinitions = [createRandomLabelDefinitionJSON(), createRandomLabelDefinitionJSON()];
         const expectedContentParams = {
           requestId: NativePlatformRequestTypes.GetContent,
           params: {
@@ -1353,6 +1488,8 @@ describe("PresentationManager", () => {
               isSelectPolymorphic: true,
               pathToPrimaryClass: [],
               relatedPropertyPaths: [],
+              navigationPropertyClasses: [],
+              relatedInstanceClasses: [],
             } as SelectClassInfoJSON],
             fields: [],
             contentFlags: 0,
@@ -1361,7 +1498,8 @@ describe("PresentationManager", () => {
           contentSet: [1, 0].map((index): ItemJSON => ({
             primaryKeys: [keys[index]],
             classInfo: createRandomECClassInfoJSON(),
-            label: labels[index],
+            labelDefinition: labelsDefinitions[index],
+            label: labelsDefinitions[index].displayValue,
             imageId: faker.random.uuid(),
             values: {},
             displayValues: {},
@@ -1376,7 +1514,7 @@ describe("PresentationManager", () => {
         };
         const result = await manager.getDisplayLabels(ClientRequestContext.current, options, keys);
         verifyMockRequest(expectedContentParams);
-        expect(result).to.deep.eq(labels);
+        expect(result).to.deep.eq(labelsDefinitions.map((r) => r.displayValue));
       });
 
       it("returns labels for BisCore:Element instances", async () => {
@@ -1384,7 +1522,7 @@ describe("PresentationManager", () => {
         const baseClassKey = { className: "BisCore:Element", id: createRandomId() };
         const concreteClassKey = { className: faker.random.word(), id: baseClassKey.id };
         setupIModelForElementKey(imodelMock, concreteClassKey);
-        const label = faker.random.word();
+        const labelDefinition = createRandomLabelDefinitionJSON();
         const expectedContentParams = {
           requestId: NativePlatformRequestTypes.GetContent,
           params: {
@@ -1410,6 +1548,8 @@ describe("PresentationManager", () => {
               isSelectPolymorphic: true,
               pathToPrimaryClass: [],
               relatedPropertyPaths: [],
+              navigationPropertyClasses: [],
+              relatedInstanceClasses: [],
             } as SelectClassInfoJSON],
             fields: [],
             contentFlags: 0,
@@ -1418,7 +1558,8 @@ describe("PresentationManager", () => {
           contentSet: [{
             primaryKeys: [concreteClassKey],
             classInfo: createRandomECClassInfoJSON(),
-            label,
+            labelDefinition,
+            label: labelDefinition.displayValue,
             imageId: faker.random.uuid(),
             values: {},
             displayValues: {},
@@ -1433,7 +1574,7 @@ describe("PresentationManager", () => {
         };
         const result = await manager.getDisplayLabels(ClientRequestContext.current, options, [baseClassKey]);
         verifyMockRequest(expectedContentParams);
-        expect(result).to.deep.eq([label]);
+        expect(result).to.deep.eq([labelDefinition.displayValue]);
       });
 
       it("returns empty labels if content doesn't contain item with request key", async () => {
@@ -1457,7 +1598,7 @@ describe("PresentationManager", () => {
           contentSet: [{
             primaryKeys: [createRandomECInstanceKeyJSON()], // different than input key
             classInfo: createRandomECClassInfoJSON(),
-            label: faker.random.word(),
+            labelDefinition: createRandomLabelDefinitionJSON(),
             imageId: faker.random.uuid(),
             values: {},
             displayValues: {},
@@ -1504,11 +1645,197 @@ describe("PresentationManager", () => {
 
     });
 
+    describe("getDisplayLabelsDefinitions", () => {
+
+      it("returns labels from list content", async () => {
+        // what the addon receives
+        const keys = [createRandomECInstanceKey(), createRandomECInstanceKey()];
+        const labels = [createRandomLabelDefinitionJSON(), createRandomLabelDefinitionJSON()];
+        const expectedContentParams = {
+          requestId: NativePlatformRequestTypes.GetContent,
+          params: {
+            keys: new KeySet(keys).toJSON(),
+            descriptorOverrides: {
+              displayType: DefaultContentDisplayTypes.List,
+              contentFlags: ContentFlags.ShowLabels | ContentFlags.NoFields,
+              hiddenFieldNames: [],
+            },
+            rulesetId: "RulesDrivenECPresentationManager_RulesetId_DisplayLabel",
+          },
+        };
+
+        // what the addon returns
+        const addonContentResponse = {
+          descriptor: {
+            connectionId: faker.random.uuid(),
+            inputKeysHash: faker.random.uuid(),
+            contentOptions: {},
+            displayType: DefaultContentDisplayTypes.List,
+            selectClasses: [{
+              selectClassInfo: createRandomECClassInfoJSON(),
+              isSelectPolymorphic: true,
+              pathToPrimaryClass: [],
+              relatedPropertyPaths: [],
+              navigationPropertyClasses: [],
+              relatedInstanceClasses: [],
+            } as SelectClassInfoJSON],
+            fields: [],
+            contentFlags: 0,
+          } as DescriptorJSON,
+          // note: return in wrong order to verify the resulting labels are still in the right order
+          contentSet: [1, 0].map((index): ItemJSON => ({
+            primaryKeys: [keys[index]],
+            classInfo: createRandomECClassInfoJSON(),
+            labelDefinition: labels[index],
+            imageId: faker.random.uuid(),
+            values: {},
+            displayValues: {},
+            mergedFieldNames: [],
+          })),
+        } as ContentJSON;
+        setup(addonContentResponse);
+
+        // test
+        const options: LabelRequestOptions<IModelDb> = {
+          imodel: imodelMock.object,
+        };
+        const result = await manager.getDisplayLabelsDefinitions(ClientRequestContext.current, options, keys);
+        verifyMockRequest(expectedContentParams);
+        expect(result).to.deep.eq(labels);
+      });
+
+      it("returns labels for BisCore:Element instances", async () => {
+        // what the addon receives
+        const baseClassKey = { className: "BisCore:Element", id: createRandomId() };
+        const concreteClassKey = { className: faker.random.word(), id: baseClassKey.id };
+        setupIModelForElementKey(imodelMock, concreteClassKey);
+        const labelDefinition = createRandomLabelDefinitionJSON();
+        const expectedContentParams = {
+          requestId: NativePlatformRequestTypes.GetContent,
+          params: {
+            keys: new KeySet([concreteClassKey]).toJSON(),
+            descriptorOverrides: {
+              displayType: DefaultContentDisplayTypes.List,
+              contentFlags: ContentFlags.ShowLabels | ContentFlags.NoFields,
+              hiddenFieldNames: [],
+            },
+            rulesetId: "RulesDrivenECPresentationManager_RulesetId_DisplayLabel",
+          },
+        };
+
+        // what the addon returns
+        const addonContentResponse = {
+          descriptor: {
+            connectionId: faker.random.uuid(),
+            inputKeysHash: faker.random.uuid(),
+            contentOptions: {},
+            displayType: DefaultContentDisplayTypes.List,
+            selectClasses: [{
+              selectClassInfo: createRandomECClassInfoJSON(),
+              isSelectPolymorphic: true,
+              pathToPrimaryClass: [],
+              relatedPropertyPaths: [],
+              navigationPropertyClasses: [],
+              relatedInstanceClasses: [],
+            } as SelectClassInfoJSON],
+            fields: [],
+            contentFlags: 0,
+          } as DescriptorJSON,
+          // note: return in wrong order to verify the resulting labels are still in the right order
+          contentSet: [{
+            primaryKeys: [concreteClassKey],
+            classInfo: createRandomECClassInfoJSON(),
+            labelDefinition,
+            imageId: faker.random.uuid(),
+            values: {},
+            displayValues: {},
+            mergedFieldNames: [],
+          }],
+        } as ContentJSON;
+        setup(addonContentResponse);
+
+        // test
+        const options: LabelRequestOptions<IModelDb> = {
+          imodel: imodelMock.object,
+        };
+        const result = await manager.getDisplayLabelsDefinitions(ClientRequestContext.current, options, [baseClassKey]);
+        verifyMockRequest(expectedContentParams);
+        expect(result).to.deep.eq([labelDefinition]);
+      });
+
+      it("returns empty labels if content doesn't contain item with request key", async () => {
+        const keys = [createRandomECInstanceKey()];
+        const expectedContentParams = {
+          requestId: NativePlatformRequestTypes.GetContent,
+          params: {
+            keys: new KeySet(keys).toJSON(),
+            descriptorOverrides: {
+              displayType: DefaultContentDisplayTypes.List,
+              contentFlags: ContentFlags.ShowLabels | ContentFlags.NoFields,
+              hiddenFieldNames: [],
+            },
+            rulesetId: "RulesDrivenECPresentationManager_RulesetId_DisplayLabel",
+          },
+        };
+
+        // what the addon returns
+        const addonContentResponse = {
+          descriptor: createRandomDescriptorJSON(),
+          contentSet: [{
+            primaryKeys: [createRandomECInstanceKeyJSON()], // different than input key
+            classInfo: createRandomECClassInfoJSON(),
+            labelDefinition: createRandomLabelDefinitionJSON(),
+            imageId: faker.random.uuid(),
+            values: {},
+            displayValues: {},
+            mergedFieldNames: [],
+          }],
+        } as ContentJSON;
+        setup(addonContentResponse);
+
+        // test
+        const options: LabelRequestOptions<IModelDb> = {
+          imodel: imodelMock.object,
+        };
+        const result = await manager.getDisplayLabelsDefinitions(ClientRequestContext.current, options, keys);
+        verifyMockRequest(expectedContentParams);
+        expect(result).to.deep.eq([{ displayValue: "", rawValue: "", typeName: "" }]);
+      });
+
+      it("returns empty labels if content is undefined", async () => {
+        const keys = [createRandomECInstanceKey()];
+        const expectedContentParams = {
+          requestId: NativePlatformRequestTypes.GetContent,
+          params: {
+            keys: new KeySet(keys).toJSON(),
+            descriptorOverrides: {
+              displayType: DefaultContentDisplayTypes.List,
+              contentFlags: ContentFlags.ShowLabels | ContentFlags.NoFields,
+              hiddenFieldNames: [],
+            },
+            rulesetId: "RulesDrivenECPresentationManager_RulesetId_DisplayLabel",
+          },
+        };
+
+        // what the addon returns
+        setup(null);
+
+        // test
+        const options: LabelRequestOptions<IModelDb> = {
+          imodel: imodelMock.object,
+        };
+        const result = await manager.getDisplayLabelsDefinitions(ClientRequestContext.current, options, keys);
+        verifyMockRequest(expectedContentParams);
+        expect(result).to.deep.eq([{ displayValue: "", rawValue: "", typeName: "" }]);
+      });
+
+    });
+
     it("throws on invalid addon response", async () => {
       nativePlatformMock.setup(async (x) => x.handleRequest(ClientRequestContext.current, moq.It.isAny(), moq.It.isAnyString())).returns(() => (undefined as any));
       const options: HierarchyRequestOptions<IModelDb> = {
         imodel: imodelMock.object,
-        rulesetId: testData.rulesetId,
+        rulesetOrId: testData.rulesetOrId,
       };
       return expect(manager.getNodesCount(ClientRequestContext.current, options)).to.eventually.be.rejectedWith(Error);
     });
@@ -1820,6 +2147,52 @@ describe("PresentationManager", () => {
           const result = await manager.computeSelection(ClientRequestContext.current, { imodel: imodelMock.object }, ids, "model");
           expect(result.size).to.eq(1);
           expect(result.has({ className: model.classFullName, id: model.id! })).to.be.true;
+        });
+
+      });
+
+      describe("scope: 'functional'", () => {
+
+        async function* createQueryResult(graphicalElementKey: InstanceKey, functionalElementKey?: InstanceKey) {
+          yield {
+            className: graphicalElementKey.className,
+            elId: graphicalElementKey.id,
+            funcElClassName: functionalElementKey ? functionalElementKey.className : undefined,
+            funcElId: functionalElementKey ? functionalElementKey.id : undefined,
+          };
+        }
+
+        it("returns element key if it doesn't have an associated functional element", async () => {
+          const elementClass = faker.random.word();
+          const elementId = createRandomId();
+          imodelMock.setup((x) => x.query(moq.It.isAnyString(), [elementId]))
+            .returns(() => createQueryResult({ className: elementClass, id: elementId }));
+          const result = await manager.computeSelection(ClientRequestContext.current, { imodel: imodelMock.object }, [elementId], "functional");
+          expect(result.size).to.eq(1);
+          expect(result.has({ className: elementClass, id: elementId })).to.be.true;
+        });
+
+        it("returns functional element key if element has an associated functional element", async () => {
+          const functionalElementClass = faker.random.word();
+          const functionalElementId = createRandomId();
+          const elementClass = faker.random.word();
+          const elementId = createRandomId();
+          imodelMock.setup((x) => x.query(moq.It.isAnyString(), [elementId]))
+            .returns(() => createQueryResult({ className: elementClass, id: elementId }, { className: functionalElementClass, id: functionalElementId }));
+          const result = await manager.computeSelection(ClientRequestContext.current, { imodel: imodelMock.object }, [elementId], "functional");
+          expect(result.size).to.eq(1);
+          expect(result.has({ className: functionalElementClass, id: functionalElementId })).to.be.true;
+        });
+
+        it("skips transient element ids", async () => {
+          const elementClass = faker.random.word();
+          const elementId = createRandomId();
+          imodelMock.setup((x) => x.query(moq.It.isAnyString(), [elementId]))
+            .returns(() => createQueryResult({ className: elementClass, id: elementId }));
+          const ids = [elementId, createTransientElementId()];
+          const result = await manager.computeSelection(ClientRequestContext.current, { imodel: imodelMock.object }, ids, "functional");
+          expect(result.size).to.eq(1);
+          expect(result.has({ className: elementClass, id: elementId })).to.be.true;
         });
 
       });

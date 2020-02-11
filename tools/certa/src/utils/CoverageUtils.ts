@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as fs from "fs";
 import * as path from "path";
@@ -51,7 +51,7 @@ function getNycConfig(): any {
 export function writeCoverageData(coverageData: any): void {
   const nycConfig = getNycConfig();
   const nycCWD = nycConfig.cwd;
-  const nycTempDir = nycConfig["temp-directory"];
+  const nycTempDir = nycConfig["temp-dir"] || nycConfig["temp-directory"];
   if (!nycCWD || !nycTempDir)
     throw new Error("Failed to determine nyc temp directory.");
 

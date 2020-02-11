@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module KeyboardShortcut */
+/** @packageDocumentation
+ * @module KeyboardShortcut
+ */
 
 import * as React from "react";
 import { GlobalContextMenu, ContextMenuItem, UiEvent, ContextSubMenu, CommonProps } from "@bentley/ui-core";
@@ -23,7 +25,7 @@ export interface KeyboardShortcutMenuState {
  */
 export class KeyboardShortcutMenuEvent extends UiEvent<KeyboardShortcutMenuState> { }
 
-/** Widget State Changed Event class.
+/** React component that displays a context menu at the cursor containing keyboard shortcuts.
  * @public
  */
 export class KeyboardShortcutMenu extends React.PureComponent<CommonProps, KeyboardShortcutMenuState> {
@@ -61,7 +63,7 @@ export class KeyboardShortcutMenu extends React.PureComponent<CommonProps, Keybo
         <GlobalContextMenu
           className={this.props.className}
           style={this.props.style}
-          identifier="keyboard-shortcut-menu"
+          identifier="keyboard-shortcuts"
           x={menuX}
           y={menuY}
           opened={menuVisible}
@@ -105,7 +107,7 @@ export class KeyboardShortcutMenu extends React.PureComponent<CommonProps, Keybo
     let label = shortcut.label;
     const iconSpec = shortcut.iconSpec;
 
-    label = "~" + shortcutKey + " " + label;
+    label = "~" + shortcutKey.toLocaleUpperCase() + " " + label;
 
     if (shortcut.shortcutContainer.areKeyboardShortcutsAvailable()) {
       const shortcuts = shortcut.shortcutContainer.getAvailableKeyboardShortcuts();
@@ -119,9 +121,7 @@ export class KeyboardShortcutMenu extends React.PureComponent<CommonProps, Keybo
     } else {
       const sel = () => this._itemPicked(shortcut);
       node = (
-        <ContextMenuItem key={index}
-          onSelect={sel}
-          icon={iconSpec} >
+        <ContextMenuItem key={index} onSelect={sel} icon={iconSpec}>
           {label}
         </ContextMenuItem>
       );

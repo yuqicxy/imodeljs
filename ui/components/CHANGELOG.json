@@ -2,6 +2,387 @@
   "name": "@bentley/ui-components",
   "entries": [
     {
+      "version": "1.11.0",
+      "tag": "@bentley/ui-components_v1.11.0",
+      "date": "Wed, 22 Jan 2020 19:24:12 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Remove the @types/linkify-it as a real dependency and make it a devDependency."
+          },
+          {
+            "comment": "Allow TreeNodeItem and PropertyData label to be represented as PropertyRecord"
+          },
+          {
+            "comment": "Upgrade to TypeScript 3.7.2."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.10.0",
+      "tag": "@bentley/ui-components_v1.10.0",
+      "date": "Tue, 07 Jan 2020 19:44:01 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Fix styling issue in property grid when actionButtonRenders are not defined."
+          },
+          {
+            "comment": "Fixed lgtm issues in UI folders"
+          },
+          {
+            "comment": "Update code to up code coverage to avoid CI failures on Linux machines."
+          },
+          {
+            "comment": "Added Action Buttons for properties"
+          },
+          {
+            "comment": "Attempt to fix sporadic failing solartimeline test."
+          },
+          {
+            "comment": "Fix bug in timeline component when view only has an analysis animation without dates."
+          },
+          {
+            "comment": "Update timeline test to use fake timers to see if that resolved sporadic failures on CI builds."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.9.0",
+      "tag": "@bentley/ui-components_v1.9.0",
+      "date": "Tue, 10 Dec 2019 18:08:56 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Update sunrise/sunset calculation"
+          },
+          {
+            "comment": "Update solar timeline test"
+          },
+          {
+            "comment": "Made detecting links have stricter rules. Links have to start with a schema or `www.`."
+          },
+          {
+            "comment": "Fix solar timeline timezone bug."
+          },
+          {
+            "comment": "Added a tooltip component."
+          },
+          {
+            "comment": "No longer accessing this.state or this.props in setState updater - flagged by lgtm report"
+          },
+          {
+            "comment": "Changed SignIn & SignOut buttons to large. Fixed Dialog component resizing. Reduced default minimum size of Dialog component."
+          },
+          {
+            "comment": "Update sinon version."
+          },
+          {
+            "comment": "Added documentation to ControlledTree API and changes release tags to beta"
+          },
+          {
+            "comment": "Added node editing support in ControlledTree"
+          },
+          {
+            "comment": "Changes ControlledTree events to pass TreeNodeItem instead of nodeId"
+          },
+          {
+            "comment": "Added 'removeChild', 'insertChild', 'getChildOffset' methods to MutableTreeModel"
+          },
+          {
+            "comment": "Moved ControlledTree node highlighting to TreeRenderer"
+          },
+          {
+            "comment": "Use exhaustive-deps linter rule."
+          },
+          {
+            "comment": "Truncate property grid group title."
+          },
+          {
+            "comment": "Rename array length property label to be less ambiguous"
+          },
+          {
+            "comment": "Solar timeline date/time offset fix."
+          },
+          {
+            "comment": "Start arrays at `1` when rendering array property items"
+          },
+          {
+            "comment": "Removed unused React state variables. Removed unsupported setState calls from render() methods."
+          },
+          {
+            "comment": "Code cleanup based on code analysis report from lgtm."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.8.0",
+      "tag": "@bentley/ui-components_v1.8.0",
+      "date": "Fri, 22 Nov 2019 14:03:34 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Update Icon package version"
+          },
+          {
+            "comment": "Responsive logic in Property Grid to switch to Vertical orientation when too narrow"
+          },
+          {
+            "comment": "Added StatusBarComposer, StatusBarItem, StatusBarManager and StatusBarItemsManager"
+          },
+          {
+            "comment": "Added Table cell context menu support"
+          },
+          {
+            "comment": "Added Tree Node.tsx export to ui-components package"
+          },
+          {
+            "comment": "Added tslint-react-hooks to UI packages"
+          },
+          {
+            "comment": "Change componentDidUpdate to call _setDuration instead of setState directly. This will make sure the onChange handler is called."
+          },
+          {
+            "comment": "Refactor ControlledTree custom hooks to use useEffectSkipFirst"
+          },
+          {
+            "comment": "Separated TreeModelSource and TreeNodeLoader. Added highlighting support to ControlledTree."
+          },
+          {
+            "comment": "Added node icon rendering to ControlledTree"
+          },
+          {
+            "comment": "Fix node content sometimes not being re-rendered when editor state changed very quickly"
+          },
+          {
+            "comment": "Add componentDidUpdate() to the TimelineComponent, updating currentDuration after the app changes the state of initialDuration."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.7.0",
+      "tag": "@bentley/ui-components_v1.7.0",
+      "date": "Fri, 01 Nov 2019 13:28:37 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add ability to have Table provide top visible row feedback"
+          },
+          {
+            "comment": "Made PropertyGrid categories keep the collapsed state when data is refreshed."
+          },
+          {
+            "comment": "Added New badge for UI items"
+          },
+          {
+            "comment": "Added Table column filtering support"
+          },
+          {
+            "comment": "Added initial ui-abstract package setup"
+          },
+          {
+            "comment": "Added UiAdmin with support for displaying Menus and Toolbars at a location"
+          },
+          {
+            "comment": "Added DataProvider getter on TreeModelSource"
+          },
+          {
+            "comment": "Fix tree attempting to highlight empty text in nodes"
+          },
+          {
+            "comment": "Fix tree no re-rendering delay loaded nodes after reload"
+          },
+          {
+            "comment": "Added initial implementation of ControlledTree"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.6.0",
+      "tag": "@bentley/ui-components_v1.6.0",
+      "date": "Wed, 09 Oct 2019 20:28:42 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Clear internal row/column selection data when number or rows change in Table. Add definitions for platform MeasureTools."
+          },
+          {
+            "comment": "Allow width defined in ColumnDescription to be passed into <Table> component to set initial column width."
+          },
+          {
+            "comment": "Added AutoSuggest component and improved KeyinBrowser component"
+          },
+          {
+            "comment": "Focus EnumButtonGroupEditor without scrolling."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.5.0",
+      "tag": "@bentley/ui-components_v1.5.0",
+      "date": "Mon, 30 Sep 2019 22:28:48 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "AccuDraw Popup Editors. Improved editor sizes. Editor Params improvements."
+          },
+          {
+            "comment": "Initial Accudraw Ui components - Buttons, ContextMenus, Calculator, Editors. IconInput in ui-core."
+          },
+          {
+            "comment": "Added ability to automatically expand non primitive properties"
+          },
+          {
+            "comment": "Ability to Scroll to Table row via scrollToRow Prop"
+          },
+          {
+            "comment": "Add alwaysMinimized prop to TimelineComponent."
+          },
+          {
+            "comment": "Tool Assistance changes per UX Design"
+          },
+          {
+            "comment": "Joe G required the tree (empty data) be more descriptive and generic."
+          },
+          {
+            "comment": "In the Model/Category/Spatial trees, center the error message"
+          },
+          {
+            "comment": "upgrade to TypeScript 3.6.2"
+          },
+          {
+            "comment": "Fixed signature of BreadcrumbTreeUtils.aliasNodeListToTableDataProvider for consistent extract-api treatment"
+          },
+          {
+            "comment": "Tree: Clear page caches when reloading tree data"
+          },
+          {
+            "comment": "this.props.viewportRef(this._vp); callback moved to the end of async componentDidMount(); Additional check if (!this._mounted) after await"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.4.0",
+      "tag": "@bentley/ui-components_v1.4.0",
+      "date": "Tue, 10 Sep 2019 12:09:49 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Using Checkbox component in BooleanEditor. Cleaned up cell editor positioning."
+          },
+          {
+            "comment": "Updated inputs and button padding for iModel.js. Fixed Popup colors & z-index."
+          },
+          {
+            "comment": "Color picker had incorrect styling after focus trap added."
+          },
+          {
+            "comment": "Added support for content view minSize properties"
+          },
+          {
+            "comment": "Added support for ProjectWise Explorer links."
+          },
+          {
+            "comment": "Added a new component for the Poc, an icon picker."
+          },
+          {
+            "comment": "Addressed some warnings introduced with React 16.9"
+          },
+          {
+            "comment": "Timeline: added display for times"
+          },
+          {
+            "comment": "Fixed bug in style of the weight picker popup"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.3.0",
+      "tag": "@bentley/ui-components_v1.3.0",
+      "date": "Tue, 13 Aug 2019 20:25:53 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Update to use latest icon library"
+          },
+          {
+            "comment": "Added CursorPrompt, improved Pointer messages"
+          },
+          {
+            "comment": "explicitly set margin for button groups to avoid bleed over from BWC styles."
+          },
+          {
+            "comment": "After canceling (clearing) search, set focus back to input field."
+          },
+          {
+            "comment": "Skip failing test until UI team can investigate"
+          },
+          {
+            "comment": "Updated generic icon package"
+          },
+          {
+            "comment": "Fix DateTime type converters"
+          },
+          {
+            "comment": "Improve point type converters to handle points defined as `number[]` or `{x,y}` or `{x,y,z}`"
+          },
+          {
+            "comment": "Change floating point converter to round-off numbers up to 2 decimal places"
+          },
+          {
+            "comment": "Fixed property grid tests."
+          },
+          {
+            "comment": "Fixed OnPropertyLinkClick event handler assignment for nested properties in PropertyGrid. Fixed OnPropertyLinkClick signature for PropertyGrid."
+          },
+          {
+            "comment": "Added onPropertyLinkClick handler property for PropertyGrid with default behavior to open url links in the new tab or open email client if it is an email link. Wrote tests for it."
+          },
+          {
+            "comment": "Update FilteringInput to use updated search box design from UX."
+          },
+          {
+            "comment": "Added SelectionMode.None to the default SelectionHandler."
+          },
+          {
+            "comment": "Tree: Fix children not loaded when parent is reloaded due to other page loads after children request"
+          },
+          {
+            "comment": "Update to latest icon package version."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.2.0",
+      "tag": "@bentley/ui-components_v1.2.0",
+      "date": "Wed, 24 Jul 2019 11:47:26 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Tree: Add `bulkCheckboxActionsDisabled` prop."
+          },
+          {
+            "comment": "Tree: Update visual styles."
+          },
+          {
+            "comment": "Table: Update visual styles."
+          },
+          {
+            "comment": "PropertyView: Update visual styles."
+          }
+        ]
+      }
+    },
+    {
       "version": "1.1.0",
       "tag": "@bentley/ui-components_v1.1.0",
       "date": "Mon, 01 Jul 2019 19:04:29 GMT",

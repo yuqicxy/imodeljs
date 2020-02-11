@@ -1,9 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
+import { addModelViewMatrix } from "./Vertex";
 import { ShaderBuilder, ProgramBuilder, VariableType, ShaderType } from "../ShaderBuilder";
 import { UniformHandle } from "../Handle";
 import { DrawParams } from "../DrawCommand";
@@ -25,18 +28,9 @@ function addShaderFlagsLookup(shader: ShaderBuilder) {
   shader.addConstant("kShaderBit_OITScaleOutput", VariableType.Float, "3.0");
   shader.addConstant("kShaderBit_IgnoreNonLocatable", VariableType.Float, "4.0");
 
-  shader.addFunction(GLSLCommon.extractNthBit);
+  shader.addFunction(extractNthBit);
   shader.addFunction(extractShaderBit);
   shader.addFunction(isShaderBitSet);
-}
-
-/** @internal */
-export function addViewMatrix(vert: ShaderBuilder): void {
-  vert.addUniform("u_viewMatrix", VariableType.Mat4, (prog) => {
-    prog.addGraphicUniform("u_viewMatrix", (uniform, params) => {
-      uniform.setMatrix4(params.viewMatrix);
-    });
-  });
 }
 
 function setShaderFlags(uniform: UniformHandle, params: DrawParams) {
@@ -93,7 +87,7 @@ export function addShaderFlags(builder: ProgramBuilder) {
 export function addFrustum(builder: ProgramBuilder) {
   builder.addUniform("u_frustum", VariableType.Vec3, (prog) => {
     prog.addProgramUniform("u_frustum", (uniform, params) => {
-      uniform.setUniform3fv(params.target.frustumUniforms.frustum);
+      uniform.setUniform3fv(params.target.uniforms.frustum.frustum);
     });
   });
 
@@ -106,6 +100,7 @@ const computeEyeSpace = "v_eyeSpace = (MAT_MV * rawPosition).rgb;";
 
 /** @internal */
 export function addEyeSpace(builder: ProgramBuilder) {
+  addModelViewMatrix(builder.vert);
   builder.addInlineComputedVarying("v_eyeSpace", VariableType.Vec3, computeEyeSpace);
 }
 
@@ -121,17 +116,16 @@ export const addUInt32s = `
       }
 `;
 
-/** @internal */
-export namespace GLSLCommon {
-  // Expects flags in range [0...256] with no fraction; and bit is [0..31] with no fraction.
-  // Returns 1.0 if the nth bit is set, 0.0 otherwise.
-  // dividing flags by 2^(n+1) yields #.5##... if the nth bit is set, #.0##... otherwise
-  // Taking the fractional part yields 0.5##...
-  // Multiplying by 2.0 and taking the floor yields 1.0 or 0.0
-  export const extractNthBit = `
+/** Expects flags in range [0...256] with no fraction; and bit is [0..31] with no fraction.
+ * Returns 1.0 if the nth bit is set, 0.0 otherwise.
+ * dividing flags by 2^(n+1) yields #.5##... if the nth bit is set, #.0##... otherwise
+ * Taking the fractional part yields 0.5##...
+ * Multiplying by 2.0 and taking the floor yields 1.0 or 0.0
+ * @internal
+ */
+export const extractNthBit = `
 float extractNthBit(float flags, float n) {
   float denom = pow(2.0, n+1.0);
   return floor(fract(flags/denom)*2.0);
 }
 `;
-}

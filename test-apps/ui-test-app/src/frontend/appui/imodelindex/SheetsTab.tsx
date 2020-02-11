@@ -1,11 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import * as classnames from "classnames";
 import { IModelConnection, ViewState } from "@bentley/imodeljs-frontend";
-import { AccessToken } from "@bentley/imodeljs-clients";
 import { ViewsList } from "./ViewsList";
 import { SearchBox, Timer, LoadingBar } from "@bentley/ui-core";
 import { ViewDefinitionProps } from "@bentley/imodeljs-common";
@@ -17,8 +16,6 @@ import "./SheetsTab.scss";
 export interface SheetsProps {
   /** IModelConnection */
   iModelConnection: IModelConnection;
-  /** AccessToken */
-  accessToken: AccessToken;
   /** Show sheets or saved views */
   showSheets: boolean;
   /** Callback to add optional header content */
@@ -111,7 +108,7 @@ export class SheetsTab extends React.Component<SheetsProps, SheetsState> {
     if (this.state.percent === 100) {
       this.props.onSetCategory(1);
     } else {
-      this.setState({ percent: this.state.percent + 10 }, () => { this._timer.start(); });
+      this.setState((prevState) => ({ percent: prevState.percent + 10 }), () => { this._timer.start(); });
     }
   }
 
@@ -132,7 +129,6 @@ export class SheetsTab extends React.Component<SheetsProps, SheetsState> {
       <div className="viewstab-container">
         <ViewsList
           iModelConnection={this.props.iModelConnection}
-          accessToken={this.props.accessToken}
           isMultiSelect={true}
           showiModelViews={true}
           showSheetViews={false}

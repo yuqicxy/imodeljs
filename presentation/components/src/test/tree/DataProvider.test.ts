@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 /* tslint:disable:no-direct-imports */
 
@@ -345,6 +345,19 @@ describe("TreeDataProvider", () => {
         .verifiable();
       const actualResult = await provider.getFilteredNodePaths(filter);
       expect(actualResult).to.matchSnapshot();
+      presentationManagerMock.verifyAll();
+    });
+
+  });
+
+  describe("loadHierarchy", () => {
+
+    it("calls presentation manager", async () => {
+      presentationManagerMock
+        .setup((x) => x.loadHierarchy({ imodel: imodelMock.object, rulesetId }))
+        .returns(() => Promise.resolve())
+        .verifiable();
+      await provider.loadHierarchy();
       presentationManagerMock.verifyAll();
     });
 

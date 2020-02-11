@@ -1,12 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import { Node, NodeJSON } from "../../hierarchy/Node";
 import {
   createRandomECInstanceNode, createRandomECInstanceNodeKey,
   createRandomECInstanceKeyJSON,
+  createRandomLabelDefinitionJSON,
 } from "../_helpers/random";
 import { ECInstanceNodeKeyJSON } from "../../hierarchy/Key";
 
@@ -21,6 +22,7 @@ const createRandomNodeJSON = (): NodeJSON => {
   return {
     ...createRandomECInstanceNode(),
     key: createRandomECInstanceNodeKeyJSON(),
+    labelDefinition: createRandomLabelDefinitionJSON(),
   };
 };
 
@@ -30,6 +32,13 @@ describe("Node", () => {
 
     it("serializes Node", () => {
       const node = createRandomECInstanceNode();
+      const json = Node.toJSON(node);
+      expect(json).to.matchSnapshot();
+    });
+
+    it("serializes Node without labelDefinition", () => {
+      const node = createRandomECInstanceNode();
+      node.labelDefinition = undefined;
       const json = Node.toJSON(node);
       expect(json).to.matchSnapshot();
     });

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 
@@ -13,9 +13,8 @@ import {
   FrontstageProps,
   NestedFrontstage,
   ContentGroup,
+  CoreTools,
 } from "@bentley/ui-framework";
-
-import { AppTools } from "../../tools/ToolSpecifications";
 
 export class NestedAnimationStage extends FrontstageProvider {
 
@@ -32,7 +31,7 @@ export class NestedAnimationStage extends FrontstageProvider {
 
     return (
       <Frontstage id="NestedAnimationStage"
-        defaultTool={AppTools.appSelectElementCommand}
+        defaultTool={CoreTools.selectElementCommand}
         defaultLayout="SingleContent"
         contentGroup={myContentGroup}
         isInFooterMode={false}

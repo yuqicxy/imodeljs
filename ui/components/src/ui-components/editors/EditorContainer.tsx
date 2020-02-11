@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PropertyEditors */
+/** @packageDocumentation
+ * @module PropertyEditors
+ */
 
 import * as React from "react";
 import { PropertyRecord, PropertyValue } from "@bentley/imodeljs-frontend";
@@ -167,7 +169,7 @@ export class EditorContainer extends React.PureComponent<EditorContainerProps> {
     if (this._propertyEditor && this.props.propertyRecord) {
       const validateResult = await this._propertyEditor.validateValue(value, this.props.propertyRecord);
       if (validateResult.encounteredError) {
-        this.setState({ isInvalid: validateResult.encounteredError });
+        // this.setState({ isInvalid: validateResult.encounteredError });
         // TODO - display InputField
         return !validateResult.encounteredError;
       }

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 import { Rule } from "./Rule";
 import { VariablesGroup } from "./Variables";
@@ -47,7 +49,7 @@ export interface Ruleset {
 
 /**
  * Contains supplementation-related information for
- * [supplemental rulesets]($docs/learning/RulesetSupplementation.md).
+ * [supplemental rulesets]($docs/learning/presentation/RulesetSupplementation.md).
  *
  * @public
  */

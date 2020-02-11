@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Matrix3d } from "../../geometry3d/Matrix3d";
 import { Complex } from "../../numerics/Complex";
-import { Range1d } from "../../geometry3d/Range";
+import { Range1d, Range2d } from "../../geometry3d/Range";
 import { Angle } from "../../geometry3d/Angle";
 import { AngleSweep } from "../../geometry3d/AngleSweep";
 import { Point3d, Vector3d } from "../../geometry3d/Point3dVector3d";
@@ -15,6 +15,10 @@ import { Sample } from "../../serialization/GeometrySamples";
 import { Checker } from "../Checker";
 import { expect } from "chai";
 import { OrderedRotationAngles } from "../../geometry3d/OrderedRotationAngles";
+import { SineCosinePolynomial } from "../../numerics/Polynomials";
+import { GeometryQuery } from "../../curve/GeometryQuery";
+import { GeometryCoreTestIO } from "../GeometryCoreTestIO";
+import { LineString3d } from "../../curve/LineString3d";
 
 /* tslint:disable:no-console */
 class AngleTests {
@@ -204,6 +208,56 @@ describe("AngleSweep", () => {
     ck.testCoordinate(sweep.endAngle.degrees, theta0.degrees + dTheta.degrees);
     ck.testTrue(sweep.isAlmostEqualNoPeriodShift(sweep1));
     ck.checkpoint("AngleSweeps.Hello");
+    expect(ck.getNumErrors()).equals(0);
+  });
+  it("SineWaveRange", () => {
+    const allGeometry: GeometryQuery[] = [];
+    const ck = new Checker();
+    const degreesA = 10.0;
+    const degreesB = 20.0;
+    const degreesC = 290;
+    const a0 = 2.0;
+    const a1 = 1.5;
+    const a2 = -0.3;
+    const trigFunction = new SineCosinePolynomial(a0, a1, a2);
+    const func = (radians: number) => a0 + a1 * Math.cos(radians) + a2 * Math.sin(radians);
+    const x0 = 0;
+    let y0 = 0;
+    const sweeps = [
+      AngleSweep.createStartEndDegrees(degreesA, degreesB),
+      AngleSweep.createStartEndDegrees(degreesA, degreesB + 180),
+      AngleSweep.createStartEndDegrees(degreesA, degreesA + 360),
+      AngleSweep.createStartEndDegrees(degreesA, degreesC),
+      AngleSweep.createStartEndDegrees(degreesA, degreesA - 360)];
+
+    for (let theta0 = 0; theta0 < 360; theta0 += 35) {
+      sweeps.push(AngleSweep.createStartSweepDegrees(theta0, 40));
+      sweeps.push(AngleSweep.createStartSweepDegrees(theta0, 85));
+      sweeps.push(AngleSweep.createStartSweepDegrees(theta0, -40));
+      sweeps.push(AngleSweep.createStartSweepDegrees(theta0, -85));
+      sweeps.push(AngleSweep.createStartSweepDegrees(theta0, 230));
+    }
+
+    for (const sweep of sweeps) {
+      const sampledRange = Range2d.createNull();
+      const ls = LineString3d.create();
+      for (let f = 0; f <= 1.0; f += 1 / 32) {
+        const theta = sweep.fractionToRadians(f);
+        const y = func(theta);
+        ls.addPointXYZ(theta, y);
+        sampledRange.extendXY(theta, y);
+      }
+      const analyticRange1d = trigFunction.rangeInSweep(sweep);
+      const analyticRange = Range2d.createXYXY(sampledRange.low.x, analyticRange1d.low, sampledRange.high.x, analyticRange1d.high);
+      ck.testTrue(analyticRange.containsRange(sampledRange));
+      const expandedSampledRange = sampledRange.clone();
+      expandedSampledRange.expandInPlace(0.2);
+      ck.testTrue(expandedSampledRange.containsRange(analyticRange));
+      GeometryCoreTestIO.captureRangeEdges(allGeometry, analyticRange, x0, y0);
+      GeometryCoreTestIO.captureGeometry(allGeometry, ls, x0, y0);
+      y0 += 4.0;
+    }
+    GeometryCoreTestIO.saveGeometry(allGeometry, "Angle", "SineWaveRange");
     expect(ck.getNumErrors()).equals(0);
   });
 });
@@ -750,6 +804,51 @@ describe("MiscAngles", () => {
     ck.testTrue(sweepE.isAlmostEqualAllowPeriodShift(fullDegreesA));
     const sweepF = AngleSweep.createStartSweepDegrees();
     ck.testTrue(sweepF.isAlmostEqualAllowPeriodShift(fullDegreesA));
+
+    for (const sign of [-1, 1]) {
+      ck.testFalse(Angle.createDegrees(sign * 90).isHalfCircle);
+      ck.testFalse(Angle.createDegrees(sign * 45).isHalfCircle);
+      ck.testTrue(Angle.createDegrees(sign * 180).isHalfCircle);
+      for (const e of [1.e0 - 8, -1.0e-8]) {
+        ck.testFalse(Angle.createDegrees(sign * 180 + e).isHalfCircle);
+      }
+    }
+    // This demonstrates that addMultipleOf2PiInPlace does indeed protect integer degree
+    let maxDeltaStepBRadians = 0;
+    let maxDeltaStepADegrees = 0;
+    for (const baseDegrees of [0, 45, 60, 90, 270, 10]) {
+      const angleA = Angle.createDegrees(baseDegrees);
+      const baseRadians = Angle.degreesToRadians(baseDegrees);
+      const angleB = Angle.createRadians(Angle.degreesToRadians(baseDegrees));
+      let totalMultiple = 0;
+      // Repeatedly add multiples of 2pi, exercising internal degrees and radians flavors of angles.
+      for (const incrementalMultiple of [0, 1, 2, -1, -2, 5, 10]) {
+        totalMultiple += incrementalMultiple;
+        angleA.addMultipleOf2PiInPlace(incrementalMultiple);
+        angleB.addMultipleOf2PiInPlace(incrementalMultiple);
+        const stepADegrees = (angleA.degrees - baseDegrees);
+        const deltaStepADegrees = stepADegrees - totalMultiple * 360;
+        const stepBRadians = (angleB.radians - baseRadians);
+        const deltaStepBRadians = stepBRadians - totalMultiple * 2.0 * Math.PI;
+        maxDeltaStepADegrees = Math.max(maxDeltaStepADegrees, Math.abs(deltaStepADegrees));
+        maxDeltaStepBRadians = Math.max(maxDeltaStepBRadians, Math.abs(deltaStepBRadians));
+      }
+    }
+    ck.testTrue(0 === maxDeltaStepADegrees, "degree shifts are exact");
+    ck.testFalse(0 === maxDeltaStepBRadians, "radians shifts are not exact");
+    console.log({
+      maxErrDegrees: maxDeltaStepADegrees,
+      maxErrRadians: maxDeltaStepBRadians,
+      maxErrRadiansConvertedToDegrees: Angle.radiansToDegrees(maxDeltaStepBRadians),
+    });
+
+    const f = Angle.createDegrees(10);
+    f.freeze();
+    try {
+      f.setDegrees(20);
+    } catch {
+      console.log(" Yes! We caught the update to frozen angle.");
+    }
 
     expect(ck.getNumErrors()).equals(0);
   });

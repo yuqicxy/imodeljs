@@ -1,17 +1,23 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ContextMenu */
+/** @packageDocumentation
+ * @module ContextMenu
+ */
 
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import * as classnames from "classnames";
 
-import "./ContextMenu.scss";
+import { BadgeType } from "@bentley/ui-abstract";
+
 import { withOnOutsideClick } from "../hocs/withOnOutsideClick";
 import { Omit } from "../utils/typeUtils";
 import { CommonProps } from "../utils/Props";
+
+import "./ContextMenu.scss";
+import { BadgeUtilities } from "../badge/BadgeUtilities";
 
 const DivWithOutsideClick = withOnOutsideClick((props) => (<div {...props} />)); // tslint:disable-line:variable-name
 
@@ -159,15 +165,10 @@ export class ContextMenu extends React.PureComponent<ContextMenuProps, ContextMe
   }
 
   public render(): JSX.Element {
-    const { opened, direction, onOutsideClick, onSelect, onEsc, autoflip, edgeLimit, hotkeySelect, selectedIndex, floating, parentMenu, parentSubmenu, children, ...props } = this.props;
-    let renderDirection = parentMenu === undefined ? this.state.direction : direction;
-    // check if menu should flip
-    if (autoflip && parentMenu === undefined) {
-      const menuRect = this.getRect();
-      renderDirection = ContextMenu.autoFlip(renderDirection!, menuRect, window.innerWidth, window.innerHeight);
-      if (renderDirection !== this.state.direction)
-        this.setState({ direction: renderDirection });
-    }
+    const {
+      opened, direction, onOutsideClick, onSelect, onEsc, autoflip, edgeLimit, hotkeySelect,
+      selectedIndex, floating, parentMenu, parentSubmenu, children, className, ...props } = this.props;
+    const renderDirection = parentMenu === undefined ? this.state.direction : direction;
 
     if (this._lastChildren !== children || this._lastDirection !== renderDirection || this._lastSelectedIndex !== this.state.selectedIndex) {
       this._injectedChildren = this._injectMenuItemProps(children, renderDirection, this.state.selectedIndex);
@@ -175,9 +176,12 @@ export class ContextMenu extends React.PureComponent<ContextMenuProps, ContextMe
       this._lastDirection = renderDirection;
       this._lastSelectedIndex = this.state.selectedIndex;
     }
+
+    const classNames = classnames("core-context-menu", className);
+
     return (
       <div
-        className={classnames("core-context-menu", this.props.className)}
+        className={classNames}
         onKeyUp={this._handleKeyUp}
         onClick={this._handleClick}
         data-testid="core-context-menu-root"
@@ -290,12 +294,28 @@ export class ContextMenu extends React.PureComponent<ContextMenuProps, ContextMe
   public componentDidMount() {
     window.addEventListener("focus", this._handleFocusChange);
     window.addEventListener("mouseup", this._handleFocusChange);
+
+    this.checkRenderDirection();
   }
 
   /** @internal */
   public componentWillUnmount() {
     window.removeEventListener("focus", this._handleFocusChange);
     window.removeEventListener("mouseup", this._handleFocusChange);
+  }
+
+  private checkRenderDirection() {
+    const { direction, autoflip, parentMenu } = this.props;
+
+    let renderDirection = parentMenu === undefined ? this.state.direction : direction;
+
+    // check if menu should flip
+    if (autoflip && parentMenu === undefined) {
+      const menuRect = this.getRect();
+      renderDirection = ContextMenu.autoFlip(renderDirection!, menuRect, window.innerWidth, window.innerHeight);
+      if (renderDirection !== this.state.direction)
+        this.setState({ direction: renderDirection });
+    }
   }
 
   public focus = () => {
@@ -347,6 +367,7 @@ export class ContextMenu extends React.PureComponent<ContextMenuProps, ContextMe
               this._selectedElement.select();
             }
           });
+          event.stopPropagation();
           return;
         }
       }
@@ -404,15 +425,15 @@ export class ContextMenu extends React.PureComponent<ContextMenuProps, ContextMe
 
   public componentDidUpdate(prevProps: ContextMenuProps) {
     if (prevProps.selectedIndex !== this.props.selectedIndex) {
-      this.setState((_prevState, props) => ({ selectedIndex: props.selectedIndex! }));
+      this.setState((_, props) => ({ selectedIndex: props.selectedIndex! }));
     }
     if (!prevProps.opened && this.props.opened) {
-      this.setState((_prevState, props) => ({ selectedIndex: props.selectedIndex! }));
+      this.setState((_, props) => ({ selectedIndex: props.selectedIndex! }));
     }
     if (!this.props.parentMenu) {
       const direction = this.props.direction!;
       if ((!this.props.opened && prevProps.opened && direction !== this.state.direction) || prevProps.direction !== direction)
-        this.setState({ direction });
+        this.checkRenderDirection();
     }
   }
 }
@@ -487,6 +508,8 @@ export interface ContextMenuItemProps extends React.AllHTMLAttributes<HTMLDivEle
   icon?: string | React.ReactNode;
   /** Disables any onSelect calls, hover/keyboard highlighting, and grays item. */
   disabled?: boolean;
+  /** Badge to be overlaid on the item. */
+  badgeType?: BadgeType;
   /** @internal */
   onHover?: () => any;
   /* @internal */
@@ -519,11 +542,14 @@ export class ContextMenuItem extends React.PureComponent<ContextMenuItemProps, C
   /** @internal */
   public readonly state: Readonly<ContextMenuItemState> = {};
   public render(): JSX.Element {
-    const { onClick, className, style, onSelect, icon, disabled, onHover, isSelected, parentMenu, onHotKeyParsed, ...props } = this.props;
+    const { onClick, className, style, onSelect, icon, disabled, onHover, isSelected, parentMenu, onHotKeyParsed, badgeType, ...props } = this.props;
+    const badge = BadgeUtilities.getComponentForBadge(badgeType);
+
     if (this._lastChildren !== this.props.children) {
       this._parsedChildren = TildeFinder.findAfterTilde(this.props.children).node;
       this._lastChildren = this.props.children;
     }
+
     return (
       <div
         {...props}
@@ -544,6 +570,11 @@ export class ContextMenuItem extends React.PureComponent<ContextMenuItemProps, C
         <div className={"core-context-menu-content"}>
           {this._parsedChildren}
         </div>
+        {badge &&
+          <div className="core-context-menu-badge">
+            {badge}
+          </div>
+        }
       </div>
     );
   }
@@ -592,6 +623,7 @@ export class ContextMenuItem extends React.PureComponent<ContextMenuItemProps, C
     if (this.props.onSelect)
       this.props.onSelect(event);
   }
+
   private _handleKeyUp = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.keyCode === 13 && this.props.onSelect !== undefined) {
       this.props.onSelect(event);
@@ -665,16 +697,10 @@ export class ContextSubMenu extends React.Component<ContextSubMenuProps, Context
       label,
       opened, direction, onOutsideClick, onEsc, autoflip, edgeLimit, selectedIndex, floating, parentMenu, parentSubmenu,
       onSelect, icon, disabled, onHover, isSelected, onHotKeyParsed,
-      children, onClick, className, ...props } = this.props;
+      children, onClick, className, badgeType, ...props } = this.props;
     const contextMenuProps = { onOutsideClick, onSelect, onEsc, autoflip, edgeLimit, selectedIndex, floating, parentMenu };
-
-    let renderDirection = this.state.direction;
-    if (autoflip && this._menuElement) {
-      const menuRect = this._menuElement.getRect();
-      renderDirection = ContextMenu.autoFlip(renderDirection, menuRect, window.innerWidth, window.innerHeight);
-      if (renderDirection !== this.state.direction)
-        this.setState({ direction: renderDirection });
-    }
+    const badge = BadgeUtilities.getComponentForBadge(badgeType);
+    const renderDirection = this.state.direction;
 
     if (this._lastLabel !== label) {
       this._parsedLabel = TildeFinder.findAfterTilde(label).node;
@@ -698,9 +724,15 @@ export class ContextSubMenu extends React.Component<ContextSubMenuProps, Context
           <div className={classnames("core-context-menu-icon", "icon", icon)} />
           <div className={"core-context-menu-content"}>{this._parsedLabel}</div>
           <div className={classnames("core-context-submenu-arrow", "icon", "icon-caret-right")} />
+          {badge &&
+            <div className="core-context-menu-badge">
+              {badge}
+            </div>
+          }
         </div>
         <ContextMenu
           ref={(el) => { this._menuElement = el; }}
+          className="core-context-submenu-popup"
           opened={this.state.opened}
           selectedIndex={0}
           direction={renderDirection}
@@ -711,9 +743,12 @@ export class ContextSubMenu extends React.Component<ContextSubMenuProps, Context
       </div>
     );
   }
+
   public componentDidMount() {
     document.addEventListener("click", this._handleClickGlobal);
     this._updateHotkey(this.props.label);
+
+    this.checkRenderDirection();
   }
 
   public componentWillUnmount() {
@@ -723,9 +758,21 @@ export class ContextSubMenu extends React.Component<ContextSubMenuProps, Context
   public componentDidUpdate(prevProps: ContextSubMenuProps, prevState: ContextSubMenuState) {
     const direction = this.props.direction!;
     if ((this.state.opened !== prevState.opened && direction !== this.state.direction) || prevProps.direction !== direction)
-      this.setState({ direction });
+      this.checkRenderDirection();
     if (this.props.children !== prevProps.children) {
       this._updateHotkey(this.props.label);
+    }
+  }
+
+  private checkRenderDirection() {
+    const { autoflip } = this.props;
+    let renderDirection = this.state.direction;
+    // istanbul ignore else
+    if (autoflip && this._menuElement) {
+      const menuRect = this._menuElement.getRect();
+      renderDirection = ContextMenu.autoFlip(renderDirection, menuRect, window.innerWidth, window.innerHeight);
+      if (renderDirection !== this.state.direction)
+        this.setState({ direction: renderDirection });
     }
   }
 
@@ -739,6 +786,7 @@ export class ContextSubMenu extends React.Component<ContextSubMenuProps, Context
 
   public select = () => {
     this.setState({ opened: true }, () => {
+      // istanbul ignore else
       if (this._menuElement)
         this._menuElement.focus();
       if (this.props.onSelect !== undefined)
@@ -748,6 +796,7 @@ export class ContextSubMenu extends React.Component<ContextSubMenuProps, Context
 
   public close = (propagate?: boolean) => {
     this.setState({ opened: false }, () => {
+      // istanbul ignore else
       if (this._menuElement)
         this._menuElement.blur();
     });
@@ -757,6 +806,7 @@ export class ContextSubMenu extends React.Component<ContextSubMenuProps, Context
   }
 
   private _handleMouseOver = (_event: React.MouseEvent<HTMLDivElement>) => {
+    // istanbul ignore else
     if (this._menuButtonElement && this._menuButtonElement.style.visibility !== "hidden" && this.props.onHover) {
       this.props.onHover();
     }
@@ -764,7 +814,9 @@ export class ContextSubMenu extends React.Component<ContextSubMenuProps, Context
 
   private _handleClick = (event: any) => {
     event.stopPropagation();
+    // istanbul ignore else
     if (!this.props.disabled) {
+      // istanbul ignore else
       if (this.props.onClick !== undefined)
         this.props.onClick(event);
       if (this.props.opened)

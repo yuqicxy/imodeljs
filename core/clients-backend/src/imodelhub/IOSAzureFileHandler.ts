@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModelHub */
+/** @packageDocumentation
+ * @module iModelHub
+ */
 import { Logger } from "@bentley/bentleyjs-core";
 import { ArgumentCheck, AuthorizedClientRequestContext, FileHandler, request, RequestOptions } from "@bentley/imodeljs-clients";
 import * as fs from "fs";
@@ -114,7 +116,7 @@ export class IOSAzureFileHandler implements FileHandler {
         reject();
       };
       // iOS implementation knows about this method
-      (xhr as any).uploadFile(filePath, chunkSize * blockId, chunkSize);
+      (xhr as any).uploadChunk(filePath, blockId, chunkSize);
     });
   }
 
@@ -173,7 +175,7 @@ export class IOSAzureFileHandler implements FileHandler {
    * @returns Size of the file.
    */
   public getFileSize(filePath: string): number {
-    return fs.statSync(filePath).size;
+    return fs.lstatSync(filePath).size;
   }
 
   /**
@@ -182,7 +184,7 @@ export class IOSAzureFileHandler implements FileHandler {
    * @returns True if path is directory.
    */
   public isDirectory(filePath: string): boolean {
-    return fs.statSync(filePath).isDirectory();
+    return (fs.lstatSync(filePath) as any).isDirectory; // WIP Need to make IModelJsFS avaliable here without making circular dependency on backend.
   }
 
   /**

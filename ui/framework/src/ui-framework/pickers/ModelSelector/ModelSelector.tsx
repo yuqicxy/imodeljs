@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
- * Licensed under the MIT License. See LICENSE.md in the project root for license terms.
- *--------------------------------------------------------------------------------------------*/
-/** @module Picker */
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Picker
+ */
 
 import * as React from "react";
 import * as _ from "lodash";
@@ -34,8 +36,9 @@ import "./ModelSelector.scss";
 
 /**
  * Model Selector [[WidgetControl]]
- * @alpha
+ * @internal
  */
+// istanbul ignore next
 export class ModelSelectorWidgetControl extends WidgetControl {
   /** Creates a ModelSelectorDemoWidget */
   constructor(info: ConfigurableCreateInfo, options: any) {
@@ -49,12 +52,14 @@ export class ModelSelectorWidgetControl extends WidgetControl {
 
 /**
  * Widget that manages category and model visibility via [[CategoryModelTree]]
- * @alpha
+ * @internal
+ * @deprecated - Use [[VisibilityTree]] instead
  */
+// istanbul ignore next
 export class ModelSelectorWidget extends React.Component<
   ModelSelectorWidgetProps,
   ModelSelectorWidgetState
-> {
+  > {
   private _groups: ModelGroup[] = [];
   private _modelRuleset?: RegisteredRuleset;
   private _categoryRuleset?: RegisteredRuleset;
@@ -64,12 +69,12 @@ export class ModelSelectorWidget extends React.Component<
   constructor(props: ModelSelectorWidgetProps) {
     super(props);
     this._initState();
-    this._initialize(); // tslint:disable-line:no-floating-promises
   }
 
   /** @internal */
-  public componentDidMount() {
+  public async componentDidMount() {
     this._isMounted = true;
+    await this.initialize();
   }
 
   /** @internal */
@@ -77,7 +82,7 @@ export class ModelSelectorWidget extends React.Component<
     this._isMounted = false;
   }
 
-  private _initialize = async () => {
+  private async initialize() {
     await this._initModelState();
     await this._initCategoryState();
     this._initGroups();
@@ -99,7 +104,6 @@ export class ModelSelectorWidget extends React.Component<
   /** Initializes state to default values */
   private _initState = () => {
     this.state = {
-      expand: true,
       activeView: (this.props.activeView ||
         IModelApp.viewManager.getFirstOpenView())!,
     };
@@ -109,12 +113,11 @@ export class ModelSelectorWidget extends React.Component<
   private _initModelState = async () => {
     return Presentation.presentation
       .rulesets()
-      .add(require("../../../../rulesets/Models.json")) // tslint:disable-line:no-floating-promises
+      .add(require("../../../../rulesets/Models.json"))
       .then((ruleset: RegisteredRuleset) => {
         this._modelRuleset = ruleset;
 
         this._setViewType(ruleset).then(() => {
-          // tslint:disable-line:no-floating-promises
           this._updateModelsWithViewport(this.state.activeView); // tslint:disable-line:no-floating-promises
         });
       });
@@ -124,12 +127,11 @@ export class ModelSelectorWidget extends React.Component<
   private _initCategoryState = async () => {
     return Presentation.presentation
       .rulesets()
-      .add(require("../../../../rulesets/Categories.json")) // tslint:disable-line:no-floating-promises
+      .add(require("../../../../rulesets/Categories.json"))
       .then((ruleset: RegisteredRuleset) => {
         this._categoryRuleset = ruleset;
 
         this._setViewType(ruleset).then(() => {
-          // tslint:disable-line:no-floating-promises
           this._updateCategoriesWithViewport(this.state.activeView); // tslint:disable-line:no-floating-promises
         });
       });

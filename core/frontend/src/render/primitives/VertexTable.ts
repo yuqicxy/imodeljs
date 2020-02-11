@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Rendering */
+/** @packageDocumentation
+ * @module Rendering
+ */
 
 import { assert } from "@bentley/bentleyjs-core";
 import { Range2d, Point2d, Point3d, Vector3d } from "@bentley/geometry-core";
@@ -307,7 +309,7 @@ class PolylineVertex {
     if (joint)
       return PolylineParam.kJointBase;
 
-    let param: PolylineParam = PolylineParam.kNone;
+    let param: PolylineParam;
     if (noDisplacement)
       param = PolylineParam.kNoneAdjustWeight; // prevent getting tossed before width adjustment
     else if (adjacentToJoint)
@@ -467,13 +469,46 @@ export function isValidSurfaceType(value: number): boolean {
 }
 
 /** @internal */
+export interface SurfaceRenderMaterial {
+  readonly isAtlas: false;
+  readonly material: RenderMaterial;
+}
+
+/** @internal */
+export interface SurfaceMaterialAtlas {
+  readonly isAtlas: true;
+  // Overrides surface alpha to be translucent. Implies `overridesAlpha`.
+  readonly hasTranslucency: boolean;
+  // Overrides surface alpha to be opaque or translucent.
+  readonly overridesAlpha: boolean;
+  // offset past the END of the vertex data; equivalently, number of 32-bit colors in color table preceding material atlas.
+  readonly vertexTableOffset: number;
+  readonly numMaterials: number;
+}
+
+/** @internal */
+export type SurfaceMaterial = SurfaceRenderMaterial | SurfaceMaterialAtlas;
+
+/** @internal */
+export function createSurfaceMaterial(source: RenderMaterial | undefined): SurfaceMaterial | undefined {
+  if (undefined === source)
+    return undefined;
+  else
+    return { isAtlas: false, material: source };
+}
+
+/** @internal */
 export interface SurfaceParams {
   readonly type: SurfaceType;
   readonly indices: VertexIndices;
   readonly fillFlags: FillFlags;
   readonly hasBakedLighting: boolean;
-  readonly texture?: RenderTexture;
-  readonly material?: RenderMaterial;
+  readonly hasFixedNormals: boolean;
+  readonly textureMapping?: {
+    texture: RenderTexture;
+    alwaysDisplayed: boolean;
+  };
+  readonly material?: SurfaceMaterial;
 }
 
 /**
@@ -667,13 +702,15 @@ export class MeshParams {
     const vertices = VertexTable.buildFrom(builder, args.colors, args.features);
 
     const surfaceIndices = VertexIndices.fromArray(args.vertIndices!);
+
     const surface: SurfaceParams = {
       type: builder.type,
       indices: surfaceIndices,
       fillFlags: args.fillFlags,
       hasBakedLighting: args.hasBakedLighting,
-      texture: args.texture,
-      material: args.material,
+      hasFixedNormals: args.hasFixedNormals,
+      textureMapping: undefined !== args.texture ? { texture: args.texture, alwaysDisplayed: false } : undefined,
+      material: createSurfaceMaterial(args.material),
     };
 
     const edges = convertEdges(args);

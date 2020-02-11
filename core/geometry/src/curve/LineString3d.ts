@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 import { Geometry, AxisOrder, BeJSONFunctions, PlaneAltitudeEvaluator } from "../Geometry";
 import { Angle } from "../geometry3d/Angle";
 import { XAndY } from "../geometry3d/XYZProps";
@@ -24,6 +26,8 @@ import { GeometryQuery } from "./GeometryQuery";
 import { CurveLocationDetail, CurveSearchStatus, CurveIntervalRole } from "./CurveLocationDetail";
 import { Clipper } from "../clipping/ClipUtils";
 import { LineSegment3d } from "./LineSegment3d";
+import { MultiLineStringDataVariant } from "../topology/Triangulation";
+import { PointStreamGrowableXYZArrayCollector, VariantPointDataStream } from "../geometry3d/PointStreaming";
 
 /* tslint:disable:variable-name no-empty*/
 
@@ -75,6 +79,9 @@ function accumulateGoodUnitPerpendicular(
  * @public
  */
 export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
+  /** String name for schema properties */
+  public readonly curvePrimitiveType = "lineString";
+
   private static _workPointA = Point3d.create();
   private static _workPointB = Point3d.create();
   private static _workPointC = Point3d.create();
@@ -118,9 +125,12 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
   /** Return the (optional) array of point indices. These Are only present during certain constructions such as faceting. */
   public get pointIndices(): GrowableFloat64Array | undefined { return this._pointIndices; }
 
-  private constructor() {
+  private constructor(points?: GrowableXYZArray) {
     super();
-    this._points = new GrowableXYZArray();
+    if (points)
+      this._points = points;
+    else
+      this._points = new GrowableXYZArray();
   }
   /** Clone this linestring and apply the transform to the clone points. */
   public cloneTransformed(transform: Transform): CurvePrimitive {  // we know tryTransformInPlace succeeds.
@@ -136,6 +146,14 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
     result.addPoints(points);
     return result;
   }
+  /** Create a linestring, capturing the given GrowableXYZArray as the points.
+   * Point3d, Point2d, `[1,2,3]', array of any of those, or GrowableXYZArray
+   */
+  public static createCapture(points: GrowableXYZArray): LineString3d {
+    return new LineString3d(points);
+
+  }
+
   /** Create a linestring from `XAndY` points, with a specified z applied to all. */
   public static createXY(points: XAndY[], z: number, enforceClosure: boolean = false): LineString3d {
     const result = new LineString3d();
@@ -144,7 +162,7 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
       xyz.pushXYZ(xy.x, xy.y, z);
     }
     if (enforceClosure && points.length > 1) {
-      const distance = xyz.distance(0, xyz.length - 1);
+      const distance = xyz.distanceIndexIndex(0, xyz.length - 1);
       if (distance !== undefined && distance !== 0.0) {
         if (Geometry.isSameCoordinate(0, distance)) {
           xyz.pop();   // nonzero but small distance -- to be replaced by point 0 exactly.
@@ -322,7 +340,7 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
    * If the linestring is not already closed, add a closure point.
    */
   public addClosurePoint() {
-    const distance = this._points.distance(0, this._points.length - 1);
+    const distance = this._points.distanceIndexIndex(0, this._points.length - 1);
     if (distance !== undefined && !Geometry.isSameCoordinate(distance, 0))
       this._points.pushWrap(1);
   }
@@ -652,9 +670,9 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
     if (this._points.length >= 2) {
       let i0 = 0;
       let i1 = this._points.length - 1;
-      let a: Point3d = this._points.getPoint3dAtUncheckedPointIndex(0);
+      const a: Point3d = this._points.getPoint3dAtUncheckedPointIndex(0);
       while (i0 < i1) {
-        a = this._points.getPoint3dAtUncheckedPointIndex(i0);
+        this._points.getPoint3dAtUncheckedPointIndex(i0, a);
         this._points.setAtCheckedPointIndex(i0, this._points.getPoint3dAtUncheckedPointIndex(i1));
         this._points.setAtCheckedPointIndex(i1, a);
         i0++;
@@ -689,14 +707,14 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
     const localFraction1 = scaledFraction1 - index1;
     if (index0 > index1) {
       // the interval is entirely within a single segment
-      return Math.abs(scaledFraction1 - scaledFraction0) * this._points.distance(index0 - 1, index0)!;
+      return Math.abs(scaledFraction1 - scaledFraction0) * this._points.distanceIndexIndex(index0 - 1, index0)!;
     } else {
       // there is leading partial interval, 0 or more complete segments, and a trailing partial interval.
       // (either or both partial may be zero length)
-      let sum = localFraction0 * this._points.distance(index0 - 1, index0)!
-        + localFraction1 * (this._points.distance(index1, index1 + 1))!;
+      let sum = localFraction0 * this._points.distanceIndexIndex(index0 - 1, index0)!
+        + localFraction1 * (this._points.distanceIndexIndex(index1, index1 + 1))!;
       for (let i = index0; i < index1; i++)
-        sum += this._points.distance(i, i + 1)!;
+        sum += this._points.distanceIndexIndex(i, i + 1)!;
       return sum;
     }
   }
@@ -1059,7 +1077,7 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
     if (options && options.hasMaxEdgeLength) {
       numStroke = 0;
       for (let i = 1; i < numPoints; i++) {
-        numStroke += options.applyMaxEdgeLength(1, this._points.distance(i - 1, i)!);
+        numStroke += options.applyMaxEdgeLength(1, this._points.distanceIndexIndex(i - 1, i)!);
       }
     }
     return numStroke;
@@ -1074,7 +1092,7 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
     const applyOptions = options !== undefined && options.hasMaxEdgeLength;
     const myData = StrokeCountMap.createWithCurvePrimitiveAndOptionalParent(this, parentStrokeMap, []);
     for (let i = 1; i < numPoints; i++) {
-      const segmentLength = this._points.distance(i - 1, i)!;
+      const segmentLength = this._points.distanceIndexIndex(i - 1, i)!;
       const numStrokeOnSegment = applyOptions ? options!.applyMaxEdgeLength(1, segmentLength)! : 1;
       myData.addToCountAndLength(numStrokeOnSegment, segmentLength);
     }
@@ -1181,7 +1199,7 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
    * Returns true if first and last points are within metric tolerance.
    */
   public get isPhysicallyClosed(): boolean {
-    return this._points.length > 0 && Geometry.isSmallMetricDistance(this._points.distance(0, this._points.length - 1)!);
+    return this._points.length > 0 && Geometry.isSmallMetricDistance(this._points.distanceIndexIndex(0, this._points.length - 1)!);
   }
 
   /**
@@ -1222,6 +1240,31 @@ export class LineString3d extends CurvePrimitive implements BeJSONFunctions {
       }
     }
     return destLinestring.numPoints() - numPoint0;
+  }
+  /** convert variant point data to a single level array of linestrings.
+   * * The result is always an array of LineString3d.
+   *   * Single linestring is NOT bubbled out as a special case.
+   *   * data with no point is an empty array.
+   *   * "deep" data is flattened to a single array of linestrings, losing structure.
+   */
+  public static createArrayOfLineString3dFromVariantData(data: MultiLineStringDataVariant): LineString3d[] {
+    const collector = new PointStreamGrowableXYZArrayCollector();
+    VariantPointDataStream.streamXYZ(data, collector);
+    const growableArrays = collector.claimArrayOfGrowableXYZArray();
+    const result = [];
+    if (growableArrays !== undefined) {
+      for (const points of growableArrays)
+        result.push(LineString3d.createCapture(points));
+    }
+    return result;
+  }
+  /**
+   * This method name is deprecated. Use `LineString3d.createArrayOfLineString3dFromVariantData`
+   * @deprecated use LineString3d.createArrayOfLineString3dFromVariantData
+   */
+  public static createArrayOfLineString3d(data: MultiLineStringDataVariant): LineString3d[] {
+    return this.createArrayOfLineString3dFromVariantData(data);
+
   }
 }
 /** An AnnotatedLineString3d is a linestring with additional surface-related data attached to each point
@@ -1302,7 +1345,7 @@ class MoveByDistanceContext {
     index0: number, index1: number,
     fraction0: number, fraction1: number): boolean {
     const residual = this.targetDistance - this.distance0;
-    const d01 = points.distance(index0, index1);
+    const d01 = points.distanceIndexIndex(index0, index1);
     if (!d01)
       return false;
     const extensionFraction = Geometry.conditionalDivideFraction(residual, d01);

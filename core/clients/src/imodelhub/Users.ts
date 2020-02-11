@@ -1,16 +1,18 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModelHub */
+/** @packageDocumentation
+ * @module iModelHubClient
+ */
 
 import { GuidString, Logger } from "@bentley/bentleyjs-core";
 import { AuthorizedClientRequestContext } from "../AuthorizedClientRequestContext";
 import { ClientsLoggerCategory } from "../ClientsLoggerCategory";
 import { ECJsonTypeMap, WsgInstance } from "./../ECJsonTypeMap";
+import { WsgQuery } from "../WsgQuery";
 import { IModelBaseHandler } from "./BaseHandler";
 import { ArgumentCheck } from "./Errors";
-import { Query } from "./Query";
 
 const loggerCategory: string = ClientsLoggerCategory.IModelHub;
 
@@ -62,7 +64,7 @@ export class UserStatistics extends HubUserInfo {
  * Query object for getting User Statistics. You can use this to modify the [[UserStatisticsHandler.get]] results.
  * @alpha
  */
-export class UserStatisticsQuery extends Query {
+export class UserStatisticsQuery extends WsgQuery {
   /** @internal */
   protected _byId?: string;
 
@@ -213,7 +215,7 @@ export class UserStatisticsHandler {
 /** Query object for getting [[HubUserInfo]]. You can use this to modify the [[UserInfoHandler.get]] results.
  * @alpha
  */
-export class UserInfoQuery extends Query {
+export class UserInfoQuery extends WsgQuery {
   private _queriedByIds = false;
   /** @internal */
   protected _byId?: string;

@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
-import sinon = require("sinon");
+import * as sinon from "sinon";
 import * as moq from "typemoq";
 
 import { Logger } from "@bentley/bentleyjs-core";
@@ -15,11 +15,19 @@ import {
   CoreTools,
 } from "../../ui-framework";
 import { TestFrontstage } from "./FrontstageTestUtils";
-import TestUtils from "../TestUtils";
+import TestUtils, { storageMock } from "../TestUtils";
+
+const mySessionStorage = storageMock();
+
+const propertyDescriptorToRestore = Object.getOwnPropertyDescriptor(window, "sessionStorage")!;
 
 describe("FrontstageManager", () => {
 
   before(async () => {
+    Object.defineProperty(window, "sessionStorage", {
+      get: () => mySessionStorage,
+    });
+
     await TestUtils.initializeUiFramework();
 
     MockRender.App.startup();
@@ -30,10 +38,13 @@ describe("FrontstageManager", () => {
 
   after(() => {
     MockRender.App.shutdown();
+
+    // restore the overriden property getter
+    Object.defineProperty(window, "sessionStorage", propertyDescriptorToRestore);
   });
 
   it("findWidget should return undefined when no active frontstage", async () => {
-    await FrontstageManager.setActiveFrontstageDef(undefined); // tslint:disable-line:no-floating-promises
+    await FrontstageManager.setActiveFrontstageDef(undefined);
     expect(FrontstageManager.findWidget("xyz")).to.be.undefined;
   });
 
@@ -88,6 +99,7 @@ describe("FrontstageManager", () => {
       viewportMock.reset();
       viewportMock.setup((viewport) => viewport.view).returns(() => spatialViewStateMock.object);
 
+      FrontstageManager.isInitialized = false;
       FrontstageManager.initialize();
       IModelApp.viewManager.setSelectedView(viewportMock.object);
     });

@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module CartesianGeometry */
+/** @packageDocumentation
+ * @module CartesianGeometry
+ */
 
 /* tslint:disable:variable-name jsdoc-format no-empty */
 import { Geometry } from "../Geometry";
@@ -11,10 +13,14 @@ import { Point2d } from "./Point2dVector2d";
 import { XYAndZ, XAndY } from "./XYZProps";
 import { Point3d, Vector3d, XYZ } from "./Point3dVector3d";
 import { Transform } from "./Transform";
+import { MultiLineStringDataVariant, LineStringDataVariant } from "../topology/Triangulation";
 
 import { Point4d } from "../geometry4d/Point4d";
 import { Plane3dByOriginAndUnitNormal } from "./Plane3dByOriginAndUnitNormal";
 import { IndexedXYZCollection } from "./IndexedXYZCollection";
+import { VariantPointDataStream, PointStringDeepXYZArrayCollector } from "./PointStreaming";
+import { Range3d } from "./Range";
+
 /**
  * The `NumberArray` class contains static methods that act on arrays of numbers.
  * @public
@@ -49,7 +55,7 @@ export class NumberArray {
           return false;
       return true;
     }
-    return (!dataA && !dataB);
+    return (dataA === undefined && dataB === undefined);
   }
   /** Return true if arrays have identical counts and entries equal within tolerance */
   public static isAlmostEqual(
@@ -63,7 +69,7 @@ export class NumberArray {
         if (Math.abs(dataA[i] - dataB[i]) >= tolerance) return false;
       return true;
     }
-    return (!dataA && !dataB);
+    return (dataA === undefined && dataB === undefined);
   }
 
   /** return the sum of numbers in an array.  Note that "PreciseSum" may be more accurate. */
@@ -94,7 +100,7 @@ export class NumberArray {
     }
     return a;
   }
-  /** return the max abssolute value of a pair of numbers */
+  /** return the max absolute value of a pair of numbers */
   public static maxAbsTwo(a1: number, a2: number) {
     a1 = Math.abs(a1);
     a2 = Math.abs(a2);
@@ -103,7 +109,7 @@ export class NumberArray {
   /** Return the max absolute difference between corresponding entries in two arrays of numbers
    * * If sizes are mismatched, only the smaller length is tested.
    */
-  public static maxAbsDiff(dataA: number[], dataB: number[]): number {
+  public static maxAbsDiff(dataA: number[] | Float64Array, dataB: number[] | Float64Array): number {
     let a = 0.0;
     const n = Math.min(dataA.length, dataB.length);
     for (let i = 0; i < n; i++) { a = Math.max(a, Math.abs(dataA[i] - dataB[i])); }
@@ -118,6 +124,25 @@ export class NumberArray {
     const n = Math.min(dataA.length, dataB.length);
     for (let i = 0; i < n; i++) { a = Math.max(a, Math.abs(dataA[i] - dataB[i])); }
     return a;
+  }
+  /**
+   * Return an array with indicated start and end points, maximum step size internally
+   * @param low low value
+   * @param high high value
+   * @param step max permitted step
+   */
+  public static createArrayWithMaxStepSize(low: number, high: number, step: number): number[] {
+    if (low === high)
+      return [low];
+    const delta = high - low;
+    const numInterval = Math.max(1, Math.floor(Math.abs(delta / step)));
+    const result = [];
+    result.push (low);
+    for (let i = 1; i < numInterval; i++) {
+      result.push(low + (i / numInterval) * delta);
+    }
+    result.push (high);
+    return result;
   }
 
 }
@@ -137,7 +162,7 @@ export class Point2dArray {
       }
       return true;
     }
-    return (!dataA && !dataB);
+    return (dataA === undefined && dataB === undefined);
   }
   /**
    * Return an array containing clones of the Point3d data[]
@@ -181,7 +206,7 @@ export class Vector3dArray {
           return false;
       return true;
     }
-    return (!dataA && !dataB);
+    return (dataA === undefined && dataB === undefined);
   }
   /**
    * Return an array containing clones of the Vector3d data[]
@@ -197,7 +222,7 @@ export class Vector3dArray {
  * @public
  */
 export class Point4dArray {
-  /** pack each point and its corresponding weight into a buffer of xyzwxyzw... */
+  /** pack each point and its corresponding weight into a buffer of xyzw xyzw ... */
   public static packPointsAndWeightsToFloat64Array(points: Point3d[], weights: number[], result?: Float64Array): Float64Array {
     result = result ? result : new Float64Array(4 * points.length);
     let i = 0;
@@ -222,7 +247,7 @@ export class Point4dArray {
     }
     return result;
   }
-  /** unpack from xyzwxyzw... to array of Point4d */
+  /** unpack from  ... to array of Point4d */
   public static unpackToPoint4dArray(data: Float64Array): Point4d[] {
     const result = [];
     for (let i = 0; i + 3 < data.length; i += 4) {
@@ -230,7 +255,7 @@ export class Point4dArray {
     }
     return result;
   }
-  /** unpack from xyzwxyzw... array to array of Point3d and array of weight.
+  /** unpack from xyzw xyzw... array to array of Point3d and array of weight.
    */
   public static unpackFloat64ArrayToPointsAndWeights(data: Float64Array, points: Point3d[], weights: number[],
     pointFormatter: (x: number, y: number, z: number) => any = Point3d.create) {
@@ -275,7 +300,7 @@ export class Point4dArray {
       return true;
     }
     // if both are null it is equal, otherwise unequal
-    return (!dataA && !dataB);
+    return (dataA === undefined && dataB === undefined);
   }
   /** return true iff all xyzw points' altitudes are within tolerance of the plane.*/
   public static isCloseToPlane(data: Point4d[] | Float64Array, plane: Plane3dByOriginAndUnitNormal, tolerance: number = Geometry.smallMetricDistance): boolean {
@@ -314,7 +339,7 @@ export class Point3dArray {
   }
   /**
    * Compute the 8 weights of trilinear mapping
-   * By appropriate choice of weights, this can be used for both point and derivative mappints.
+   * By appropriate choice of weights, this can be used for both point and derivative mappings.
    * @param weights preallocated array to receive weights.
    * @param u0 low u weight
    * @param u1 high u weight
@@ -507,7 +532,7 @@ export class Point3dArray {
       return true;
     }
     // if both are null it is equal, otherwise unequal
-    return (!dataA && !dataB);
+    return (dataA === undefined && dataB === undefined);
   }
 
   /** return simple average of all coordinates.   (000 if empty array) */
@@ -658,126 +683,223 @@ export class Point3dArray {
     }
     return result;
   }
+  /** Pack isolated x,y,z args as a json `[x,y,z]` */
+  private static xyzToArray(x: number, y: number, z: number): number[] { return [x, y, z]; }
 
-}
-
-/**
- * Helper object to access members of a Point3d[] in geometric calculations.
- * * The collection holds only a reference to the actual array.
- * * The actual array may be replaced by the user as needed.
- * * When replaced, there is no cached data to be updated.
- * @public
-*/
-export class Point3dArrayCarrier extends IndexedXYZCollection {
-  /** reference to array being queried. */
-  public data: Point3d[];
-  /** CAPTURE caller supplied array ... */
-  public constructor(data: Point3d[]) {
-    super();
-    this.data = data;
-  }
-  /** test if `index` is a valid index into the array. */
-  public isValidIndex(index: number): boolean {
-    return index >= 0 && index < this.data.length;
+  /**
+   * return similarly-structured array, array of arrays, etc, with the lowest level point data specifically structured as arrays of 3 numbers `[1,2,3]`
+   * @param data point data with various leaf forms such as `[1,2,3]`, `{x:1,y:2,z:3}`, `Point3d`
+   */
+  public static cloneDeepJSONNumberArrays(data: MultiLineStringDataVariant): any[] {
+    const collector = new PointStringDeepXYZArrayCollector(this.xyzToArray);
+    VariantPointDataStream.streamXYZ(data, collector);
+    return collector.claimResult();
   }
   /**
-   * Access by index, returning strongly typed Point3d
-   * @param index index of point within the array
-   * @param result caller-allocated destination
-   * @returns undefined if the index is out of bounds
+   * return similarly-structured array, array of arrays, etc, with the lowest level point data specifically structured as `Point3d`.
+   * @param data point data with various leaf forms such as `[1,2,3]`, `{x:1,y:2,z:3}`, `Point3d`
    */
-  public getPoint3dAtCheckedPointIndex(index: number, result?: Point3d): Point3d | undefined {
-    if (this.isValidIndex(index)) {
-      const source = this.data[index];
-      return Point3d.create(source.x, source.y, source.z, result);
+  public static cloneDeepXYZPoint3dArrays(data: MultiLineStringDataVariant): any[] {
+    const collector = new PointStringDeepXYZArrayCollector(Point3d.create);
+    VariantPointDataStream.streamXYZ(data, collector);
+    return collector.claimResult();
+  }
+  /**
+   * `Point3dArray.createRange(data)` is deprecated.  Used `Range3d.createFromVariantData(data: MultiLineStringDataVariant): Range3d`
+   * @deprecated Use Range3d.createFromVariantData (data)
+   * @param data
+   */
+  public static createRange(data: MultiLineStringDataVariant): Range3d { return Range3d.createFromVariantData(data); }
+  private static _workPoint?: Point3d;
+  /**
+   * `Point3dArray.streamXYZ` is deprecated -- use `VariantPointStream.streamXYZ (handler)`
+   * @deprecated - use VariantPointStream.streamXYZ (handler)
+   * Invoke a callback with each x,y,z from an array of points in variant forms.
+   * @param startChainCallback called to announce the beginning of points (or recursion)
+   * @param pointCallback (index, x,y,z) = function to receive point coordinates one by one
+   * @param endChainCallback called to announce the end of handling of an array.
+   */
+  public static streamXYZ(data: MultiLineStringDataVariant,
+    startChainCallback: ((chainData: MultiLineStringDataVariant, isLeaf: boolean) => void) | undefined,
+    pointCallback: (x: number, y: number, z: number) => void,
+    endChainCallback: ((chainData: MultiLineStringDataVariant, isLeaf: boolean) => void) | undefined) {
+    let numPoint = 0;
+    if (Array.isArray(data)) {
+      // If the first entry is a point, expect the entire array to be points.
+      // otherwise recurse to each member of this array.
+      if (data.length > 0 && Point3d.isAnyImmediatePointType(data[0])) {
+        if (startChainCallback)
+          startChainCallback(data, true);
+        for (const p of data) {
+          const x = Point3d.accessX(p);
+          const y = Point3d.accessY(p);
+          const z = Point3d.accessZ(p, 0) as number;
+          if (x !== undefined && y !== undefined)
+            pointCallback(x, y, z);
+          numPoint++;
+        }
+        if (endChainCallback)
+          endChainCallback(data, true);
+      } else {
+        // This is an array that does not immediately have points.
+        if (startChainCallback)
+          startChainCallback(data, false);
+        for (const child of data) {
+          // tslint:disable-next-line: deprecation
+          numPoint += this.streamXYZ((child as unknown) as LineStringDataVariant, startChainCallback, pointCallback, endChainCallback);
+        }
+        if (endChainCallback)
+          endChainCallback(data, false);
+      }
+    } else if (data instanceof IndexedXYZCollection) {
+      if (startChainCallback)
+        startChainCallback(data, true);
+      const q = Point3dArray._workPoint = Point3d.create(0, 0, 0, Point3dArray._workPoint);
+      for (let i = 0; i < data.length; i++) {
+        data.getPoint3dAtCheckedPointIndex(i, q);
+        numPoint++;
+        pointCallback(q.x, q.y, q.z);
+      }
+      if (endChainCallback)
+        endChainCallback(data, true);
     }
-    return undefined;
+    return numPoint;
   }
   /**
-   * Access by index, returning strongly typed Vector3d
-   * @param index index of point within the array
-   * @param result caller-allocated destination
-   * @returns undefined if the index is out of bounds
-   */
-  public getVector3dAtCheckedVectorIndex(index: number, result?: Vector3d): Vector3d | undefined {
-    if (this.isValidIndex(index)) {
-      const source = this.data[index];
-      return Vector3d.create(source.x, source.y, source.z, result);
+     * `Point3dArray.streamXYZXYZ` is deprecated -- use `VariantPointStream.streamXYZXYZ (handler)`
+   * @deprecated - use VariantPointStream.streamXYZXYZ (handler)
+   * Invoke a callback with each x,y,z from an array of points in variant forms.
+   * @param startChainCallback callback of the form `startChainCallback (source, isLeaf)` to be called with the source array at each level.
+   * @param segmentCallback callback of the form `segmentCallback (index0, x0,y0,z0, index1, x1,y1,z1)`
+   * @param endChainCallback callback of the form `endChainCallback (source, isLeaf)` to be called with the source array at each level.
+  */
+  public static streamXYZXYZ(data: MultiLineStringDataVariant,
+    startChainCallback: ((chainData: MultiLineStringDataVariant, isLeaf: boolean) => void) | undefined,
+    segmentCallback: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => void,
+    endChainCallback: ((chainData: MultiLineStringDataVariant, isLeaf: boolean) => void) | undefined): number {
+    let x0 = 0, y0 = 0, z0 = 0, x1, y1, z1;
+    let point0Known = false;
+    let numSegment = 0;
+    if (Array.isArray(data)) {
+      if (data.length > 0 && Point3d.isAnyImmediatePointType(data[0])) {
+        if (startChainCallback)
+          startChainCallback(data, true);
+        for (const p of data) {
+          x1 = Point3d.accessX(p);
+          y1 = Point3d.accessY(p);
+          z1 = Point3d.accessZ(p, 0) as number;
+          if (x1 !== undefined && y1 !== undefined) {
+            if (point0Known) {
+              segmentCallback(x0, y0, z0, x1, y1, z1);
+              numSegment++;
+            }
+            point0Known = true; x0 = x1; y0 = y1; z0 = z1;
+          }
+        }
+        if (endChainCallback)
+          endChainCallback(data, true);
+      } else {
+        // This is an array that does not immediately have points.
+        if (startChainCallback)
+          startChainCallback(data, false);
+        for (const child of data) {
+          // tslint:disable-next-line: deprecation
+          numSegment += this.streamXYZXYZ((child as unknown) as LineStringDataVariant, startChainCallback, segmentCallback, endChainCallback);
+        }
+        if (endChainCallback)
+          endChainCallback(data, false);
+      }
+    } else if (data instanceof IndexedXYZCollection) {
+      if (startChainCallback)
+        startChainCallback(data, true);
+      const q = Point3dArray._workPoint = Point3d.create(0, 0, 0, Point3dArray._workPoint);
+      for (let i = 0; i < data.length; i++) {
+        data.getPoint3dAtCheckedPointIndex(i, q);
+        if (i > 0) {
+          numSegment++;
+          segmentCallback(x0, y0, z0, q.x, q.y, q.z);
+        }
+        x0 = q.x;
+        y0 = q.y;
+        z0 = q.z;
+      }
+      if (endChainCallback)
+        endChainCallback(data, true);
     }
-    return undefined;
-  }
-  /**
-   * Return a vector from the point at indexA to the point at indexB
-   * @param indexA index of point within the array
-   * @param indexB index of point within the array
-   * @param result caller-allocated vector.
-   * @returns undefined if either index is out of bounds
-   */
-  public vectorIndexIndex(indexA: number, indexB: number, result?: Vector3d): Vector3d | undefined {
-    if (this.isValidIndex(indexA) && this.isValidIndex(indexB))
-      return Vector3d.createStartEnd(this.data[indexA], this.data[indexB], result);
-    return undefined;
-  }
-  /**
-   * Return a vector from given origin to point at indexB
-   * @param origin origin for vector
-   * @param indexB index of point within the array
-   * @param result caller-allocated vector.
-   * @returns undefined if index is out of bounds
-   */
-  public vectorXYAndZIndex(origin: XYAndZ, indexB: number, result?: Vector3d): Vector3d | undefined {
-    if (this.isValidIndex(indexB))
-      return Vector3d.createStartEnd(origin, this.data[indexB], result);
-    return undefined;
+    return numSegment;
   }
 
-  /**
-   * Return the cross product of vectors from origin to points at indexA and indexB
-   * @param origin origin for vector
-   * @param indexA index of first target within the array
-   * @param indexB index of second target within the array
-   * @param result caller-allocated vector.
-   * @returns undefined if either index is out of bounds
+  /** Computes the hull of the XY projection of points.
+   * * Returns the hull as an array of Point3d
+   * * Optionally returns non-hull points in `insidePoints[]`
+   * * If both arrays empty if less than 3 points.
+   * *
    */
-  public crossProductXYAndZIndexIndex(origin: XYAndZ, indexA: number, indexB: number, result?: Vector3d): Vector3d | undefined {
-    if (this.isValidIndex(indexA) && this.isValidIndex(indexB))
-      return Vector3d.createCrossProductToPoints(origin, this.data[indexA], this.data[indexB], result);
-    return undefined;
+  public static computeConvexHullXY(points: Point3d[], hullPoints: Point3d[], insidePoints: Point3d[], addClosurePoint: boolean = false) {
+    hullPoints.length = 0;
+    insidePoints.length = 0;
+    let n = points.length;
+    // Get deep copy
+    const xy1: Point3d[] = points.slice(0, n);
+    xy1.sort(Geometry.lexicalXYLessThan);
+    if (n < 3) {
+      for (const p of xy1)
+        hullPoints.push(p);
+      if (addClosurePoint && xy1.length > 0)
+        hullPoints.push(xy1[0]);
+      return;
+    }
+    hullPoints.push(xy1[0]); // This is sure to stay
+    hullPoints.push(xy1[1]); // This one can be removed in loop.
+    let numInside = 0;
+    // First sweep creates upper hull
+    for (let i = 2; i < n; i++) {
+      const candidate = xy1[i];
+      let top = hullPoints.length - 1;
+      while (top >= 1 && hullPoints[top - 1].crossProductToPointsXY(hullPoints[top], candidate) <= 0.0) {
+        xy1[numInside++] = hullPoints[top];
+        top--;
+        hullPoints.pop();
+      }
+      hullPoints.push(candidate);
+    }
+    const i0 = hullPoints.length - 1;
+    xy1.length = numInside;
+    xy1.push(hullPoints[0]);    // force first point to be reconsidered as final hull point.
+    xy1.sort(Geometry.lexicalXYLessThan);
+    n = xy1.length;
+    // xy1.back () is already on stack.
+    hullPoints.push(xy1[n - 1]);
+    for (let i = n - 1; i-- > 0;) {
+      const candidate = xy1[i];
+      let top = hullPoints.length - 1;
+      while (top > i0 && hullPoints[top - 1].crossProductToPointsXY(hullPoints[top], candidate) <= 0.0) {
+        insidePoints.push(hullPoints[top]);
+        top--;
+        hullPoints.pop();
+      }
+      if (i > 0)    // don't replicate start !!!
+        hullPoints.push(candidate);
+    }
+    if (addClosurePoint)
+      hullPoints.push(hullPoints[0]);
   }
   /**
-   * Return the cross product of vectors from point at originIndex to points at indexA and indexB
-   * @param originIndex index of origin
-   * @param indexA index of first target within the array
-   * @param indexB index of second target within the array
-   * @param result caller-allocated vector.
-   * @returns return true if indexA, indexB both valid
+   * Return (clones of) points in data[] with min and max x and y parts.
+   * @param data array to examine.
    */
-  public crossProductIndexIndexIndex(originIndex: number, indexA: number, indexB: number, result?: Vector3d): Vector3d | undefined {
-    if (this.isValidIndex(originIndex) && this.isValidIndex(indexA) && this.isValidIndex(indexB))
-      return Vector3d.createCrossProductToPoints(this.data[originIndex], this.data[indexA], this.data[indexB], result);
-    return undefined;
-  }
-  /**
-   * Compute the cross product of vectors from point at originIndex to points at indexA and indexB, and accumulate it to the result.
-   * @param origin index of origin
-   * @param indexA index of first target within the array
-   * @param indexB index of second target within the array
-   * @param result caller-allocated vector.
-   * @returns return true if indexA, indexB both valid
-   */
-  public accumulateCrossProductIndexIndexIndex(originIndex: number, indexA: number, indexB: number, result: Vector3d): void {
-    const data = this.data;
-    if (this.isValidIndex(originIndex) && this.isValidIndex(indexA) && this.isValidIndex(indexB))
-      result.addCrossProductToTargetsInPlace(
-        data[originIndex].x, data[originIndex].y, data[originIndex].z,
-        data[indexA].x, data[indexA].y, data[indexA].z,
-        data[indexB].x, data[indexB].y, data[indexB].z);
-  }
-
-  /**
-   * read-only property for number of XYZ in the collection.
-   */
-  public get length(): number {
-    return this.data.length;
+  public static minMaxPoints(data: Point3d[]): { minXPoint: Point3d, maxXPoint: Point3d, minYPoint: Point3d, maxYPoint: Point3d } | undefined {
+    if (data.length === 0)
+      return undefined;
+    const result = { minXPoint: data[0].clone(), maxXPoint: data[0].clone(), minYPoint: data[0].clone(), maxYPoint: data[0].clone() };
+    let q;
+    for (let i = 1; i < data.length; i++) {
+      q = data[i];
+      if (q.x < result.minXPoint.x) result.minXPoint.setFromPoint3d(q);
+      if (q.x > result.maxXPoint.x) result.maxXPoint.setFromPoint3d(q);
+      if (q.y < result.minYPoint.y) result.minYPoint.setFromPoint3d(q);
+      if (q.y > result.maxYPoint.y) result.maxYPoint.setFromPoint3d(q);
+    }
+    return result;
   }
 }

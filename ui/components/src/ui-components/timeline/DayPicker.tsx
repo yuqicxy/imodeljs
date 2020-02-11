@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import "./DayPicker.scss";
@@ -25,7 +25,6 @@ interface DayPickerProps {
 }
 
 interface DayPickerState {
-  date: number;
   month: number;
   year: number;
   today: Date;
@@ -82,7 +81,6 @@ export class DayPicker extends React.Component<DayPickerProps, DayPickerState> {
     }
 
     this.state = {
-      date: now.getDate(),
       month: now.getMonth(),
       today: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
       year: now.getFullYear(),

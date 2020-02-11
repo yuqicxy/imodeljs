@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { CustomAttributeContainerProps, CustomAttributeSet, serializeCustomAttributes, CustomAttribute } from "./CustomAttribute";
@@ -22,6 +22,7 @@ import { ECObjectsError, ECObjectsStatus } from "./../Exception";
 import { AnyClass, LazyLoadedECClass } from "./../Interfaces";
 import { SchemaItemKey, SchemaKey } from "./../SchemaKey";
 import { assert } from "@bentley/bentleyjs-core";
+import { XmlSerializationUtils } from "../Deserialization/XmlSerializationUtils";
 
 /**
  * A common abstract class for all of the ECClass types.
@@ -346,6 +347,40 @@ export abstract class ECClass extends SchemaItem implements CustomAttributeConta
     return schemaJson;
   }
 
+  /** @internal */
+  public async toXml(schemaXml: Document): Promise<Element> {
+    const itemElement = await super.toXml(schemaXml);
+
+    if (undefined !== this.modifier)
+      itemElement.setAttribute("modifier", classModifierToString(this.modifier));
+
+    if (undefined !== this.baseClass) {
+      const baseClass = await this.baseClass;
+      const baseClassElement = schemaXml.createElement("BaseClass");
+      const baseClassName = XmlSerializationUtils.createXmlTypedName(this.schema, baseClass.schema, baseClass.name);
+      baseClassElement.textContent = baseClassName;
+      itemElement.appendChild(baseClassElement);
+    }
+
+    if (undefined !== this.properties) {
+      for (const prop of this.properties) {
+        const propXml = await prop.toXml(schemaXml);
+        itemElement.appendChild(propXml);
+      }
+    }
+
+    if (this._customAttributes) {
+      const caContainerElement = schemaXml.createElement("ECCustomAttributes");
+      for (const [name, attribute] of this._customAttributes) {
+        const caElement = await XmlSerializationUtils.writeCustomAttribute(name, attribute, schemaXml, this.schema);
+        caContainerElement.appendChild(caElement);
+      }
+      itemElement.appendChild(caContainerElement);
+    }
+
+    return itemElement;
+  }
+
   public deserializeSync(classProps: ClassProps) {
     super.deserializeSync(classProps);
 
@@ -499,6 +534,39 @@ export abstract class ECClass extends SchemaItem implements CustomAttributeConta
     }
 
     return this._mergedPropertyCache;
+  }
+
+  /**
+   * Retrieve all custom attributes in the current class and its bases
+   * This is the async version of getCustomAttributesSync()
+   */
+  public async getCustomAttributes(): Promise<CustomAttributeSet> {
+    return this.getCustomAttributesSync();
+  }
+
+  /**
+   * Retrieve all custom attributes in the current class and its bases.
+   */
+  public getCustomAttributesSync(): CustomAttributeSet {
+    let customAttributes: Map<string, CustomAttribute> | undefined = this._customAttributes;
+    if (undefined === customAttributes) {
+      customAttributes = new Map<string, CustomAttribute>();
+    }
+
+    this.traverseBaseClassesSync((ecClass: ECClass) => {
+      if (undefined === ecClass.customAttributes)
+        return false;
+
+      for (const [className, customAttribute] of ecClass.customAttributes) {
+        if (customAttributes!.has(className))
+          continue;
+        customAttributes!.set(className, customAttribute);
+      }
+
+      return false;
+    });
+
+    return customAttributes!;
   }
 
   /**

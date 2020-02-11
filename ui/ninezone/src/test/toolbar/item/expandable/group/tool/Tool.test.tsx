@@ -1,32 +1,51 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { mount, shallow } from "enzyme";
 import * as React from "react";
 import * as sinon from "sinon";
-
 import { GroupTool } from "../../../../../../ui-ninezone";
+import * as useTargetedModule from "../../../../../../ui-ninezone/base/useTargeted";
 
 describe("<GroupTool />", () => {
+  const sandbox = sinon.createSandbox();
+
+  afterEach(() => {
+    sandbox.restore();
+  });
+
   it("should render", () => {
     mount(<GroupTool />);
   });
 
   it("renders correctly", () => {
-    shallow(<GroupTool />).should.matchSnapshot();
+    shallow(<GroupTool />).dive().should.matchSnapshot();
   });
 
   it("renders active correctly", () => {
-    shallow(<GroupTool isActive />).should.matchSnapshot();
+    shallow(<GroupTool isActive />).dive().should.matchSnapshot();
   });
 
   it("renders focused correctly", () => {
-    shallow(<GroupTool isFocused />).should.matchSnapshot();
+    shallow(<GroupTool isFocused />).dive().should.matchSnapshot();
   });
 
   it("renders disabled correctly", () => {
-    shallow(<GroupTool isDisabled />).should.matchSnapshot();
+    shallow(<GroupTool isDisabled />).dive().should.matchSnapshot();
+  });
+
+  it("renders with badge correctly", () => {
+    shallow(<GroupTool badge />).dive().should.matchSnapshot();
+  });
+
+  it("renders with pointer up correctly", () => {
+    shallow(<GroupTool onPointerUp={sinon.spy()} />).dive().should.matchSnapshot();
+  });
+
+  it("renders targeted correctly", () => {
+    sandbox.stub(useTargetedModule, "useTargeted").returns(true);
+    shallow(<GroupTool />).dive().should.matchSnapshot();
   });
 
   it("should invoke onClick handler", () => {
@@ -43,10 +62,10 @@ describe("<GroupTool />", () => {
     spy.notCalled.should.true;
   });
 
-  it("renders with betaBadge correctly", () => {
-    const sut = mount(<GroupTool betaBadge={true} />);
-    const badge = sut.find("div.nz-beta-badge");
-    badge.length.should.eq(1);
+  it("should invoke onPointerUp handler", () => {
+    const spy = sinon.spy();
+    const sut = mount(<GroupTool onPointerUp={spy} />);
+    sut.simulate("pointerup");
+    spy.calledOnce.should.true;
   });
-
 });

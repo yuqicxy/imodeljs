@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/index";
 
@@ -13,6 +13,11 @@
 
   .rdg-selected {
     border: none;
+  }
+
+  // Appears when columns get reordered
+  .rdg-last--frozen {
+    box-shadow: none !important;
   }
 
   .react-grid-Canvas {
@@ -29,10 +34,6 @@
     height: 100% !important;
   }
 
-  .react-grid-Viewport {
-    height: calc(100% - 25px) !important;
-  }
-
   .react-grid-Container,
   .react-grid-Canvas {
     width: 100% !important;
@@ -44,28 +45,25 @@
   .react-grid-Canvas,
   .react-grid-Row {
     border: none;
-    background: $buic-background-control;
+    background: transparent;
     outline: none;
-    font-size: 14px;
+    font-size: $uicore-font-size;
   }
 
   .react-grid-Row {
     width: fit-content;
   }
 
-  .is-hover-enabled .react-grid-Row:hover, .is-hover-enabled .react-grid-Row:hover * {
-    background: $buic-row-hover !important;
-  }
-
-  .react-grid-Row.row-selected, .react-grid-Row.row-selected * {
-    background: $buic-row-selection;
-  }
-
   .react-grid-Cell {
     padding-left: 0px;
     padding-right: 0px;
+    border: none;
     color: $buic-foreground-body;
-    background: $buic-background-control;
+    background: transparent;
+
+    &:focus {
+      outline: none !important;
+    }
   }
 
   .react-grid-Cell--locked:last-of-type {
@@ -73,56 +71,50 @@
     box-sizing: border-box;
   }
 
-  .react-grid-Cell:focus {
-    outline: none !important;
-  }
-
   .react-grid-Header {
     background: $buic-background-table-header;
+    box-shadow: none;
   }
 
   .react-grid-HeaderCell {
-    padding: 4px 0 0 8px;
+    padding: 4px 0 4px 8px;
     box-sizing: border-box;
     background: $buic-background-table-header;
-    font-size: 14px;
+    font-size: $uicore-font-size;
     border: none;
   }
 
   .react-grid-HeaderCell__draggable {
     background: $buic-background-table-header;
     width: 8px !important;
-    left: 100%;
-    z-index: 2;
   }
 
   .react-grid-HeaderCell__draggable::after {
-    content: ' ';
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%225%22 height=%2225%22%3E %3Cg fill=%22#909ba6%22 fill-rule=%22evenodd%22%3E %3Ccircle cx=%222.5%22 cy=%222.5%22 r=%222.5%22/%3E %3Ccircle cx=%222.5%22 cy=%222.5%22 r=%222.5%22 transform=%22translate(0 20)%22/%3E %3Ccircle cx=%222.5%22 cy=%222.5%22 r=%222.5%22 transform=%22translate(0 10)%22/%3E %3C/g%3E %3C/svg%3E");
-    height: 10px;
-    width: 2px;
+    content: '\2807';
+    font-size: 16px;
+    font-weight: normal;
+    color: $buic-foreground-muted;
     position: relative;
     display: block;
-    position: relative;
-    background-size: contain;
-    top: calc(50% - 5px);
+    top: calc(50% - 12px);
     left: calc(50% - 1px);
     pointer-events: none;
   }
 
   /* TODO: Is property-name-cell old? */
-  .property-name-cell span {
-    height: 100%;
-    display: inline-block;
-    vertical-align: text-bottom;
-    padding: 0 0 2px 6px;
-  }
+  .property-name-cell {
+    span {
+      height: 100%;
+      display: inline-block;
+      vertical-align: text-bottom;
+      padding: 0 0 2px 6px;
+    }
 
-  /* TODO: Is property-name-cell old? */
-  .property-name-cell be-svg-icon {
-    width: 24px;
-    height: 16px;
-    margin-top: 4px;
+    be-svg-icon {
+      width: 24px;
+      height: 16px;
+      margin-top: 4px;
+    }
   }
 
   .react-grid-HeaderCell--locked {
@@ -130,8 +122,10 @@
   }
 
   .react-grid-Cell__value {
-    &.is-hover-enabled:hover {
-      background: $buic-row-hover !important;
+    // Remove transformations that center the content vertically in order to make cell borders fit
+    > div {
+      top: 0 !important;
+      transform: none !important;
     }
   }
 
@@ -141,20 +135,33 @@
   }
 
   .components-editor-container {
-    margin-left: 6px;
-    margin-right: 6px;
+    margin-top: 1px;
   }
 
   .components-cell-editor {
-    border: $buic-foreground-primary solid 1px;
     background: $buic-background-control !important;
-    box-sizing: border-box;
     height: 100%;
   }
 }
 
-.components-table-header-drag-drop .react-grid-HeaderCell {
-  height: 100%;
+.components-table.row-selection {
+  .react-grid-Cell.row-selected {
+    background: $buic-row-selection;
+  }
+
+  .react-grid-Row:hover .react-grid-Cell {
+    background: $buic-row-hover;
+  }
+}
+
+.components-table.cell-selection {
+  .react-grid-Row:hover .react-grid-Cell {
+    background: transparent;
+  }
+
+  .react-grid-Cell:hover .components-table-cell {
+    background: $buic-row-hover;
+  }
 }
 
 .components-table.hide-header {
@@ -171,4 +178,8 @@
   .react-grid-Header {
     display: none;
   }
+}
+
+.components-table-header-drag-drop .react-grid-HeaderCell {
+  height: 100%;
 }

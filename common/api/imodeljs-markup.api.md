@@ -35,6 +35,8 @@ export class ArrowTool extends RedlineTool {
     // (undocumented)
     protected getOrCreateArrowMarker(color: string): Marker;
     // (undocumented)
+    static iconSpec: string;
+    // (undocumented)
     protected showPrompt(): void;
     // (undocumented)
     static toolId: string;
@@ -44,6 +46,8 @@ export class ArrowTool extends RedlineTool {
 export class CircleTool extends RedlineTool {
     // (undocumented)
     protected createMarkup(svgMarkup: G, ev: BeButtonEvent, isDynamics: boolean): void;
+    // (undocumented)
+    static iconSpec: string;
     // (undocumented)
     protected showPrompt(): void;
     // (undocumented)
@@ -59,6 +63,8 @@ export class CloudTool extends RedlineTool {
     // (undocumented)
     protected createMarkup(svgMarkup: G, ev: BeButtonEvent, isDynamics: boolean): void;
     // (undocumented)
+    static iconSpec: string;
+    // (undocumented)
     protected showPrompt(): void;
     // (undocumented)
     static toolId: string;
@@ -70,6 +76,8 @@ export class DistanceTool extends ArrowTool {
     protected createMarkup(svgMarkup: G, ev: BeButtonEvent, isDynamics: boolean): void;
     // (undocumented)
     protected getFormattedDistance(distance: number): string | undefined;
+    // (undocumented)
+    static iconSpec: string;
     // (undocumented)
     onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled>;
     // (undocumented)
@@ -91,6 +99,8 @@ export class EditTextTool extends MarkupTool {
     editDiv?: HTMLDivElement;
     // (undocumented)
     editor?: HTMLTextAreaElement;
+    // (undocumented)
+    static iconSpec: string;
     onCleanup(): void;
     // (undocumented)
     onDataButtonUp(_ev: BeButtonEvent): Promise<EventHandled>;
@@ -100,6 +110,8 @@ export class EditTextTool extends MarkupTool {
     onMouseStartDrag(_ev: BeButtonEvent): Promise<EventHandled>;
     // (undocumented)
     onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled>;
+    // (undocumented)
+    protected showPrompt(): void;
     startEditor(): void;
     // (undocumented)
     text?: G | Text | undefined;
@@ -111,6 +123,8 @@ export class EditTextTool extends MarkupTool {
 export class EllipseTool extends RedlineTool {
     // (undocumented)
     protected createMarkup(svgMarkup: G, ev: BeButtonEvent, isDynamics: boolean): void;
+    // (undocumented)
+    static iconSpec: string;
     // (undocumented)
     protected showPrompt(): void;
     // (undocumented)
@@ -164,6 +178,8 @@ export class LineTool extends RedlineTool {
     // (undocumented)
     protected createMarkup(svgMarkup: G, ev: BeButtonEvent, isDynamics: boolean): void;
     // (undocumented)
+    static iconSpec: string;
+    // (undocumented)
     protected showPrompt(): void;
     // (undocumented)
     static toolId: string;
@@ -202,21 +218,21 @@ export class Markup {
 // @beta
 export class MarkupApp {
     // @internal (undocumented)
-    static readonly boxedTextClass: string;
+    static get boxedTextClass(): string;
     // @internal (undocumented)
-    static readonly containerClass: string;
+    static get containerClass(): string;
     // (undocumented)
     static convertVpToVb(pt: XAndY): Point3d;
     // @internal (undocumented)
-    static readonly cornerId: string;
+    static get cornerId(): string;
     // (undocumented)
     protected static createMarkup(view: ScreenViewport, markupData?: MarkupSvgData): Markup;
     // @internal (undocumented)
-    static readonly decorationsClass: string;
+    static get decorationsClass(): string;
     // @internal (undocumented)
-    static readonly dropShadowId: string;
+    static get dropShadowId(): string;
     // @internal (undocumented)
-    static readonly dynamicsClass: string;
+    static get dynamicsClass(): string;
     // (undocumented)
     static getActionName(action: string): any;
     // (undocumented)
@@ -224,7 +240,7 @@ export class MarkupApp {
     // (undocumented)
     static getVpToVbMtx(): Matrix;
     static initialize(): Promise<void>;
-    static readonly isActive: boolean;
+    static get isActive(): boolean;
     // (undocumented)
     protected static lockViewportSize(view: ScreenViewport, markupData?: MarkupSvgData): void;
     static markup?: Markup;
@@ -233,9 +249,9 @@ export class MarkupApp {
     // (undocumented)
     static markupSelectToolId: string;
     // @internal (undocumented)
-    static readonly markupSvgClass: string;
+    static get markupSvgClass(): string;
     // @internal (undocumented)
-    static readonly moveHandleClass: string;
+    static get moveHandleClass(): string;
     static namespace: I18NNamespace;
     static props: {
         handles: {
@@ -299,10 +315,11 @@ export class MarkupApp {
                 "stroke": string;
                 "stroke-opacity": number;
                 "stroke-width": number;
-                "fill-opacity": number;
-                "fill": string;
+                "stroke-dasharray": number;
                 "stroke-linecap": string;
                 "stroke-linejoin": string;
+                "fill": string;
+                "fill-opacity": number;
             };
             arrow: {
                 length: number;
@@ -353,23 +370,23 @@ export class MarkupApp {
     // @internal
     protected static readMarkupSvg(): string | undefined;
     // @internal (undocumented)
-    static readonly rotateHandleClass: string;
+    static get rotateHandleClass(): string;
     // @internal (undocumented)
-    static readonly rotateLineClass: string;
+    static get rotateLineClass(): string;
     // (undocumented)
     static screenToVbMtx: Matrix;
     static start(view: ScreenViewport, markupData?: MarkupSvgData): Promise<void>;
     static stop(): Promise<MarkupData>;
     // @internal (undocumented)
-    static readonly stretchHandleClass: string;
+    static get stretchHandleClass(): string;
     // @internal (undocumented)
-    static readonly textClass: string;
+    static get textClass(): string;
     // @internal (undocumented)
-    static readonly textEditorClass: string;
+    static get textEditorClass(): string;
     // @internal (undocumented)
-    static readonly textOutlineClass: string;
+    static get textOutlineClass(): string;
     // @internal (undocumented)
-    static readonly vertexHandleClass: string;
+    static get vertexHandleClass(): string;
 }
 
 // @beta (undocumented)
@@ -405,14 +422,14 @@ export class MarkupSelected {
     // (undocumented)
     has(el: Element): boolean;
     // (undocumented)
-    readonly isEmpty: boolean;
+    get isEmpty(): boolean;
     readonly onChanged: BeEvent<(selected: MarkupSelected) => void>;
     replace(oldEl: Element, newEl: Element): void;
     reposition(cmdName: string, undo: UndoManager, fn: (el: Element) => void): void;
     // (undocumented)
     restart(el?: Element): void;
     // (undocumented)
-    readonly size: number;
+    get size(): number;
     // (undocumented)
     sizeChanged(): void;
     // (undocumented)
@@ -497,6 +514,8 @@ export class PlaceTextTool extends RedlineTool {
     // (undocumented)
     protected createMarkup(svg: G, ev: BeButtonEvent, isDynamics: boolean): void;
     // (undocumented)
+    static iconSpec: string;
+    // (undocumented)
     protected _minPoints: number;
     // (undocumented)
     protected _nRequiredPoints: number;
@@ -522,6 +541,8 @@ export class PolygonTool extends RedlineTool {
     // (undocumented)
     protected getPoints(points: number[], center: Point3d, edge: Point3d, numSides: number, inscribe: boolean): boolean;
     // (undocumented)
+    static iconSpec: string;
+    // (undocumented)
     protected _numSides?: number | undefined;
     // (undocumented)
     protected showPrompt(): void;
@@ -536,6 +557,8 @@ export class RectangleTool extends RedlineTool {
     protected _cornerRadius?: number | undefined;
     // (undocumented)
     protected createMarkup(svgMarkup: G, ev: BeButtonEvent, isDynamics: boolean): void;
+    // (undocumented)
+    static iconSpec: string;
     // (undocumented)
     protected showPrompt(): void;
     // (undocumented)
@@ -573,6 +596,8 @@ export abstract class RedlineTool extends MarkupTool {
     // (undocumented)
     protected readonly _points: Point3d[];
     // (undocumented)
+    protected provideToolAssistance(mainInstrKey: string, singlePoint?: boolean): void;
+    // (undocumented)
     protected setupAndPromptForNextAction(): void;
 }
 
@@ -585,7 +610,10 @@ export class SelectTool extends MarkupTool {
     // (undocumented)
     protected boxSelectStart(ev: BeButtonEvent): boolean;
     // (undocumented)
-    flashedElement: Element | undefined;
+    get flashedElement(): Element | undefined;
+    set flashedElement(el: Element | undefined);
+    // (undocumented)
+    static iconSpec: string;
     // (undocumented)
     onCleanup(): void;
     onDataButtonUp(ev: BeButtonEvent): Promise<EventHandled>;
@@ -615,6 +643,8 @@ export class SketchTool extends RedlineTool {
     // (undocumented)
     protected createMarkup(svgMarkup: G, ev: BeButtonEvent, isDynamics: boolean): void;
     // (undocumented)
+    static iconSpec: string;
+    // (undocumented)
     protected _minDistSquared: number;
     // (undocumented)
     onMouseMotion(ev: BeButtonEvent): Promise<void>;
@@ -633,6 +663,8 @@ export class SymbolTool extends RedlineTool {
     protected clearDynamicsMarkup(isDynamics: boolean): void;
     // (undocumented)
     protected createMarkup(svgMarkup: G, ev: BeButtonEvent, isDynamics: boolean): void;
+    // (undocumented)
+    static iconSpec: string;
     // (undocumented)
     onDataButtonUp(ev: BeButtonEvent): Promise<EventHandled>;
     // (undocumented)
@@ -675,12 +707,12 @@ export class UndoManager {
     onModified(newElem: Element, oldElem: Element): void;
     onRepositioned(elem: Element, oldIndex: number, oldParent: Element): void;
     performOperation(cmdName: string, fn: VoidFunction): void;
-    readonly redoPossible: boolean;
-    readonly redoString: string | undefined;
+    get redoPossible(): boolean;
+    get redoString(): string | undefined;
     // (undocumented)
-    readonly size: number;
-    readonly undoPossible: boolean;
-    readonly undoString: string | undefined;
+    get size(): number;
+    get undoPossible(): boolean;
+    get undoString(): string | undefined;
 }
 
 // @beta (undocumented)

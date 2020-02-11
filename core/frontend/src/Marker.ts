@@ -1,17 +1,23 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Views */
+/** @packageDocumentation
+ * @module Views
+ */
 
-import { Point2d, Point3d, XAndY, XYAndZ, Range1d, Range1dProps, Geometry, Matrix4d } from "@bentley/geometry-core";
-import { imageElementFromUrl } from "./ImageUtil";
-import { DecorateContext } from "./ViewContext";
-import { CanvasDecoration } from "./render/System";
-import { ViewRect, Viewport } from "./Viewport";
-import { BeButtonEvent } from "./tools/Tool";
+import { Logger, ObservableSet } from "@bentley/bentleyjs-core";
+import { Geometry, Matrix4d, Point2d, Point3d, Range1d, Range1dProps, Vector3d, XAndY, XYAndZ } from "@bentley/geometry-core";
 import { ColorDef } from "@bentley/imodeljs-common";
+import { FrontendLoggerCategory } from "./FrontendLoggerCategory";
+import { imageElementFromUrl } from "./ImageUtil";
+import { IModelApp } from "./IModelApp";
 import { ToolTipOptions } from "./NotificationManager";
+import { CanvasDecoration } from "./render/System";
+import { BeButtonEvent } from "./tools/Tool";
+import { DecorateContext } from "./ViewContext";
+import { ScreenViewport, Viewport } from "./Viewport";
+import { ViewRect } from "./ViewRect";
 
 /** The types that may be used for Markers
  * @public
@@ -26,6 +32,24 @@ export type MarkerTextAlign = "left" | "right" | "center" | "start" | "end";
 
 /** @public */
 export type MarkerTextBaseline = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom";
+
+function getMinScaleViewW(vp: Viewport): number {
+  let zHigh;
+  const origin = vp.view.getCenter();
+  const direction = vp.view.getZVector(); direction.scaleInPlace(-1);
+  const corners = vp.view.iModel.projectExtents.corners();
+  const delta = Vector3d.create();
+  for (const corner of corners) {
+    Vector3d.createStartEnd(origin, corner, delta);
+    const projection = delta.dotProduct(direction);
+    if (undefined === zHigh || projection > zHigh)
+      zHigh = projection;
+  }
+  if (undefined === zHigh)
+    return 0.0;
+  origin.plusScaled(direction, zHigh, origin);
+  return vp.worldToView4d(origin).w;
+}
 
 /** A Marker is a [[CanvasDecoration]], whose position follows a fixed location in world space.
  * Markers draw on top of all scene graphics, and show visual cues about locations of interest.
@@ -47,7 +71,7 @@ export class Marker implements CanvasDecoration {
   /** The size of this Marker, in pixels. */
   public size: Point2d;
   /** The current position for the marker, in view coordinates (pixels). This value will be updated by calls to [[setPosition]]. */
-  public position: Point3d;
+  public position = new Point3d();
   /** The current rectangle for the marker, in view coordinates (pixels). This value will be updated by calls to [[setPosition]]. */
   public readonly rect = new ViewRect();
   /** An image to draw for this Marker. If undefined, no image is shown. See https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/drawImage.  */
@@ -68,10 +92,19 @@ export class Marker implements CanvasDecoration {
   public labelBaseline?: MarkerTextBaseline;
   /** The font for [[label]]. See https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/font. */
   public labelFont?: string;
-  /** The title string to show in the ToolTip when the pointer is over this Marker. See [[NotificationManager.openToolTip]] */
+  /** The title string, or HTMLElement, to show (only) in the ToolTip when the pointer is over this Marker. See [[NotificationManager.openToolTip]] */
   public title?: HTMLElement | string;
   /** The ToolTipOptions to use for [[title]]. */
   public tooltipOptions?: ToolTipOptions;
+
+  /** An Optional (unique) HTMLElement to display with this Marker. Generally, HTMLElements are more expensive than
+   * images and labels, since they are added/removed from the DOM every frame. But, some types of markers are more convenient to construct
+   * as HTMLElements, and if there aren't too many of them performance is fine.
+   * @note HTMLElements may only appear in the DOM one time. Therefore, they *may not be shared* by more than one Marker.
+   * You must ensure that each marker has its own HTMLElement. For this reason, you should probably only use HTMLElements in Markers if
+   * each one is meant to be unique. For shared content, use images.
+   */
+  public htmlElement?: HTMLElement;
 
   /** Return true to display [[image]], if present. */
   public get wantImage() { return true; }
@@ -80,7 +113,7 @@ export class Marker implements CanvasDecoration {
   public drawFunc?(ctx: CanvasRenderingContext2D): void;
 
   /** Called when the mouse pointer enters this Marker. */
-  public onMouseEnter(ev: BeButtonEvent) { this._isHilited = true; this._hiliteColor = ev.viewport!.hilite.color; }
+  public onMouseEnter(ev: BeButtonEvent) { this._isHilited = true; this._hiliteColor = ev.viewport!.hilite.color; IModelApp.accuSnap.clear(); }
 
   /** Called when the mouse pointer leaves this Marker. */
   public onMouseLeave() { this._isHilited = false; }
@@ -113,11 +146,10 @@ export class Marker implements CanvasDecoration {
   constructor(worldLocation: XYAndZ, size: XAndY) {
     this.worldLocation = Point3d.createFrom(worldLocation);
     this.size = Point2d.createFrom(size);
-    this.position = new Point3d();
   }
 
   /** Make a new Marker at the same position and size as this Marker.
-   * Thew new Marker will share the world location and size objects, but will be otherwise blank.
+   * The new Marker will share the world location and size objects, but will be otherwise blank.
    */
   public static makeFrom<T extends Marker>(other: Marker, ...args: any[]): T {
     const out = new (this as any)(other.worldLocation, other.size, ...args) as T;
@@ -177,9 +209,16 @@ export class Marker implements CanvasDecoration {
    * when the Promise resolves.
    */
   public setImage(image: MarkerImage | Promise<MarkerImage>) {
-    if (image instanceof Promise)
-      image.then((resolvedImage) => this.image = resolvedImage); // tslint:disable-line:no-floating-promises
-    else
+    if (image instanceof Promise) {
+      image.then((resolvedImage) =>
+        this.image = resolvedImage,
+      ).catch((err: Event) => {
+        const target = err.target as any;
+        const msg = "Could not load image " + (target && target.src ? target.src : "unknown");
+        Logger.logError(FrontendLoggerCategory.Package + ".markers", msg);
+        console.log(msg); // tslint:disable-line: no-console
+      });
+    } else
       this.image = image;
   }
 
@@ -187,14 +226,15 @@ export class Marker implements CanvasDecoration {
   public setImageUrl(url: string) { this.setImage(imageElementFromUrl(url)); }
 
   /** Set the position (in pixels) for this Marker in the supplied Viewport, based on its worldLocation.
+   * @param markerSet The MarkerSet if this Marker is included in a set.
    * @return true if the Marker is visible and its new position is inside the Viewport.
    */
-  public setPosition(vp: Viewport): boolean {
+  public setPosition(vp: Viewport, markerSet?: MarkerSet<Marker>): boolean {
     if (!this.visible) // if we're turned off, skip
       return false;
 
     const pt4 = vp.worldToView4d(this.worldLocation);
-    if (pt4.w > 1.0 || pt4.w < 0) // outside of frustum.
+    if (pt4.w > 1.0 || pt4.w < 1.0e-6) // outside of frustum or too close to eye.
       return false;
 
     pt4.realPoint(this.position);
@@ -211,7 +251,11 @@ export class Marker implements CanvasDecoration {
       let scale = 1.0;
       if (vp.isCameraOn) {
         const range = this._scaleFactorRange;
-        scale = Geometry.clamp(range.low + ((1 - pt4.w) * range.length()), .4, 2.0);
+        const minScaleViewW = (undefined !== markerSet ? markerSet.getMinScaleViewW(vp) : getMinScaleViewW(vp));
+        if (minScaleViewW > 0.0)
+          scale = Geometry.clamp(range.high - (pt4.w / minScaleViewW) * range.length(), .4, 2.0);
+        else
+          scale = Geometry.clamp(range.low + ((1 - pt4.w) * range.length()), .4, 2.0);
         this.rect.scaleAboutCenter(scale, scale);
       }
       this._scaleFactor.set(scale, scale);
@@ -220,11 +264,31 @@ export class Marker implements CanvasDecoration {
     return true;
   }
 
-  /** Add this Marker to the supplied Decorate context. */
-  public addMarker(context: DecorateContext) { context.addCanvasDecoration(this); }
+  /** Position the HTMLElement for this Marker relative to the Marker's position in the view.
+   * The default implementation centers the HTMLElement (using its boundingClientRect) on the Marker.
+   * Override this method to provide an alternative positioning approach.
+   */
+  protected positionHtml() {
+    const html = this.htmlElement!;
+    const style = html.style;
+    style.position = "absolute";
+    const size = html.getBoundingClientRect(); // Note: only call this *after* setting position = absolute
+    const markerPos = this.position;
+    style.left = markerPos.x - (size.width / 2) + "px";
+    style.top = markerPos.y - (size.height / 2) + "px";
+  }
 
-  /** Set the position and ddd this Marker to the supplied DecorateContext, if it's visible.
-   * This method should be called from your implementation of [[Decorator.decorate]]. It will set this Marker's position based the
+  /** Add this Marker to the supplied DecorateContext. */
+  public addMarker(context: DecorateContext) {
+    context.addCanvasDecoration(this);
+    if (undefined !== this.htmlElement) {
+      context.addHtmlDecoration(this.htmlElement);    // if this Marker has an HTMLElement, add it to the DOM
+      this.positionHtml(); // and position it relative to the Marker location
+    }
+  }
+
+  /** Set the position and add this Marker to the supplied DecorateContext, if it's visible.
+   * This method should be called from your implementation of [[Decorator.decorate]]. It will set this Marker's position based on the
    * Viewport from the context, and add this this Marker to the supplied DecorateContext.
    * @param context The DecorateContext for the Marker
    */
@@ -239,10 +303,11 @@ export class Marker implements CanvasDecoration {
  * @public
  */
 export class Cluster<T extends Marker> {
+  public readonly markers: T[];
   public readonly rect: ViewRect;
   public clusterMarker?: Marker;
 
-  public constructor(public readonly markers: T[]) {
+  public constructor(markers: T[]) {
     this.rect = markers[0].rect;
     this.markers = markers;
   }
@@ -253,15 +318,54 @@ export class Cluster<T extends Marker> {
  * @public
  */
 export abstract class MarkerSet<T extends Marker> {
+  private _viewport?: ScreenViewport;
+
   /** @internal */
   protected _entries: Array<T | Cluster<T>> = []; // this is an array that holds either Markers or a cluster of markers.
   /** @internal */
   protected readonly _worldToViewMap = Matrix4d.createZero();
+  /** @internal */
+  protected _minScaleViewW?: number;
+  private readonly _markers = new ObservableSet<T>();
 
   /** The minimum number of Markers that must overlap before they are clustered. Otherwise they are each drawn individually. Default is 1 (always create a cluster.) */
   public minimumClusterSize = 1;
   /** The set of Markers in this MarkerSet. Add your [[Marker]]s into this. */
-  public readonly markers = new Set<T>();
+  public get markers(): Set<T> { return this._markers; }
+
+  /** Construct a new MarkerSet for a specific ScreenViewport.
+   * @param viewport the ScreenViewport for this MarkerSet. If undefined, use [[IModelApp.viewManager.selectedView]]
+   */
+  public constructor(viewport?: ScreenViewport) {
+    this._viewport = undefined === viewport ? IModelApp.viewManager.selectedView : viewport;
+    const markDirty = () => this.markDirty();
+    this._markers.onAdded.addListener(markDirty);
+    this._markers.onDeleted.addListener(markDirty);
+    this._markers.onCleared.addListener(markDirty);
+  }
+
+  /** The ScreenViewport of this MarkerSet. */
+  public get viewport(): ScreenViewport | undefined { return this._viewport; }
+
+  /** Change the ScreenViewport for this MarkerSet.
+   * After this call, the markers from this MarkerSet will only appear in the supplied ScreenViewport.
+   * @beta
+   */
+  public changeViewport(viewport: ScreenViewport) {
+    this._viewport = viewport;
+    this.markDirty();
+  }
+
+  /** Indicate that this MarkerSet has been changed and is now *dirty*.
+   * This is necessary because [[addDecoration]] does not recreate the set of decoration graphics
+   * if it can detect that the previously-created set remains valid.
+   * The set becomes invalid when the view frustum changes, or the contents of [[markers]] changes.
+   * If some other criterion affecting the graphics changes, invoke this method. This should not be necessary for most use cases.
+   * @public
+   */
+  public markDirty(): void {
+    this._worldToViewMap.setZero();
+  }
 
   /** Implement this method to create a new Marker that is shown as a *stand-in* for a Cluster of Markers that overlap one another.
    * @param cluster The [[Cluster]] that the new Marker will represent.
@@ -270,23 +374,35 @@ export abstract class MarkerSet<T extends Marker> {
    */
   protected abstract getClusterMarker(cluster: Cluster<T>): Marker;
 
+  /** Get weight value limit establishing the distance from camera for the back of view scale factor. */
+  public getMinScaleViewW(vp: Viewport): number {
+    if (undefined === this._minScaleViewW)
+      this._minScaleViewW = getMinScaleViewW(vp);
+    return this._minScaleViewW;
+  }
+
   /** This method should be called from [[Decorator.decorate]]. It will add this this MarkerSet to the supplied DecorateContext.
    * This method implements the logic that turns overlapping Markers into a Cluster.
    * @param context The DecorateContext for the Markers
    */
-  public addDecoration(context: DecorateContext) {
+  public addDecoration(context: DecorateContext): void {
     const vp = context.viewport;
+    if (vp !== this._viewport)
+      return; // not viewport of this MarkerSet, ignore it
+
     const entries = this._entries;
 
     // Don't recreate the entries array if the view hasn't changed. This is important for performance, but also necessary for hilite of
     // clusters (otherwise they're recreated continually and never hilited.) */
     if (!this._worldToViewMap.isAlmostEqual(vp.worldToViewMap.transform0)) {
       this._worldToViewMap.setFrom(vp.worldToViewMap.transform0);
-      entries.length = 0;   // start over.
+      this._minScaleViewW = undefined; // Invalidate current value.
+      entries.length = 0; // start over.
+
       // loop through all of the Markers in the MarkerSet.
       for (const marker of this.markers) {
         // establish the screen position for this marker. If it's not in view, setPosition returns false
-        if (!marker.setPosition(vp))
+        if (!marker.setPosition(vp, this))
           continue;
 
         let added = false;

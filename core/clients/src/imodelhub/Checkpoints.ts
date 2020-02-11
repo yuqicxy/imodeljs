@@ -1,19 +1,23 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModelHub */
+/** @packageDocumentation
+ * @module iModelHubClient
+ */
 
 import { GuidString, Logger, PerfLogger } from "@bentley/bentleyjs-core";
 import { AuthorizedClientRequestContext } from "../AuthorizedClientRequestContext";
 import { FileHandler } from "../FileHandler";
 import { ClientsLoggerCategory } from "../ClientsLoggerCategory";
 import { ProgressInfo } from "../Request";
+import { WsgQuery } from "../WsgQuery";
 import { ECJsonTypeMap, WsgInstance } from "./../ECJsonTypeMap";
 import { IModelBaseHandler } from "./BaseHandler";
 import { ArgumentCheck, IModelHubClientError } from "./Errors";
-import { addSelectFileAccessKey, Query } from "./Query";
+import { addSelectFileAccessKey } from "./HubQuery";
 import { InitializationState } from "./iModels";
+import * as urllib from "url";
 
 const loggerCategory: string = ClientsLoggerCategory.IModelHub;
 
@@ -62,7 +66,7 @@ export class Checkpoint extends WsgInstance {
  * Query object for getting [[Checkpoint]]s. You can use this to modify the [[CheckpointHandler.get]] results.
  * @alpha
  */
-export class CheckpointQuery extends Query {
+export class CheckpointQuery extends WsgQuery {
   /** Query will return closest [[Checkpoint]] to target [[ChangeSet]], based on ChangeSets size.
    * This query can return a Checkpoint that is ahead of the specified ChangeSet, if reversing ChangeSets would be faster than merging forward. This resets all previously set filters.
    * @returns This query.
@@ -145,6 +149,19 @@ export class CheckpointHandler {
     return checkpoints;
   }
 
+  /**
+   * Make url safe for logging by removing sensitive information
+   * @param url input url that will be strip of search and query parameters and replace them by ... for security reason
+   */
+  private static getSafeUrlForLogging(url: string): string {
+    const safeToLogDownloadUrl = urllib.parse(url);
+    if (safeToLogDownloadUrl.search && safeToLogDownloadUrl.search.length > 0)
+      safeToLogDownloadUrl.search = "...";
+    if (safeToLogDownloadUrl.hash && safeToLogDownloadUrl.hash.length > 0)
+      safeToLogDownloadUrl.hash = "...";
+    return safeToLogDownloadUrl.toString();
+  }
+
   /** Download the specified checkpoint file. This only downloads the file and does not update the [[Checkpoint]] id. Use [IModelDb.open]($backend) instead if you want to get a usable checkpoint file.
    * This method does not work on the browser. Directory containing the Checkpoint file is created if it does not exist. If there is an error during download, any partially downloaded file is deleted from disk.
    * @param requestContext The client request context
@@ -170,7 +187,10 @@ export class CheckpointHandler {
     if (!checkpoint.downloadUrl)
       return Promise.reject(IModelHubClientError.missingDownloadUrl("checkpoint"));
 
-    const perfLogger = new PerfLogger("Downloading checkpoint", () => ({ ...checkpoint, path }));
+    const checkpointForLog: Checkpoint = new Checkpoint();
+    Object.assign(checkpointForLog, checkpoint);
+    checkpointForLog.downloadUrl = CheckpointHandler.getSafeUrlForLogging(checkpointForLog.downloadUrl!);
+    const perfLogger = new PerfLogger("Downloading checkpoint", () => ({ ...checkpointForLog, path }));
     await this._fileHandler.downloadFile(requestContext, checkpoint.downloadUrl, path, parseInt(checkpoint.fileSize!, 10), progressCallback);
     requestContext.enter();
     perfLogger.dispose();

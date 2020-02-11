@@ -1,14 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/style/themecolors";
+@import "../../typography";
 
 .nz-footer-toolAssistance-separator {
-  margin-bottom: 10px;
+  margin-top: 18px;
+  margin-bottom: 8px;
+
+  > .nz-label {
+    @include title;
+  }
 
   > .nz-separator {
-    height: 2px;
+    height: 1px;
     width: 100%;
     background-color: $buic-background-divider;
   }

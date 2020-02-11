@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 /*This script is intended as a cross-platform way to check for the phrase "tslint:disable" in .ts files
@@ -14,9 +14,8 @@ const argv = require("yargs").argv;
 var files = glob.sync("**/*.ts", { ignore: ["**/node_modules/**/*", "**/*.d.ts"] })
 
 if (argv.out) {
-  if (fs.existsSync(argv.out)) {
+  if (fs.existsSync(argv.out))
     fs.unlinkSync(argv.out);
-  }
   var writeStream = fs.createWriteStream(argv.out, { flags: "a" });
 }
 
@@ -31,12 +30,10 @@ files.forEach(file => {
   rl.on('line', (line) => {
     lineNumber++;
     if (line.indexOf("tslint:disable") > -1) {
-      if (writeStream) {
+      if (writeStream)
         writeStream.write(`${file}:${lineNumber}:${line}\n`);
-      }
-      else {
+      else
         console.log(`${file}:${lineNumber}:${line}`);
-      }
     }
   });
 });

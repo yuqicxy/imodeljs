@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import {
   ProgramBuilder,
@@ -20,8 +22,7 @@ import {
 } from "./Vertex";
 import { addFrustum, addShaderFlags } from "./Common";
 import { addViewport, addModelToWindowCoordinates } from "./Viewport";
-import { GL } from "../GL";
-import { GLSLDecode } from "./Decode";
+import { unquantize2d } from "./Decode";
 import { addColor } from "./Color";
 import { addWhiteOnWhiteReversal } from "./Fragment";
 import { System } from "../System";
@@ -29,6 +30,8 @@ import { TextureUnit } from "../RenderFlags";
 import { addHiliter } from "./FeatureSymbology";
 import { assert } from "@bentley/bentleyjs-core";
 import { IsInstanced } from "../TechniqueFlags";
+import { AttributeMap } from "../AttributeMap";
+import { TechniqueId } from "../TechniqueId";
 
 const checkForDiscard = "return discardByLineCode;";
 
@@ -180,31 +183,7 @@ function addCommon(prog: ProgramBuilder) {
   vert.addGlobal("g_windowDir", VariableType.Vec2);
   vert.addInitializer(decodeAdjacentPositions);
 
-  vert.addAttribute("a_prevIndex", VariableType.Vec3, (shaderProg) => {
-    shaderProg.addAttribute("a_prevIndex", (attr, params) => {
-      const buffs = params.geometry.polylineBuffers;
-      if (undefined !== buffs)
-        attr.enableArray(buffs.prevIndices, 3, GL.DataType.UnsignedByte, false, 0, 0);
-    });
-  });
-
-  vert.addAttribute("a_nextIndex", VariableType.Vec3, (shaderProg) => {
-    shaderProg.addAttribute("a_nextIndex", (attr, params) => {
-      const buffs = params.geometry.polylineBuffers;
-      if (undefined !== buffs)
-        attr.enableArray(buffs.nextIndicesAndParams, 3, GL.DataType.UnsignedByte, false, 4, 0);
-    });
-  });
-
-  vert.addFunction(GLSLDecode.unquantize2d);
-
-  vert.addAttribute("a_param", VariableType.Float, (shaderProg) => {
-    shaderProg.addAttribute("a_param", (attr, params) => {
-      const buffs = params.geometry.polylineBuffers;
-      if (undefined !== buffs)
-        attr.enableArray(buffs.nextIndicesAndParams, 1, GL.DataType.UnsignedByte, false, 4, 3);
-    });
-  });
+  vert.addFunction(unquantize2d);
 
   addLineWeight(vert);
 
@@ -217,7 +196,7 @@ function addCommon(prog: ProgramBuilder) {
 
 const decodePosition = `
 vec4 decodePosition(vec3 baseIndex) {
-  float index = decodeUInt32(baseIndex);
+  float index = decodeUInt24(baseIndex);
   vec2 tc = compute_vert_coords(index);
   vec4 e0 = floor(TEXTURE(u_vertLUT, tc) * 255.0 + 0.5);
   tc.x += g_vert_stepX;
@@ -332,8 +311,8 @@ const computePosition = `
     }
 
     miterAdjust = dot(g_windowDir, delta) * dist; // Not actually used for hilite shader but meh.
-    pos.x += dist * delta.x * 2.0 * pos.w / u_viewport.z;
-    pos.y += dist * delta.y * 2.0 * pos.w / u_viewport.w;
+    pos.x += dist * delta.x * 2.0 * pos.w / u_viewport.x;
+    pos.y += dist * delta.y * 2.0 * pos.w / u_viewport.y;
   }
 
   return pos;
@@ -343,7 +322,7 @@ const lineCodeArgs = "g_windowDir, g_windowPos, miterAdjust";
 
 /** @internal */
 export function createPolylineBuilder(instanced: IsInstanced): ProgramBuilder {
-  const builder = new ProgramBuilder(instanced ? ShaderBuilderFlags.InstancedVertexTable : ShaderBuilderFlags.VertexTable);
+  const builder = new ProgramBuilder(AttributeMap.findAttributeMap(TechniqueId.Polyline, IsInstanced.Yes === instanced), instanced ? ShaderBuilderFlags.InstancedVertexTable : ShaderBuilderFlags.VertexTable);
   addShaderFlags(builder);
 
   addCommon(builder);
@@ -358,7 +337,7 @@ export function createPolylineBuilder(instanced: IsInstanced): ProgramBuilder {
 
 /** @internal */
 export function createPolylineHiliter(instanced: IsInstanced): ProgramBuilder {
-  const builder = new ProgramBuilder(instanced ? ShaderBuilderFlags.InstancedVertexTable : ShaderBuilderFlags.VertexTable);
+  const builder = new ProgramBuilder(AttributeMap.findAttributeMap(TechniqueId.Polyline, IsInstanced.Yes === instanced), instanced ? ShaderBuilderFlags.InstancedVertexTable : ShaderBuilderFlags.VertexTable);
   addCommon(builder);
   addFrustum(builder);
   addHiliter(builder);

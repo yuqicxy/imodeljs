@@ -1,12 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Footer */
+/** @packageDocumentation
+ * @module Footer
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
 import { CommonProps } from "@bentley/ui-core";
+import { SafeAreaInsets, SafeAreaInsetsHelpers } from "../utilities/SafeAreaInsets";
 import "./Footer.scss";
 
 /** Properties of [[Footer]] component.
@@ -26,6 +29,8 @@ export interface FooterProps extends CommonProps {
   onMouseEnter?: (event: React.MouseEvent<HTMLElement, MouseEvent>) => void;
   /** Handler for mouse leave */
   onMouseLeave?: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
+  /** Describes respected safe area insets. */
+  safeAreaInsets?: SafeAreaInsets;
 }
 
 /** Footer component. Used in a StatusBar [[Zone]] component.
@@ -36,6 +41,7 @@ export class Footer extends React.PureComponent<FooterProps> {
     const className = classnames(
       "nz-footer-footer",
       this.props.isInFooterMode && "nz-footer-mode",
+      this.props.safeAreaInsets && SafeAreaInsetsHelpers.getCssClassNames(this.props.safeAreaInsets),
       this.props.className);
 
     return (

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 /* tslint:disable:no-direct-imports */
 
@@ -10,16 +10,20 @@ import * as sinon from "sinon";
 import * as faker from "faker";
 import * as moq from "@bentley/presentation-common/lib/test/_helpers/Mocks";
 import { PromiseContainer, ResolvablePromise } from "@bentley/presentation-common/lib/test/_helpers/Promises";
-import { createRandomDescriptor, createRandomRuleset, createRandomContent, createRandomECInstanceKey } from "@bentley/presentation-common/lib/test/_helpers/random";
-import { IModelConnection } from "@bentley/imodeljs-frontend";
+import {
+  createRandomDescriptor, createRandomRuleset, createRandomContent,
+  createRandomECInstanceKey, createRandomPropertiesField, createRandomPrimitiveField, createRandomCategory, createRandomPrimitiveTypeDescription, createRandomECClassInfo, createRandomRelationshipPath,
+} from "@bentley/presentation-common/lib/test/_helpers/random";
+import { IModelConnection, PrimitiveValue, PropertyDescription, PropertyRecord } from "@bentley/imodeljs-frontend";
 import {
   Descriptor, Field,
   SelectionInfo, Item,
   KeySet, Ruleset, RegisteredRuleset,
-  Content, DescriptorOverrides,
+  Content, DescriptorOverrides, NestedContentField,
 } from "@bentley/presentation-common";
 import { Presentation, PresentationManager, RulesetManager } from "@bentley/presentation-frontend";
 import { ContentDataProvider, CacheInvalidationProps } from "../../common/ContentDataProvider";
+import { FIELD_NAMES_SEPARATOR } from "../../common/ContentBuilder";
 
 /**
  * The Provider class is used to make protected ContentDataProvider
@@ -571,6 +575,94 @@ describe("ContentDataProvider", () => {
       const spy = sinon.spy(provider, "shouldConfigureContentDescriptor");
       await provider.getContent();
       expect(spy).to.not.be.called;
+    });
+
+  });
+
+  describe("getFieldByPropertyRecord", () => {
+
+    let propertyRecord: PropertyRecord;
+
+    before(() => {
+      const value: PrimitiveValue = {
+        displayValue: "displayValue",
+        value: "rawValue",
+        valueFormat: 0,
+      };
+
+      const description: PropertyDescription = {
+        name: "propertyName",
+        displayLabel: "labelString",
+        typename: "number",
+        editor: undefined,
+      };
+
+      propertyRecord = new PropertyRecord(value, description);
+      propertyRecord.isReadonly = false;
+    });
+
+    beforeEach(() => {
+      provider.keys = new KeySet([createRandomECInstanceKey()]);
+    });
+
+    it("return undefined if descriptor is not set", async () => {
+      presentationManagerMock.setup((x) =>
+        x.getContentDescriptor(moq.It.isAny(), moq.It.isAny(), moq.It.isAny(), moq.It.isAny()))
+        .returns(async () => undefined)
+        .verifiable(moq.Times.once());
+
+      const field = await provider.getFieldByPropertyRecord(propertyRecord);
+      presentationManagerMock.verifyAll();
+      expect(field).to.be.undefined;
+    });
+
+    it("return undefined when field is not found", async () => {
+      const descriptor = createRandomDescriptor();
+
+      presentationManagerMock.setup((x) =>
+        x.getContentDescriptor(moq.It.isAny(), moq.It.isAny(), moq.It.isAny(), moq.It.isAny()))
+        .returns(async () => descriptor)
+        .verifiable(moq.Times.once());
+
+      const resultField = await provider.getFieldByPropertyRecord(propertyRecord);
+      presentationManagerMock.verifyAll();
+      expect(resultField).to.be.undefined;
+    });
+
+    it("return a field", async () => {
+      const descriptor = createRandomDescriptor();
+      const field = createRandomPropertiesField();
+      field.name = faker.random.word();
+      descriptor.fields = [field];
+      propertyRecord.property.name = field.name;
+
+      presentationManagerMock.setup((x) =>
+        x.getContentDescriptor(moq.It.isAny(), moq.It.isAny(), moq.It.isAny(), moq.It.isAny()))
+        .returns(async () => descriptor)
+        .verifiable(moq.Times.once());
+
+      const resultField = await provider.getFieldByPropertyRecord(propertyRecord);
+      presentationManagerMock.verifyAll();
+      expect(resultField).to.be.eq(field);
+    });
+
+    it("return a nested field", async () => {
+      const descriptor = createRandomDescriptor();
+      const nestedField = createRandomPrimitiveField();
+      const field = new NestedContentField(createRandomCategory(), faker.random.word(),
+        faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
+        faker.random.number(), createRandomECClassInfo(), createRandomRelationshipPath(1), [nestedField], undefined, faker.random.boolean());
+      descriptor.fields = [field];
+      propertyRecord.property.name = `${field.name}${FIELD_NAMES_SEPARATOR}${nestedField.name}`;
+
+      presentationManagerMock.setup((x) =>
+        x.getContentDescriptor(moq.It.isAny(), moq.It.isAny(), moq.It.isAny(), moq.It.isAny()))
+        .returns(async () => descriptor)
+        .verifiable(moq.Times.once());
+
+      const resultField = await provider.getFieldByPropertyRecord(propertyRecord);
+      presentationManagerMock.verifyAll();
+      expect(resultField).to.be.eq(nestedField);
     });
 
   });

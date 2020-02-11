@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { assert } from "chai";
 import { Id64String, Id64Set, DbResult, OpenMode } from "@bentley/bentleyjs-core";
@@ -39,13 +39,13 @@ describe("Useful ECSQL queries", () => {
       where
         partition.codevalue=:partitionName and partition.parent.id = parent.ecinstanceid;
     `, (stmt: ECSqlStatement) => {
-        stmt.bindValue("parentName", "Subject1");
-        stmt.bindValue("partitionName", "Physical");
-        const ids: Id64Set = new Set<Id64String>();
-        while (stmt.step() === DbResult.BE_SQLITE_ROW)
-          ids.add(stmt.getValue(0).getId());
-        return ids;
-      });
+      stmt.bindValue("parentName", "Subject1");
+      stmt.bindValue("partitionName", "Physical");
+      const ids: Id64Set = new Set<Id64String>();
+      while (stmt.step() === DbResult.BE_SQLITE_ROW)
+        ids.add(stmt.getValue(0).getId());
+      return ids;
+    });
 
     assert.isNotEmpty(partitionIds);
     assert.equal(partitionIds.size, 1);

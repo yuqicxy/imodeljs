@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 import { IModelConnection } from "@bentley/imodeljs-frontend";
 import { NodePathElement, NodeKey } from "@bentley/presentation-common";
@@ -38,6 +40,8 @@ export class FilteredPresentationTreeDataProvider implements IPresentationTreeDa
   public get imodel(): IModelConnection { return this._parentDataProvider.imodel; }
 
   public get filter(): string { return this._filter; }
+
+  public get parentDataProvider(): IPresentationTreeDataProvider { return this._parentDataProvider; }
 
   private createHierarchy(paths: ReadonlyArray<Readonly<NodePathElement>>, hierarchy: SimpleTreeDataProviderHierarchy, parentId?: string) {
     const treeNodes: DelayLoadedTreeNodeItem[] = [];
@@ -108,6 +112,12 @@ export class FilteredPresentationTreeDataProvider implements IPresentationTreeDa
 
   public getNodeKey(node: TreeNodeItem): NodeKey {
     return this._parentDataProvider.getNodeKey(node);
+  }
+
+  /** @alpha */
+  // istanbul ignore next
+  public async loadHierarchy() {
+    // the hierarchy is already loaded when this provider is created
   }
 
 }

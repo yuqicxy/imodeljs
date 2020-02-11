@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import * as classnames from "classnames";
@@ -127,7 +127,9 @@ export class NavigationList extends React.Component<NavigationListProps, Navigat
 
   // toggle pinned state
   private _handleExpandClick = () => {
-    this.setState({ isPinned: !this.state.isPinned }, () => { this._handleOnPinClick(); });
+    this.setState(
+      (prevState) => ({ isPinned: !prevState.isPinned }),
+      () => { this._handleOnPinClick(); });
   }
 
   // handle pin clicked

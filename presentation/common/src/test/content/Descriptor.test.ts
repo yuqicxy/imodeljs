@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import * as faker from "faker";
@@ -107,7 +107,7 @@ describe("Descriptor", () => {
       };
       const nestedField = new NestedContentField(createRandomCategory(), faker.random.word(),
         faker.random.words(), descr, faker.random.boolean(), faker.random.number(),
-        createRandomECClassInfo(), createRandomRelationshipPath(), [primitiveField]);
+        createRandomECClassInfo(), createRandomRelationshipPath(), [primitiveField], undefined, faker.random.boolean());
       descriptor.fields.push(nestedField);
       expect(descriptor.getFieldByName("does not exist", true)).to.be.undefined;
     });
@@ -126,7 +126,7 @@ describe("Descriptor", () => {
       };
       const nestedField = new NestedContentField(createRandomCategory(), faker.random.word(),
         faker.random.words(), descr, faker.random.boolean(), faker.random.number(),
-        createRandomECClassInfo(), createRandomRelationshipPath(), [primitiveField]);
+        createRandomECClassInfo(), createRandomRelationshipPath(), [primitiveField], undefined, faker.random.boolean());
       descriptor.fields.push(nestedField);
       expect(descriptor.getFieldByName(primitiveField.name, true)).to.eq(primitiveField);
     });

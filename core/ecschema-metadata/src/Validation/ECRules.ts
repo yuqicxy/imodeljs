@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { ECStringConstants } from "../Constants";
@@ -132,21 +132,21 @@ export const Diagnostics = {
    * Required message parameters: childClass.FullName, property name, baseClass.FullName, base value type, child value type
    */
   IncompatibleValueTypePropertyOverride: createPropertyDiagnosticClass<[string, string, string, string, string]>(DiagnosticCodes.IncompatibleValueTypePropertyOverride,
-    "The ECProperty '{0}:{1}' has a base property '{2}:{1}' with a value type of {3} which is incompatible with the value type of {4}."),
+    "The ECProperty '{0}.{1}' has a base property '{2}.{1}' with a value type of {3} which is incompatible with the value type of {4}."),
 
   /**
    * EC-1301
    * Required message parameters: childClass.FullName, property name, baseClass.FullName, base property type, child property type
    */
   IncompatibleTypePropertyOverride: createPropertyDiagnosticClass<[string, string, string, string, string]>(DiagnosticCodes.IncompatibleTypePropertyOverride,
-    "The ECProperty '{0}:{1}' has a base property '{2}:{1}' with a type of {3} which is incompatible with the type of {4}."),
+    "The ECProperty '{0}.{1}' has a base property '{2}.{1}' with a type of {3} which is incompatible with the type of {4}."),
 
   /**
    * EC-1302
    * Required message parameters: childClass.Name, property name, baseClass.Name, baseClass Koq name, baseClass Koq persistence unit name, child class Koq persistence unit name, child class Koq name
    */
   IncompatibleUnitPropertyOverride: createPropertyDiagnosticClass<[string, string, string, string, string, string, string]>(DiagnosticCodes.IncompatibleUnitPropertyOverride,
-    "The ECProperty '{0}:{1}' has a base property '{2}:{1}' with KindOfQuantity '{3}' with persistence unit '{4}' which is not the same as the persistence unit '{5}' of the provided KindOfQuantity '{6}'."),
+    "The ECProperty '{0}.{1}' has a base property '{2}.{1}' with KindOfQuantity '{3}' with persistence unit '{4}' which is not the same as the persistence unit '{5}' of the provided KindOfQuantity '{6}'."),
 
   /**
    * EC-1500
@@ -342,7 +342,7 @@ export async function* incompatibleUnitPropertyOverride(property: AnyProperty): 
       return;
 
     return new Diagnostics.IncompatibleUnitPropertyOverride(property, [property.class.fullName, property.name, baseClass.fullName,
-    baseKoq.fullName, baseUnit.fullName, unit.fullName, koq.fullName]);
+      baseKoq.fullName, baseUnit.fullName, unit.fullName, koq.fullName]);
   }
 
   for await (const baseClass of property.class.getAllBaseClasses()) {
@@ -419,7 +419,7 @@ function propertyTypesMatch(propertyA: Property, propertyB: Property) {
 }
 
 function getPrimitiveType(property: Property): PrimitiveType | undefined {
-  if (property.isPrimitive)
+  if (property.isPrimitive())
     return (property as PrimitiveProperty).primitiveType;
 
   return undefined;

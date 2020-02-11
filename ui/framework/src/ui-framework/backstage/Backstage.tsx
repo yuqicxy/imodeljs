@@ -1,17 +1,21 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Backstage */
+/** @packageDocumentation
+ * @module Backstage
+ */
 
 import * as React from "react";
-
-import { UiEvent, CommonProps } from "@bentley/ui-core";
+import { UiEvent, CommonProps, IconSpec } from "@bentley/ui-core";
 import { Backstage as NZ_Backstage } from "@bentley/ui-ninezone";
 import { AccessToken } from "@bentley/imodeljs-clients";
-
 import { CommandItemDef } from "../shared/CommandItemDef";
+import { SafeAreaContext } from "../safearea/SafeAreaContext";
 import { UserProfileBackstageItem } from "./UserProfile";
+import { UiFramework } from "../UiFramework";
+
+// cSpell:ignore safearea
 
 /** [[BackstageEvent]] arguments.
  * @public
@@ -24,18 +28,6 @@ export interface BackstageEventArgs {
  * @public
  */
 export class BackstageEvent extends UiEvent<BackstageEventArgs> { }
-
-/** [[BackstageCloseEvent]] arguments.
- * @alpha @deprecated BackstageEventArgs should be used instead.
- */
-export interface BackstageCloseEventArgs {
-  isVisible: boolean;
-}
-
-/** Backstage Close Event class.
- * @alpha @deprecated BackstageEvent should be used instead.
- */
-export class BackstageCloseEvent extends UiEvent<BackstageCloseEventArgs> { }
 
 /** Properties for the [[Backstage]] React component.
  * @public
@@ -63,31 +55,31 @@ export class Backstage extends React.Component<BackstageProps, BackstageState> {
   public static readonly onBackstageEvent = new BackstageEvent();
   public static isBackstageVisible: boolean;
 
-  /** @alpha @deprecated */
-  public static readonly onBackstageCloseEvent = new BackstageCloseEvent();
-
   /** Shows the Backstage */
   public static show(): void {
-    Backstage.onBackstageEvent.emit({ isVisible: true });
+    UiFramework.backstageManager.open();
   }
 
   /** Hides the Backstage */
   public static hide(): void {
-    Backstage.onBackstageEvent.emit({ isVisible: false });
+    UiFramework.backstageManager.close();
+  }
+
+  /** Get CommandItemDef that will toggle display of Backstage and allow iconSpec to be overridden */
+  public static getBackstageToggleCommand(overrideIconSpec?: IconSpec) {
+    return new CommandItemDef({
+      commandId: "UiFramework.openBackstage",
+      iconSpec: overrideIconSpec ? overrideIconSpec : "icon-home",
+      labelKey: "UiFramework:commands.openBackstage",
+      execute: () => {
+        UiFramework.backstageManager.toggle();
+      },
+    });
   }
 
   /** Command that toggles the Backstage */
   public static get backstageToggleCommand() {
-    return new CommandItemDef({
-      iconSpec: "icon-home",
-      labelKey: "UiFramework:commands.openBackstage",
-      execute: () => {
-        if (Backstage.isBackstageVisible)
-          Backstage.hide();
-        else
-          Backstage.show();
-      },
-    });
+    return this.getBackstageToggleCommand();
   }
 
   /** @internal */
@@ -96,8 +88,9 @@ export class Backstage extends React.Component<BackstageProps, BackstageState> {
   constructor(props: BackstageProps) {
     super(props);
 
+    this.setIsOpen(!!this.props.isVisible);
     this.state = {
-      isVisible: !!this.props.isVisible,
+      isVisible: UiFramework.backstageManager.isOpen,
     };
   }
 
@@ -111,14 +104,19 @@ export class Backstage extends React.Component<BackstageProps, BackstageState> {
 
   private _handleBackstageEvent = (args: BackstageEventArgs) => {
     this.setState({ isVisible: args.isVisible });
-
-    /** @deprecated */
-    Backstage.onBackstageCloseEvent.emit({ isVisible: args.isVisible });
   }
 
   public componentDidUpdate(prevProps: BackstageProps) {
     if (this.props.isVisible !== prevProps.isVisible)
-      this.setState({ isVisible: !!this.props.isVisible });
+      this.setIsOpen(!!this.props.isVisible);
+  }
+
+  private setIsOpen(isOpen: boolean) {
+    if (isOpen) {
+      UiFramework.backstageManager.open();
+    } else {
+      UiFramework.backstageManager.close();
+    }
   }
 
   private _onClose = () => {
@@ -140,16 +138,21 @@ export class Backstage extends React.Component<BackstageProps, BackstageState> {
       header = <UserProfileBackstageItem accessToken={this.props.accessToken} />;
 
     return (
-      <NZ_Backstage
-        className={this.props.className}
-        header={header}
-        isOpen={this.state.isVisible}
-        onClose={this._onClose}
-        showOverlay={this.props.showOverlay}
-        style={this.props.style}
-      >
-        {this.props.children}
-      </NZ_Backstage>
+      <SafeAreaContext.Consumer>
+        {(safeAreaInsets) => (
+          <NZ_Backstage
+            className={this.props.className}
+            header={header}
+            isOpen={this.state.isVisible}
+            onClose={this._onClose}
+            safeAreaInsets={safeAreaInsets}
+            showOverlay={this.props.showOverlay}
+            style={this.props.style}
+          >
+            {this.props.children}
+          </NZ_Backstage>
+        )}
+      </SafeAreaContext.Consumer>
     );
   }
 }

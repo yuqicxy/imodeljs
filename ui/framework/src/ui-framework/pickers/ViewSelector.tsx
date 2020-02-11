@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Picker */
+/** @packageDocumentation
+ * @module Picker
+ */
 
 import * as React from "react";
 
-import { IModelConnection, ViewState } from "@bentley/imodeljs-frontend";
+import { IModelConnection, ViewState, IModelApp } from "@bentley/imodeljs-frontend";
 import { Id64String, Logger } from "@bentley/bentleyjs-core";
 import { UiEvent } from "@bentley/ui-core";
 
@@ -15,6 +17,7 @@ import { ViewUtilities } from "../utils/ViewUtilities";
 import { ListPicker, ListItem, ListItemType } from "./ListPicker";
 import { ContentViewManager } from "../content/ContentViewManager";
 import { SupportsViewSelectorChange } from "../content/ContentControl";
+import { connectIModelConnection } from "../redux/connectIModel";
 
 // cSpell:ignore Spatials
 
@@ -51,7 +54,6 @@ export interface ViewSelectorProps {
  */
 interface ViewSelectorState {
   items: ListItem[];
-  selectedViewId: string | null;
   title: string;
   initialized: boolean;
   showSpatials: boolean;
@@ -60,7 +62,7 @@ interface ViewSelectorState {
   showUnknown: boolean;
 }
 
-/** Default properties of [[Backstage]] component.
+/** Default properties of [[ViewSelector]] component.
  * @beta
  */
 export type ViewSelectorDefaultProps = Pick<ViewSelectorProps, "showSpatials" | "showDrawings" | "showSheets" | "showUnknown">;
@@ -109,7 +111,6 @@ export class ViewSelector extends React.Component<ViewSelectorProps, ViewSelecto
 
     this.state = {
       items: new Array<ListItem>(),
-      selectedViewId: null,
       title: UiFramework.translate("savedViews.views"),
       initialized: false,
       showSpatials: props.showSpatials,
@@ -188,7 +189,6 @@ export class ViewSelector extends React.Component<ViewSelectorProps, ViewSelecto
 
     this.setState({
       items: containers,
-      selectedViewId: null,
       title: UiFramework.translate("savedViews.views"),
       initialized: true,
     });
@@ -290,7 +290,7 @@ export class ViewSelector extends React.Component<ViewSelectorProps, ViewSelecto
         return;
 
       // Update the state so that we show the user it was enabled while we work in the background
-      this.setState(Object.assign({}, this.state, { items: itemsWithEnabled }));
+      this.setState({ items: itemsWithEnabled });
     }
 
     // Load the view state using the viewSpec's ID
@@ -312,8 +312,9 @@ export class ViewSelector extends React.Component<ViewSelectorProps, ViewSelecto
   }
 
   // Hook on the category selector being expanded so that we may initialize if needed
-  private _onExpanded = (_expand: boolean) => {
-    this.updateState(this.state.selectedViewId); // tslint:disable-line:no-floating-promises
+  private _onExpanded = (expand: boolean) => {
+    if (expand)
+      this.updateState(IModelApp.viewManager.selectedView ? IModelApp.viewManager.selectedView.view.id : undefined); // tslint:disable-line:no-floating-promises
   }
 
   /**
@@ -321,7 +322,7 @@ export class ViewSelector extends React.Component<ViewSelectorProps, ViewSelecto
    */
   public render() {
     if (!this.state.initialized)
-      this.updateState(this.state.selectedViewId); // tslint:disable-line:no-floating-promises
+      return null;
 
     const { imodel, ...props } = this.props;
 
@@ -337,3 +338,8 @@ export class ViewSelector extends React.Component<ViewSelectorProps, ViewSelecto
     );
   }
 }
+
+/** ViewSelector that is connected to the IModelConnection property in the Redux store. The application must set up the Redux store and include the FrameworkReducer.
+ * @beta
+ */
+export const IModelConnectedViewSelector = connectIModelConnection(null, null)(ViewSelector); // tslint:disable-line:variable-name

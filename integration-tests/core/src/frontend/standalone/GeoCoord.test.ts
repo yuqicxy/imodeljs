@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { IModelConnection, GeoConverter, IModelApp } from "@bentley/imodeljs-frontend";
 import { expect } from "chai";
@@ -30,9 +30,9 @@ describe("GeoCoord", () => {
         geoPointList.push({ x: (132.600 + 0.02 * iLongitude), y: (34.350 + 0.02 * iLatitude), z: 0.0 });
       }
     }
-    wgs84Converter = iModel.geoServices.getConverter("WGS84");
-    nad27Converter = iModel.geoServices.getConverter("NAD27");
-    sameDatumConverter = iModel.geoServices.getConverter();
+    wgs84Converter = iModel.geoServices.getConverter("WGS84")!;
+    nad27Converter = iModel.geoServices.getConverter("NAD27")!;
+    sameDatumConverter = iModel.geoServices.getConverter()!;
   });
 
   after(async () => {

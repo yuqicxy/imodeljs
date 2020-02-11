@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PropertyEditors */
+/** @packageDocumentation
+ * @module PropertyEditors
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -140,6 +142,7 @@ export class WeightEditor extends React.PureComponent<PropertyEditorProps, Weigh
           activeWeight={this.state.weightValue}
           weights={this._availableWeights.length > 0 ? this._availableWeights : undefined}
           disabled={this.state.isDisabled ? true : false}
+          readonly={this.state.readonly}
           onLineWeightPick={this._onLineWeightPick}
           data-testid="components-weight-editor" />
       </div>

@@ -1,24 +1,21 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import {
-  AuthorizationToken, AccessToken, ImsActiveSecureTokenClient, ImsDelegationSecureTokenClient, IModelHubClient,
-  HubIModel, Project, IModelQuery, ChangeSet, ChangeSetQuery, Briefcase as HubBriefcase, ChangesType, Version,
-  AuthorizedClientRequestContext, ImsUserCredentials, VersionQuery, BriefcaseQuery,
+  IModelHubClient, HubIModel, Project, IModelQuery, ChangeSet, ChangeSetQuery, Briefcase as HubBriefcase, ChangesType, Version,
+  AuthorizedClientRequestContext, VersionQuery, BriefcaseQuery,
 } from "@bentley/imodeljs-clients";
-import { ChangeSetApplyOption, OpenMode, ChangeSetStatus, Logger, assert, GuidString, PerfLogger, ClientRequestContext } from "@bentley/bentleyjs-core";
-import { IModelJsFs, ChangeSetToken, BriefcaseManager, BriefcaseId, IModelDb, BackendRequestContext } from "../../imodeljs-backend";
+import { ChangeSetApplyOption, OpenMode, ChangeSetStatus, Logger, assert, GuidString, PerfLogger } from "@bentley/bentleyjs-core";
+import { IModelJsFs, ChangeSetToken, BriefcaseManager, BriefcaseId, IModelDb } from "../../imodeljs-backend";
+
 import * as path from "path";
+import * as os from "os";
 
 /** Utility to work with the iModel Hub */
 export class HubUtility {
 
   public static logCategory = "HubUtility";
-
-  public static async login(user: ImsUserCredentials): Promise<AccessToken> {
-    return getIModelPermissionAbstraction().authorizeUser(new BackendRequestContext(), user);
-  }
 
   private static makeDirectoryRecursive(dirPath: string) {
     if (IModelJsFs.existsSync(dirPath))
@@ -54,7 +51,7 @@ export class HubUtility {
     return project;
   }
 
-  private static async queryIModelByName(requestContext: AuthorizedClientRequestContext, projectId: string, iModelName: string): Promise<HubIModel | undefined> {
+  public static async queryIModelByName(requestContext: AuthorizedClientRequestContext, projectId: string, iModelName: string): Promise<HubIModel | undefined> {
     const iModels = await getIModelProjectAbstraction().queryIModels(requestContext, projectId, new IModelQuery().byName(iModelName));
     if (iModels.length === 0)
       return undefined;
@@ -209,18 +206,23 @@ export class HubUtility {
     throw new Error(whichCs + " - .cs file not found in directory " + dir);
   }
 
+  /** Get the pathname of the briefcasein the supplied directory - assumes a standard layout of the supplied directory */
+  public static getBriefcasePathname(iModelDir: string): string {
+    const seedPathname = HubUtility.getSeedPathname(iModelDir);
+    return path.join(iModelDir, path.basename(seedPathname));
+  }
+
   /** Validate all change set operations on an iModel on disk - the supplied directory contains a sub folder
    * with the seed files, change sets, etc. in a standard format. This tests merging the change sets, reversing them,
    * and finally reinstating them. The method also logs the necessary performance
    * metrics with these operations.
    */
   public static validateAllChangeSetOperationsOnDisk(iModelDir: string) {
-    const seedPathname = HubUtility.getSeedPathname(iModelDir);
-    const iModelPathname = path.join(iModelDir, path.basename(seedPathname));
+    const briefcasePathname = HubUtility.getBriefcasePathname(iModelDir);
 
     Logger.logInfo(HubUtility.logCategory, "Creating standalone iModel");
-    HubUtility.createStandaloneIModel(iModelPathname, iModelDir);
-    const iModel: IModelDb = IModelDb.openStandalone(iModelPathname, OpenMode.ReadWrite);
+    HubUtility.createStandaloneIModel(briefcasePathname, iModelDir);
+    const iModel: IModelDb = IModelDb.openStandalone(briefcasePathname, OpenMode.ReadWrite);
 
     const changeSets: ChangeSetToken[] = HubUtility.readChangeSets(iModelDir);
 
@@ -271,26 +273,26 @@ export class HubUtility {
   }
 
   /** Push an iModel to the Hub */
-  public static async pushIModel(requestContext: AuthorizedClientRequestContext, projectId: string, pathname: string): Promise<GuidString> {
+  public static async pushIModel(requestContext: AuthorizedClientRequestContext, projectId: string, pathname: string, iModelName?: string): Promise<GuidString> {
     // Delete any existing iModels with the same name as the required iModel
-    const iModelName = path.basename(pathname, ".bim");
-    let iModel: HubIModel | undefined = await HubUtility.queryIModelByName(requestContext, projectId, iModelName);
+    const locIModelName = iModelName || path.basename(pathname, ".bim");
+    let iModel: HubIModel | undefined = await HubUtility.queryIModelByName(requestContext, projectId, locIModelName);
     if (iModel) {
       await BriefcaseManager.imodelClient.iModels.delete(requestContext, projectId, iModel.id!);
     }
 
     // Upload a new iModel
-    iModel = await BriefcaseManager.imodelClient.iModels.create(requestContext, projectId, iModelName, pathname, "", undefined, 10 * 60 * 1000);
+    iModel = await BriefcaseManager.imodelClient.iModels.create(requestContext, projectId, locIModelName, { path: pathname });
     return iModel.id!;
   }
 
   /** Upload an IModel's seed files and change sets to the hub
    * It's assumed that the uploadDir contains a standard hierarchy of seed files and change sets.
    */
-  public static async pushIModelAndChangeSets(requestContext: AuthorizedClientRequestContext, projectName: string, uploadDir: string): Promise<GuidString> {
+  public static async pushIModelAndChangeSets(requestContext: AuthorizedClientRequestContext, projectName: string, uploadDir: string, iModelName?: string): Promise<GuidString> {
     const projectId: string = await HubUtility.queryProjectIdByName(requestContext, projectName);
     const seedPathname = HubUtility.getSeedPathname(uploadDir);
-    const iModelId = await HubUtility.pushIModel(requestContext, projectId, seedPathname);
+    const iModelId = await HubUtility.pushIModel(requestContext, projectId, seedPathname, iModelName);
 
     const briefcase: HubBriefcase = await BriefcaseManager.imodelClient.briefcases.create(requestContext, iModelId);
     if (!briefcase) {
@@ -378,7 +380,7 @@ export class HubUtility {
       if (!IModelJsFs.existsSync(changeSetPathname)) {
         throw new Error("Cannot find the ChangeSet file: " + changeSetPathname);
       }
-      tokens.push(new ChangeSetToken(changeSetJson.id, changeSetJson.parentId, changeSetJson.index, changeSetPathname, changeSetJson.changesType === ChangesType.Schema));
+      tokens.push(new ChangeSetToken(changeSetJson.id, changeSetJson.parentId, +changeSetJson.index, changeSetPathname, changeSetJson.changesType === ChangesType.Schema));
     }
 
     return tokens;
@@ -427,18 +429,31 @@ export class HubUtility {
       BriefcaseManager.dumpChangeSet(iModel.briefcase, changeSet);
     });
   }
-}
 
-class ImsUserMgr {
-  public async authorizeUser(requestContext: ClientRequestContext, userCredentials: ImsUserCredentials): Promise<AccessToken> {
-    const authToken: AuthorizationToken = await (new ImsActiveSecureTokenClient()).getToken(requestContext, userCredentials);
-    assert(!!authToken);
+  /** Generate a name (for an iModel) that's unique for the user + host */
+  public static generateUniqueName(baseName: string) {
+    let username = "";
+    let hostname = "";
+    try {
+      hostname = os.hostname();
+      username = os.userInfo().username;
+    } catch (err) {
+    }
+    return `${baseName}_${username}_${hostname}`;
+  }
 
-    const accessToken: AccessToken = await (new ImsDelegationSecureTokenClient()).getToken(requestContext, authToken!);
-    assert(!!accessToken);
+  /** Create  */
+  public static async recreateIModel(requestContext: AuthorizedClientRequestContext, projectId: GuidString, iModelName: string): Promise<GuidString> {
+    // Delete any existing iModel
+    try {
+      const deleteIModelId: GuidString = await HubUtility.queryIModelIdByName(requestContext, projectId, iModelName);
+      await BriefcaseManager.imodelClient.iModels.delete(requestContext, projectId, deleteIModelId);
+    } catch (err) {
+    }
 
-    Logger.logTrace(HubUtility.logCategory, `Logged in test user ${userCredentials.email}`);
-    return accessToken;
+    // Create a new iModel
+    const iModel: HubIModel = await BriefcaseManager.imodelClient.iModels.create(requestContext, projectId, iModelName, { description: `Description for ${iModelName}` });
+    return iModel.wsgId;
   }
 }
 
@@ -457,7 +472,7 @@ class TestIModelHubProject {
   }
   public async createIModel(requestContext: AuthorizedClientRequestContext, projectId: string, params: any): Promise<HubIModel> {
     const client = this.iModelHubClient;
-    return client.iModels.create(requestContext, projectId, params.name, params.seedFile, params.description, params.tracker);
+    return client.iModels.create(requestContext, projectId, params.name, { path: params.seedFile, description: params.description, progressCallback: params.tracker });
   }
   public async deleteIModel(requestContext: AuthorizedClientRequestContext, projectId: string, iModelId: GuidString): Promise<void> {
     const client = this.iModelHubClient;
@@ -478,7 +493,7 @@ export function getIModelPermissionAbstraction(): any {
     return authorizationAbstraction;
 
   if ((process.env.IMODELJS_CLIENTS_TEST_IMODEL_BANK === undefined) || usingMocks) {
-    return authorizationAbstraction = new ImsUserMgr();
+    return authorizationAbstraction = {};
   }
 
   throw new Error("WIP");

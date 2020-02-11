@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module CartesianGeometry */
+/** @packageDocumentation
+ * @module CartesianGeometry
+ */
 import { Point3d, Vector3d } from "./Point3dVector3d";
 import { Transform } from "./Transform";
 import { Matrix3d } from "./Matrix3d";
@@ -13,6 +15,7 @@ import { XYAndZ } from "./XYZProps";
 import { CurveLocationDetail, CurveLocationDetailPair, CurveCurveApproachType } from "../curve/CurveLocationDetail";
 import { SmallSystem } from "../numerics/Polynomials";
 import { Vector2d } from "./Point2dVector2d";
+import { Range1d, Range3d } from "./Range";
 /** A Ray3d contains
  * * an origin point.
  * * a direction vector.  The vector is NOT required to be normalized.
@@ -30,6 +33,7 @@ export class Ray3d implements BeJSONFunctions {
   private constructor(origin: Point3d, direction: Vector3d) {
     this.origin = origin;
     this.direction = direction;
+    this.a = undefined;
   }
   private static _create(x: number, y: number, z: number, u: number, v: number, w: number) {
     return new Ray3d(Point3d.create(x, y, z), Vector3d.create(u, v, w));
@@ -137,6 +141,16 @@ export class Ray3d implements BeJSONFunctions {
   public cloneTransformed(transform: Transform): Ray3d {
     return new Ray3d(transform.multiplyPoint3d(this.origin), transform.multiplyVector(this.direction));
   }
+
+  /** Create a clone and return the inverse transform of the clone. */
+  public cloneInverseTransformed(transform: Transform): Ray3d | undefined {
+    const origin = transform.multiplyInversePoint3d(this.origin);
+    const direction = transform.matrix.multiplyInverseXYZAsVector3d(this.direction.x, this.direction.y, this.direction.z);
+    if (undefined !== origin && undefined !== direction)
+      return new Ray3d(origin, direction);
+    return undefined;
+  }
+
   /** Apply a transform in place. */
   public transformInPlace(transform: Transform) {
     transform.multiplyPoint3d(this.origin, this.origin);
@@ -148,7 +162,7 @@ export class Ray3d implements BeJSONFunctions {
    * * fraction 1 is at the end of the direction vector when placed at the origin.
    * @returns Return a point at fractional position along the ray.
    */
-  public fractionToPoint(fraction: number): Point3d { return this.origin.plusScaled(this.direction, fraction); }
+  public fractionToPoint(fraction: number, result?: Point3d): Point3d { return this.origin.plusScaled(this.direction, fraction, result); }
   /** Return the dot product of the ray's direction vector with a vector from the ray origin to the space point. */
   public dotProductToPoint(spacePoint: Point3d): number { return this.direction.dotProductStartEnd(this.origin, spacePoint); }
   /**
@@ -197,12 +211,12 @@ export class Ray3d implements BeJSONFunctions {
     return false;
   }
   /**
-   * If parameter `a` is clearly nonzero and the direction vector can be normalized,
-   * * save the parameter `a` as the optional `a` member of the ray.
-   * * normalize the ray's direction vector
-   * If parameter `a` is nearly zero,
-   * * Set the `a` member to zero
-   * * Set the ray's direction vector to zero.
+   * * If parameter `a` is clearly nonzero and the direction vector can be normalized,
+   *    * save the parameter `a` as the optional `a` member of the ray.
+   *    * normalize the ray's direction vector
+   * * If parameter `a` is nearly zero,
+   *   * Set the `a` member to zero
+   *   * Set the ray's direction vector to zero.
    * @param a area to be saved.
    */
   // input a ray and "a" understood as an area.
@@ -255,6 +269,22 @@ export class Ray3d implements BeJSONFunctions {
       this.origin.plusScaled(this.direction, division, result);
     }
     return division;
+  }
+
+  /**
+   * * Find intersection of the ray with a Range3d.
+   * * return the range of fractions (on the ray) which are "inside" the range.
+   * * Note that a range is always returned;  if there is no intersection it is indicated by the test `result.sNull`
+   */
+  public intersectionWithRange3d(range: Range3d, result?: Range1d): Range1d {
+    if (range.isNull)
+      return Range1d.createNull(result);
+    const interval = Range1d.createXX(-Geometry.largeCoordinateResult, Geometry.largeCoordinateResult, result);
+    if (interval.clipLinearMapToInterval(this.origin.x, this.direction.x, range.low.x, range.high.x)
+      && interval.clipLinearMapToInterval(this.origin.y, this.direction.y, range.low.y, range.high.y)
+      && interval.clipLinearMapToInterval(this.origin.z, this.direction.z, range.low.z, range.high.z))
+      return interval;
+    return interval;
   }
 
   /** Construct a vector from `ray.origin` to target point.

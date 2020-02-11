@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import * as faker from "faker";
@@ -129,6 +129,15 @@ describe("PresentationRpcInterface", () => {
       mock.verify(async (x) => x(toArguments(token, options, keys, 1)), moq.Times.once());
     });
 
+    it("forwards loadHierarchy call", async () => {
+      const options: HierarchyRpcRequestOptions = {
+        ...defaultRpcOptions,
+        rulesetId: faker.random.word(),
+      };
+      await rpcInterface.loadHierarchy(token, options);
+      mock.verify(async (x) => x(toArguments(token, options)), moq.Times.once());
+    });
+
     it("forwards getContentDescriptor call", async () => {
       const options: ContentRpcRequestOptions = {
         ...defaultRpcOptions,
@@ -200,6 +209,24 @@ describe("PresentationRpcInterface", () => {
         ...defaultRpcOptions,
       };
       await rpcInterface.getDisplayLabels(token, options, keys);
+      mock.verify(async (x) => x(toArguments(token, options, keys)), moq.Times.once());
+    });
+
+    it("forwards getDisplayLabelDefinition call", async () => {
+      const key = createRandomECInstanceKey();
+      const options: LabelRpcRequestOptions = {
+        ...defaultRpcOptions,
+      };
+      await rpcInterface.getDisplayLabelDefinition(token, options, key);
+      mock.verify(async (x) => x(toArguments(token, options, key)), moq.Times.once());
+    });
+
+    it("forwards getDisplayLabelsDefinitions call", async () => {
+      const keys = [createRandomECInstanceKey(), createRandomECInstanceKey()];
+      const options: LabelRpcRequestOptions = {
+        ...defaultRpcOptions,
+      };
+      await rpcInterface.getDisplayLabelsDefinitions(token, options, keys);
       mock.verify(async (x) => x(toArguments(token, options, keys)), moq.Times.once());
     });
 

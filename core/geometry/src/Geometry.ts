@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module CartesianGeometry */
+/** @packageDocumentation
+ * @module CartesianGeometry
+ */
 
 // import { Point2d } from "./Geometry2d";
 /* tslint:disable:variable-name jsdoc-format no-empty*/
@@ -96,10 +98,17 @@ export interface TrigValues {
  */
 export interface PlaneAltitudeEvaluator {
   /**
-   * Return the altitude of the point from the plane.
-   * @param point point for evaluation
-   */
+ * Return the altitude of the point from the plane.
+ * @param point point for evaluation
+ */
   altitude(point: Point3d): number;
+  /**
+     * Return the altitude of the point from the plane, with the point supplied as simple x,y,z
+     * @param x x coordinate
+     * @param y y coordinate
+     * @param z z coordinate
+     */
+  altitudeXYZ(x: number, y: number, z: number): number;
   /**
    * Return the derivative of altitude wrt motion along a vector.
    * @param point point for evaluation
@@ -168,8 +177,14 @@ export class Geometry {
   public static readonly smallAngleRadians = 1.0e-12;
   /** square of `smallAngleRadians` */
   public static readonly smallAngleRadiansSquared = 1.0e-24;
-  /** numeric value that may considered huge for numbers expected to be 0..1 fractions. */
+  /** numeric value that may considered huge for numbers expected to be 0..1 fractions.
+   * * But note that the "allowed" result value is vastly larger than 1.
+   */
   public static readonly largeFractionResult = 1.0e10;
+  /** numeric value that may considered huge for numbers expected to be coordinates.
+   * * This allows larger results than `largeFractionResult`.
+   */
+  public static readonly largeCoordinateResult = 1.0e13;
   /** numeric value that may considered infinite for metric coordinates.
    * * This coordinate should be used only as a placeholder indicating "at infinity" -- computing actual points at this coordinate invites numerical problems.
    */
@@ -181,6 +196,11 @@ export class Geometry {
     return x > this.hugeCoordinate || x < - this.hugeCoordinate;
   }
 
+  /** Test if a number is odd.
+   */
+  public static isOdd(x: number): boolean {
+    return (x & (0x01)) === 1;
+  }
   /** Radians value for full circle 2PI radians minus `smallAngleRadians` */
   public static readonly fullCircleRadiansMinusSmallAngle = 2.0 * Math.PI - 1.0e-12;    // smallAngleRadians less than 360degrees
   /** Correct `distance` to zero if smaller than metric tolerance.   Otherwise return it unchanged. */
@@ -361,6 +381,19 @@ export class Geometry {
     if (c > q) q = c;
     return q;
   }
+  /** Examine the value (particularly sign) of x.
+   * * If x is negative, return outNegative.
+   * * If x is true zero, return outZero
+   * * If x is positive, return outPositive
+   */
+  public static split3WaySign(x: number, outNegative: number, outZero: number, outPositive: number): number {
+    if (x < 0)
+      return outNegative;
+    if (x > 0.0)
+      return outPositive;
+    return outZero;
+  }
+
   /** Return the largest signed value among a, b */
   public static maxXY(a: number, b: number): number {
     let q = a;
@@ -368,6 +401,12 @@ export class Geometry {
     return q;
   }
 
+  /** Return the smallest signed value among a, b */
+  public static minXY(a: number, b: number): number {
+    let q = a;
+    if (b < q) q = b;
+    return q;
+  }
   /** Return the hypotenuse `sqrt(x*x + y*y)`. This is much faster than `Math.hypot(x,y)`. */
   public static hypotenuseXY(x: number, y: number): number { return Math.sqrt(x * x + y * y); }
   /** Return the squared `hypotenuse (x*x + y*y)`. */
@@ -427,6 +466,18 @@ export class Geometry {
     return ux * (vy * wz - vz * wy)
       + uy * (vz * wx - vx * wz)
       + uz * (vx * wy - vy * wx);
+  }
+  /** Returns the determinant of the 4x4 matrix unrolled as the 16 parameters.
+   */
+  public static determinant4x4(
+    xx: number, xy: number, xz: number, xw: number,
+    yx: number, yy: number, yz: number, yw: number,
+    zx: number, zy: number, zz: number, zw: number,
+    wx: number, wy: number, wz: number, ww: number): number {
+    return xx * this.tripleProduct(yy, yz, yw, zy, zz, zw, wy, wz, ww)
+      - yx * this.tripleProduct(xy, xz, xw, zy, zz, zw, wy, wz, ww)
+      + zx * this.tripleProduct(xy, xz, xw, yy, yz, yw, wy, wz, ww)
+      - wx * this.tripleProduct(xy, xz, xw, yy, yz, yw, zy, zz, zw);
   }
 
   /**
@@ -508,6 +559,10 @@ export class Geometry {
   public static dotProductXYZXYZ(ux: number, uy: number, uz: number, vx: number, vy: number, vz: number): number {
     return ux * vx + uy * vy + uz * vz;
   }
+  /** 2D dot product of vectors layed out as scalars. */
+  public static dotProductXYXY(ux: number, uy: number, vx: number, vy: number): number {
+    return ux * vx + uy * vy;
+  }
   /**
    * Clamp to (min(a,b), max(a,b))
    * @param x
@@ -525,9 +580,9 @@ export class Geometry {
   }
   /**
    * Clamp value to (min,max) with no test for order of (min,max)
-   * @param value C
-   * @param min
-   * @param max
+   * @param value value to clamp
+   * @param min smallest allowed output
+   * @param max largest allowed result.
    */
   public static clamp(value: number, min: number, max: number): number { return Math.max(min, Math.min(max, value)); }
   /** If given a number, return it.   If given undefined, return `defaultValue`. */
@@ -572,6 +627,15 @@ export class Geometry {
    */
   public static conditionalDivideFraction(numerator: number, denominator: number): number | undefined {
     if (Math.abs(denominator) * Geometry.largeFractionResult > Math.abs(numerator))
+      return numerator / denominator;
+    return undefined;
+  }
+
+  /** normally, return numerator/denominator.
+   * but if the ratio would exceed Geometry.largestResult, return undefined.
+   */
+  public static conditionalDivideCoordinate(numerator: number, denominator: number, largestResult: number = Geometry.largeCoordinateResult): number | undefined {
+    if (Math.abs(denominator * largestResult) > Math.abs(numerator))
       return numerator / denominator;
     return undefined;
   }
@@ -659,6 +723,7 @@ export class Geometry {
   public static stepCount(stepSize: number, total: number, minCount = 1, maxCount = 101): number {
     if (stepSize <= 0)
       return minCount;
+    total = Math.abs(total);
     if (stepSize >= total)
       return minCount;
     const stepCount = Math.floor((total + 0.999999 * stepSize) / stepSize);

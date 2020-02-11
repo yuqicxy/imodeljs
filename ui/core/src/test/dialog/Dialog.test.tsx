@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { render, cleanup } from "@testing-library/react";
 import * as React from "react";
@@ -40,6 +40,11 @@ describe("Dialog", () => {
   describe("renders", () => {
     it("should render", () => {
       render(<Dialog opened={true} />);
+    });
+    it("should render with titleStyle", () => {
+      const component = render(<Dialog opened={true} title="Test" titleStyle={{ fontWeight: "bold" }} />);
+      const container = component.getByTestId("core-dialog-title");
+      expect(container.style.fontWeight).to.equal("bold");
     });
   });
 
@@ -142,7 +147,7 @@ describe("Dialog", () => {
       expect(container.style.width).to.equal("200px");
     });
     it("should resize to minWidth and minHeight", () => {
-      const component = render(<Dialog opened={true} resizable={true} minHeight={200} minWidth={200} />);
+      const component = render(<Dialog opened={true} resizable={true} height={400} width={400} minHeight={200} minWidth={200} />);
       const bottomRightDragHandle = component.getByTestId("core-dialog-drag-bottom-right");
       bottomRightDragHandle.dispatchEvent(createBubbledEvent("pointerdown", { clientX: 400, clientY: 400 }));
       window.dispatchEvent(createBubbledEvent("pointermove", { clientX: 100, clientY: 100 }));
@@ -152,9 +157,9 @@ describe("Dialog", () => {
       expect(container.style.width).to.equal("200px");
     });
     it("should resize to maxWidth and maxHeight when defined", () => {
-      const component = render(<Dialog opened={true} resizable={true} height={200} width={200} maxWidth={350} maxHeight={350} />);
+      const component = render(<Dialog opened={true} resizable={true} height={300} width={300} maxWidth={350} maxHeight={350} />);
       const bottomRightDragHandle = component.getByTestId("core-dialog-drag-bottom-right");
-      bottomRightDragHandle.dispatchEvent(createBubbledEvent("pointerdown", { clientX: 200, clientY: 400 }));
+      bottomRightDragHandle.dispatchEvent(createBubbledEvent("pointerdown", { clientX: 300, clientY: 300 }));
       window.dispatchEvent(createBubbledEvent("pointermove", { clientX: 400, clientY: 400 }));
       window.dispatchEvent(createBubbledEvent("pointerup", { clientX: 400, clientY: 400 }));
       const container = component.getByTestId("core-dialog-container");
@@ -251,6 +256,18 @@ describe("Dialog", () => {
     it("should render bottom right", () => {
       const component = render(<Dialog opened={true} alignment={DialogAlignment.BottomRight} />);
       expect(component.container.querySelector(".core-dialog-bottom-right")).not.to.be.null;
+    });
+  });
+
+  describe("header", () => {
+    it("should render without header", () => {
+      const component = render(<Dialog opened={true} hideHeader={true} />);
+      expect(component.container.querySelector(".core-dialog-head")).to.be.null;
+    });
+    it("should render with header", () => {
+      const component = render(<Dialog opened={true} header={<div className="header-test" />} />);
+      expect(component.container.querySelector(".header-test")).not.to.be.null;
+      expect(component.container.querySelector(".core-dialog-head")).to.be.null;
     });
   });
 

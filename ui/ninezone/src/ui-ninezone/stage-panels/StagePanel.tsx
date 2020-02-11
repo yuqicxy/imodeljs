@@ -1,15 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module StagePanels */
+/** @packageDocumentation
+ * @module StagePanels
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
-import { CommonProps } from "@bentley/ui-core";
+import { CommonProps, Point, Rectangle } from "@bentley/ui-core";
 import { ResizeGrip, ResizeDirection, ResizeGripResizeArgs } from "../widget/rectangular/ResizeGrip";
-import { Point } from "../utilities/Point";
-import { Rectangle } from "../utilities/Rectangle";
+import { SafeAreaInsets, SafeAreaInsetsHelpers } from "../utilities/SafeAreaInsets";
 import "./StagePanel.scss";
 
 /** Describes available stage panel types.
@@ -63,6 +64,8 @@ export interface StagePanelProps extends CommonProps {
   onToggleCollapse?: () => void;
   /** Function called when resize action is performed. */
   onResize?: (resizeBy: number) => void;
+  /** Describes respected safe area insets. */
+  safeAreaInsets?: SafeAreaInsets;
   /** Stage panel size. */
   size?: number;
   /** Stage panel type. */
@@ -80,6 +83,7 @@ export class StagePanel extends React.PureComponent<StagePanelProps> {
     const className = classnames(
       "nz-stagePanels-stagePanel",
       StagePanelTypeHelpers.getCssClassName(this.props.type),
+      this.props.safeAreaInsets && SafeAreaInsetsHelpers.getCssClassNames(this.props.safeAreaInsets),
       this.props.className);
     const isVertical = StagePanelTypeHelpers.isVertical(this.props.type);
     const style = {

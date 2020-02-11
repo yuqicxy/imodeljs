@@ -1,21 +1,21 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import sinon = require("sinon");
-import { initialize, terminate } from "../IntegrationTests";
 import { Id64, using } from "@bentley/bentleyjs-core";
 import { IModelConnection } from "@bentley/imodeljs-frontend";
 import { KeySet, InstanceKey, Ruleset, PresentationError, PresentationStatus } from "@bentley/presentation-common";
 import { Presentation } from "@bentley/presentation-frontend";
+import { initialize, terminate } from "../IntegrationTests";
 
 describe("Content", () => {
 
   let imodel: IModelConnection;
 
   before(async () => {
-    initialize();
+    await initialize();
     const testIModelName: string = "assets/datasets/Properties_60InstancesWithUrl2.ibim";
     imodel = await IModelConnection.openSnapshot(testIModelName);
     expect(imodel).is.not.null;
@@ -36,8 +36,9 @@ describe("Content", () => {
         const keys = new KeySet([key1, key2]);
         const descriptor = await Presentation.presentation.getContentDescriptor({ imodel, rulesetId: ruleset.id }, "Grid", keys, undefined);
         expect(descriptor).to.not.be.undefined;
-        const distinctValues = await Presentation.presentation.getDistinctValues({ imodel, rulesetId: ruleset.id }, descriptor!, keys,
-          "SubCategory_DefinitionPartition_LinkPartition_PhysicalPartition_Model");
+        const field = descriptor!.getFieldByName("pc_bis_Element_Model");
+        expect(field).to.not.be.undefined;
+        const distinctValues = await Presentation.presentation.getDistinctValues({ imodel, rulesetId: ruleset.id }, descriptor!, keys, field!.name);
         expect(distinctValues).to.be.deep.equal([
           "Definition Model For DgnV8Bridge:D:\\Temp\\Properties_60InstancesWithUrl2.dgn, Default",
           "DgnV8Bridge",
@@ -47,10 +48,10 @@ describe("Content", () => {
   });
 
   describe("when request in the backend exceeds the backend timeout time", () => {
-    let raceStub: sinon.SinonStub;
-    beforeEach(() => {
+    let raceStub: sinon.SinonStub<[Iterable<unknown>], Promise<unknown>>;
+    beforeEach(async () => {
       terminate();
-      initialize(500);
+      await initialize(500);
       const realRace = Promise.race;
       raceStub = sinon.stub(Promise, "race").callsFake(async (values) => {
         (values as any).push(new Promise((_resolve, reject) => { reject("something"); }));

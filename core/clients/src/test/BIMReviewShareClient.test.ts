@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as chai from "chai";
 import { ClientRequestContext, Guid, GuidString } from "@bentley/bentleyjs-core";
@@ -15,10 +15,16 @@ describe("BIMReviewShareClient", () => {
   let projectId: GuidString = "";
   const moduleName = "BIMREVIEWSHARE_TEST_SavedViewsModule";
 
-  before(async function (this: Mocha.IHookCallbackContext) {
+  before(async function () {
     this.enableTimeouts(false);
     if (TestConfig.enableMocks)
       return;
+
+    if (typeof window !== undefined) {
+      console.log("BimReviewShareClient has not been setup to work in browser environments");
+      this.skip(); // This client has not been setup to work in browsers
+      return;
+    }
 
     const authToken: AuthorizationToken = await TestConfig.login();
     const accessToken = await bimReviewShareClient.getAccessToken(new ClientRequestContext(), authToken);
@@ -38,7 +44,7 @@ describe("BIMReviewShareClient", () => {
     }
   });
 
-  it("should be able to post, retrieve, update and delete Content instance and data (#integration)", async function (this: Mocha.ITestCallbackContext) {
+  it("should be able to post, retrieve, update and delete Content instance and data (#integration)", async () => {
     // Test with fabricated "User ID"
     const userGuidTest: GuidString = Guid.createValue();
     const userGuidTest2: GuidString = Guid.createValue();

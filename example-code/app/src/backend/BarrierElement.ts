@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { SpatialLocationElement, IModelDb, SpatialCategory } from "@bentley/imodeljs-backend";
 import { GeometryStreamProps, GeometryStreamBuilder } from "@bentley/imodeljs-common";
@@ -39,7 +39,7 @@ export class Barrier extends SpatialLocationElement {
 
   // You can write methods to implement business logic that apps can call.
   public someBusinessLogic(): void {
-    if ((this.testProperty === "something") && this.isPrivate) {
+    if (this.length > 123.45) {
       // ... do something ...
     }
   }

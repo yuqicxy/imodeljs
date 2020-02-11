@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import { HierarchyBuilder, ContentBuilder, ContentBuilderResult } from "@bentley/presentation-testing";
@@ -25,9 +25,9 @@ describe("RulesetTesting", () => {
   let imodel: IModelConnection;
   const imodelPath = "assets/datasets/Properties_60InstancesWithUrl2.ibim";
 
-  before(() => {
+  before(async () => {
     // initialize presentation-testing
-    initialize();
+    await initialize();
   });
 
   after(() => {
@@ -53,7 +53,7 @@ describe("RulesetTesting", () => {
   });
 
   // tslint:disable-next-line:only-arrow-functions
-  it("generates correct content for 'Items' ruleset", async function () {
+  it.skip("generates correct content for 'Items' ruleset", async function () {
     const builder = new ContentBuilder(imodel);
     // generate content using ruleset id
     const instances = await builder.createContentForInstancePerClass("Items");

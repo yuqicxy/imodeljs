@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as chai from "chai";
 import { IModelHubStatus, GuidString } from "@bentley/bentleyjs-core";
@@ -45,11 +45,7 @@ describe("iModelHubClient UserInfoHandler", () => {
   const imodelName = "imodeljs-clients UserInfo test";
   const imodelHubClient: IModelClient = utils.getDefaultClient();
 
-  before(async function (this: Mocha.IHookCallbackContext) {
-    if (TestConfig.enableIModelBank) {
-      this.skip();
-    }
-
+  before(async () => {
     const superAccessToken: AccessToken = TestConfig.enableMocks ? new utils.MockAccessToken() : await utils.login(TestUsers.super);
     const managerAccessToken: AccessToken = TestConfig.enableMocks ? new utils.MockAccessToken() : await utils.login(TestUsers.manager);
     requestContexts.push(new AuthorizedClientRequestContext(superAccessToken));
@@ -69,7 +65,7 @@ describe("iModelHubClient UserInfoHandler", () => {
     ResponseBuilder.clearMocks();
   });
 
-  it("should get one user info", async function (this: Mocha.ITestCallbackContext) {
+  it("should get one user info", async () => {
     if (TestConfig.enableMocks) {
       const mockedUserInfo = generateHubUserInfo([requestContexts[0].accessToken.getUserInfo()!]);
       mockGetUserInfo(imodelId, mockedUserInfo, `${mockedUserInfo[0].id}`);
@@ -84,7 +80,7 @@ describe("iModelHubClient UserInfoHandler", () => {
     chai.expect(userInfo[0].lastName).to.be.equal(requestContexts[0].accessToken.getUserInfo()!.profile!.lastName);
   });
 
-  it("should get several users info", async function (this: Mocha.ITestCallbackContext) {
+  it("should get several users info", async () => {
     if (TestConfig.enableMocks) {
       const mockedUsersInfo = generateHubUserInfo([requestContexts[0].accessToken.getUserInfo()!, requestContexts[1].accessToken.getUserInfo()!]);
       mockGetUserInfo(imodelId, mockedUsersInfo);
@@ -92,7 +88,7 @@ describe("iModelHubClient UserInfoHandler", () => {
 
     const query = new UserInfoQuery().byIds(
       [requestContexts[0].accessToken.getUserInfo()!.id,
-      requestContexts[1].accessToken.getUserInfo()!.id]);
+        requestContexts[1].accessToken.getUserInfo()!.id]);
     const userInfo = (await imodelHubClient.users.get(requestContexts[0], imodelId, query));
     userInfo.sort((a: HubUserInfo, b: HubUserInfo) => a.id!.localeCompare(b.id!));
     chai.assert(userInfo);

@@ -1,13 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Widget */
+/** @packageDocumentation
+ * @module Widget
+ */
 
 import * as React from "react";
 
 import { IModelConnection } from "@bentley/imodeljs-frontend";
-import { CommonProps, UiError } from "@bentley/ui-core";
+import { UiError, PluginUiManager, UiProviderRegisteredEventArgs } from "@bentley/ui-abstract";
+import { CommonProps } from "@bentley/ui-core";
 import { ViewportComponentEvents, ViewClassFullNameChangedEventArgs } from "@bentley/ui-components";
 import { Tools as NZ_ToolsWidget, Direction, ToolbarPanelAlignment } from "@bentley/ui-ninezone";
 
@@ -15,14 +18,14 @@ import { ConfigurableUiManager } from "../configurableui/ConfigurableUiManager";
 import { ToolbarWidgetDefBase } from "./ToolbarWidgetBase";
 import { NavigationWidgetProps, WidgetType } from "./WidgetDef";
 import { NavigationAidControl, NavigationAidActivatedEventArgs } from "../navigationaids/NavigationAidControl";
-import { FrontstageManager, ToolActivatedEventArgs } from "../frontstage/FrontstageManager";
+import { FrontstageManager } from "../frontstage/FrontstageManager";
 import { ConfigurableUiControlType } from "../configurableui/ConfigurableUiControl";
 import { ContentViewManager } from "../content/ContentViewManager";
 import { ContentControlActivatedEventArgs } from "../content/ContentControl";
 import { UiShowHideManager } from "../utils/UiShowHideManager";
 import { UiFramework } from "../UiFramework";
 
-/** A Navigation Widget normally displayed in the top right zone in the 9-Zone Layout system.
+/** Definition of a Navigation Widget normally displayed in the top right zone in the 9-Zone Layout system.
  * @public
  */
 export class NavigationWidgetDef extends ToolbarWidgetDefBase {
@@ -38,9 +41,13 @@ export class NavigationWidgetDef extends ToolbarWidgetDefBase {
     this.verticalDirection = (props.verticalDirection !== undefined) ? props.verticalDirection : Direction.Left;
     this.horizontalPanelAlignment = ToolbarPanelAlignment.End;
     this._navigationAidId = (props.navigationAidId !== undefined) ? props.navigationAidId : "";
+
+    const activeStageName = FrontstageManager.activeFrontstageDef ? FrontstageManager.activeFrontstageDef.id : "";
+    this.widgetBaseName = `[${activeStageName}]NavigationWidget`;
   }
 
   public get reactElement(): React.ReactNode {
+    // istanbul ignore else
     if (!this._reactElement)
       this._reactElement = <NavigationWidgetWithDef navigationWidgetDef={this} />;
 
@@ -52,6 +59,7 @@ export class NavigationWidgetDef extends ToolbarWidgetDefBase {
     if (FrontstageManager.isLoading)
       return null;
 
+    // istanbul ignore else
     if (!this._navigationAidControl && this._navigationAidId) {
       this._navigationAidControl = ConfigurableUiManager.createControl(this._navigationAidId, this._navigationAidId, { imodel: this._imodel }) as NavigationAidControl;
       if (this._navigationAidControl.getType() !== ConfigurableUiControlType.NavigationAid) {
@@ -60,6 +68,7 @@ export class NavigationWidgetDef extends ToolbarWidgetDefBase {
       this._navigationAidControl.initialize();
     }
 
+    // istanbul ignore else
     if (this._navigationAidControl) {
       const size = this._navigationAidControl.getSize() || "64px";
       const divStyle: React.CSSProperties = {
@@ -147,7 +156,7 @@ export class NavigationWidget extends React.Component<NavigationWidgetPropsEx, N
 
   public componentDidUpdate(prevProps: NavigationWidgetPropsEx, _prevState: NavigationWidgetState) {
     if (this.props !== prevProps) {
-      this.setState({ navigationWidgetDef: new NavigationWidgetDef(this.props) });
+      this.setState((_, props) => ({ navigationWidgetDef: new NavigationWidgetDef(props) }));
     }
   }
 
@@ -172,45 +181,69 @@ interface Props extends CommonProps {
   verticalToolbar?: React.ReactNode;
 }
 
+interface NavigationWidgetWithDefState {
+  horizontalToolbar: React.ReactNode;
+  verticalToolbar: React.ReactNode;
+  cornerItem: React.ReactNode;
+}
+
 /** Navigation Widget React component that's passed a NavigationWidgetDef.
  */
-class NavigationWidgetWithDef extends React.Component<Props> {
+class NavigationWidgetWithDef extends React.Component<Props, NavigationWidgetWithDefState> {
+
   constructor(props: Props) {
     super(props);
+
+    if (PluginUiManager.hasRegisteredProviders) {
+      this.props.navigationWidgetDef.generateMergedItemLists();
+    }
+
+    const horizontalToolbar = (this.props.horizontalToolbar) ? this.props.horizontalToolbar : this.props.navigationWidgetDef.renderHorizontalToolbar();
+    const verticalToolbar = (this.props.verticalToolbar) ? this.props.verticalToolbar : this.props.navigationWidgetDef.renderVerticalToolbar();
+    this.state = { horizontalToolbar, verticalToolbar, cornerItem: null };
   }
 
-  private _handleToolActivatedEvent = (args: ToolActivatedEventArgs): void => {
-    this.setState((_prevState) => ({ toolId: args.toolId }));
+  private reloadToolbars() {
+    const horizontalToolbar = (this.props.horizontalToolbar) ? this.props.horizontalToolbar : this.props.navigationWidgetDef.renderHorizontalToolbar();
+    const verticalToolbar = (this.props.verticalToolbar) ? this.props.verticalToolbar : this.props.navigationWidgetDef.renderVerticalToolbar();
+    this.setState({ horizontalToolbar, verticalToolbar });
   }
 
   private _handleNavigationAidActivatedEvent = (args: NavigationAidActivatedEventArgs): void => {
     this.props.navigationWidgetDef.updateNavigationAid(args.navigationAidId, args.iModelConnection);
+    const navigationAid = this.props.navigationWidgetDef.renderCornerItem();
+    this.setState({ cornerItem: navigationAid });
+  }
 
-    this.setState((_prevState) => ({ navigationAidId: args.navigationAidId, imodel: args.iModelConnection }));
+  private _handleUiProviderRegisteredEvent = (_args: UiProviderRegisteredEventArgs): void => {
+    // create, merge, and cache ItemList from plugins
+    this.props.navigationWidgetDef.generateMergedItemLists();
+    this.reloadToolbars();
   }
 
   public componentDidMount() {
-    FrontstageManager.onToolActivatedEvent.addListener(this._handleToolActivatedEvent);
     FrontstageManager.onNavigationAidActivatedEvent.addListener(this._handleNavigationAidActivatedEvent);
+    PluginUiManager.onUiProviderRegisteredEvent.addListener(this._handleUiProviderRegisteredEvent);
   }
 
   public componentWillUnmount() {
-    FrontstageManager.onToolActivatedEvent.removeListener(this._handleToolActivatedEvent);
     FrontstageManager.onNavigationAidActivatedEvent.removeListener(this._handleNavigationAidActivatedEvent);
+    PluginUiManager.onUiProviderRegisteredEvent.removeListener(this._handleUiProviderRegisteredEvent);
+  }
+
+  public componentDidUpdate(prevProps: Props) {
+    if (this.props !== prevProps)
+      this.reloadToolbars();
   }
 
   public render(): React.ReactNode {
-    const navigationAid = this.props.navigationWidgetDef.renderCornerItem();
-    const horizontalToolbar = (this.props.horizontalToolbar) ? this.props.horizontalToolbar : this.props.navigationWidgetDef.renderHorizontalToolbar();
-    const verticalToolbar = (this.props.verticalToolbar) ? this.props.verticalToolbar : this.props.navigationWidgetDef.renderVerticalToolbar();
-
     return (
       <NZ_ToolsWidget isNavigation
         className={this.props.className}
         style={this.props.style}
-        button={navigationAid}
-        horizontalToolbar={horizontalToolbar}
-        verticalToolbar={verticalToolbar}
+        button={this.state.cornerItem}
+        horizontalToolbar={this.state.horizontalToolbar}
+        verticalToolbar={this.state.verticalToolbar}
         preserveSpace={true}
         onMouseEnter={UiShowHideManager.handleWidgetMouseEnter}
       />

@@ -3,15 +3,25 @@ Release Tag;API Item
 public;CacheInvalidationProps
 internal;ContentBuilder
 public;ContentDataProvider 
+beta;controlledTreeWithFilteringSupport
+beta;ControlledTreeWithFilteringSupportProps
+beta;controlledTreeWithModelSource
+beta;ControlledTreeWithModelSourceProps 
+beta;controlledTreeWithUnifiedSelection
+beta;ControlledTreeWithUnifiedSelectionProps
 public;DataProvidersFactory
 public;DataProvidersFactoryProps
+beta;FavoritePropertiesDataProvider 
+beta;FavoritePropertiesDataProviderProps
 public;IContentDataProvider 
 public;IPresentationDataProvider
 public;IPresentationLabelsProvider
 public;IPresentationPropertyDataProvider = IPropertyDataProvider & IContentDataProvider
 public;IPresentationTableDataProvider = TableDataProvider & IContentDataProvider &
 public;IPresentationTreeDataProvider 
+public;IUnifiedSelectionComponent 
 public;LabelsProvider 
+beta;PresentationNodeLoaderProps
 public;PresentationPropertyDataProvider 
 public;PresentationTableDataProvider 
 public;PresentationTableDataProviderProps
@@ -24,5 +34,10 @@ public;treeWithFilteringSupport
 public;TreeWithFilteringSupportProps
 public;treeWithUnifiedSelection
 public;TreeWithUnifiedSelectionProps
+beta;UnifiedSelectionTreeEventHandler 
+beta;useControlledTreeFiltering(nodeLoader: ITreeNodeLoaderWithProvider
+beta;useControlledTreeUnifiedSelection(modelSource: TreeModelSource, treeEvents: TreeEvents, dataProvider: IPresentationTreeDataProvider): TreeEvents
+beta;usePresentationNodeLoader(props: PresentationNodeLoaderProps): import("@bentley/ui-components").PagedTreeNodeLoader
+alpha;useRulesetRegistration(ruleset: Ruleset): void
 public;viewWithUnifiedSelection
 public;ViewWithUnifiedSelectionProps

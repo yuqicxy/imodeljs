@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 
 import { Geometry, BeJSONFunctions } from "../Geometry";
 import { Point3d } from "../geometry3d/Point3dVector3d";
@@ -22,6 +24,9 @@ import { GeometryQuery } from "./GeometryQuery";
  * @public
  */
 export class PointString3d extends GeometryQuery implements BeJSONFunctions {
+  /** String name for schema properties */
+  public readonly geometryCategory = "pointCollection";
+
   /** Test if `other` is a PointString3d */
   public isSameGeometryClass(other: GeometryQuery): boolean { return other instanceof PointString3d; }
   private _points: Point3d[];

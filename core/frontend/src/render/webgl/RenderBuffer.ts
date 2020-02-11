@@ -1,15 +1,18 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
-import { assert, IDisposable } from "@bentley/bentleyjs-core";
+import { assert } from "@bentley/bentleyjs-core";
 import { GL } from "./GL";
 import { System } from "./System";
+import { WebGLDisposable } from "./Disposable";
 
 /** @internal */
-export class RenderBuffer implements IDisposable {
+export class RenderBuffer implements WebGLDisposable {
   private _glBuffer?: WebGLRenderbuffer;
 
   public getHandle() { return this._glBuffer; }

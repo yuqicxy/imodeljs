@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { Geometry, AxisScaleSelect } from "../../Geometry";
+import { Geometry } from "../../Geometry";
 import { Angle } from "../../geometry3d/Angle";
 import { Plane3dByOriginAndUnitNormal } from "../../geometry3d/Plane3dByOriginAndUnitNormal";
 import { Matrix4d } from "../../geometry4d/Matrix4d";
@@ -14,10 +14,10 @@ import { Matrix3d } from "../../geometry3d/Matrix3d";
 import { LineString3d } from "../../curve/LineString3d";
 import { Arc3d } from "../../curve/Arc3d";
 import { StrokeOptions } from "../../curve/StrokeOptions";
-import { Point3dArray, Point2dArray, Vector3dArray, Point4dArray, NumberArray, Point3dArrayCarrier } from "../../geometry3d/PointHelpers";
+import { Point3dArray, Point2dArray, Vector3dArray, Point4dArray, NumberArray } from "../../geometry3d/PointHelpers";
+import { Point3dArrayCarrier } from "../../geometry3d/Point3dArrayCarrier";
 import { PolygonOps } from "../../geometry3d/PolygonOps";
 import { FrameBuilder } from "../../geometry3d/FrameBuilder";
-import { MatrixTests } from "./Point3dVector3d.test";
 import { Checker } from "../Checker";
 import { expect } from "chai";
 import { Sample } from "../../serialization/GeometrySamples";
@@ -27,7 +27,7 @@ import { Point4d } from "../../geometry4d/Point4d";
 import { HalfEdgeGraphSearch } from "../../topology/HalfEdgeGraphSearch";
 import { HalfEdgeGraph } from "../../topology/Graph";
 
-import { Triangulator } from "../../topology/Triangulation";
+import { Triangulator, MultiLineStringDataVariant } from "../../topology/Triangulation";
 import { GeometryCoreTestIO } from "../GeometryCoreTestIO";
 import { Loop } from "../../curve/Loop";
 import { LineSegment3d } from "../../curve/LineSegment3d";
@@ -41,22 +41,22 @@ import { Ray3d } from "../../geometry3d/Ray3d";
 function equivalentCircleRadius(centroidData: Ray3d): number {
   return Math.sqrt(centroidData.a === undefined ? 0.0 : centroidData.a / Math.PI);
 }
-describe("FrameBuilder.HelloWorld", () => {
-  it("FrameBuilder.HelloWorld", () => {
+describe("FrameBuilder", () => {
+  it("HelloWorld", () => {
     const ck = new Checker();
     const builder = new FrameBuilder();
     ck.testFalse(builder.hasOrigin, "frameBuilder.hasOrigin at start");
 
     for (const points of [
       [Point3d.create(0, 0, 0),
-      Point3d.create(1, 0, 0),
-      Point3d.create(0, 1, 0)],
+        Point3d.create(1, 0, 0),
+        Point3d.create(0, 1, 0)],
       [Point3d.create(0, 0, 0),
-      Point3d.create(1, 0, 0),
-      Point3d.create(1, 1, 0)],
+        Point3d.create(1, 0, 0),
+        Point3d.create(1, 1, 0)],
       [Point3d.create(1, 2, -1),
-      Point3d.create(1, 3, 5),
-      Point3d.create(-2, 1, 7)],
+        Point3d.create(1, 3, 5),
+        Point3d.create(-2, 1, 7)],
     ]) {
       builder.clear();
       const point0 = points[0];
@@ -101,77 +101,51 @@ describe("FrameBuilder.HelloWorld", () => {
     expect(ck.getNumErrors()).equals(0);
   });
 
-  it("FrameBuilder.HelloVectors", () => {
+  it("createFrameWithCCWPolygon", () => {
     const ck = new Checker();
-    const builder = new FrameBuilder();
-    ck.testFalse(builder.hasOrigin, "frameBuilder.hasOrigin at start");
-    builder.announcePoint(Point3d.create(0, 1, 1));
-    ck.testExactNumber(0, builder.savedVectorCount());
-    ck.testExactNumber(0, builder.savedVectorCount());
-    builder.announceVector(Vector3d.create(0, 0, 0));
-    ck.testExactNumber(0, builder.savedVectorCount());
+    ck.testUndefined(FrameBuilder.createFrameWithCCWPolygon([
+      Point3d.create(1, 2, 3)]), "detect incomplete frame data");
+    ck.testUndefined(FrameBuilder.createFrameWithCCWPolygon([
+      Point3d.create(1, 2, 3), Point3d.create(1, 2, 3), Point3d.create(1, 2, 3)]), "detect singular frame data");
 
-    // loop body assumes each set of points has 3 leading independent vectors
-    for (const vectors of [
-      [Vector3d.create(1, 0, 0),
-      Vector3d.create(0, 1, 0),
-      Vector3d.create(0, 0, 1)],
-    ]) {
-      builder.clear();
-      const vector0 = vectors[0];
-      const vector1 = vectors[1];
-      const vector2 = vectors[2];
-      builder.announce(Point3d.create(1, 2, 3));
-      ck.testUndefined(builder.getValidatedFrame(), "frame in progress");
-      builder.announce(vector0);
-      ck.testExactNumber(1, builder.savedVectorCount());
-      builder.announce(vector0);
-      ck.testExactNumber(1, builder.savedVectorCount());
-
-      ck.testExactNumber(2, builder.announceVector(vector1));
-      ck.testExactNumber(2, builder.announceVector(vector1.plusScaled(vector0, 2.0)));
-
-      ck.testExactNumber(3, builder.announceVector(vector2));
-
+    const triangle0 = [Point3d.create(1, 0), Point3d.create(0, 1), Point3d.create(0, 0)];
+    const triangle1 = Point3dArray.clonePoint3dArray(triangle0);
+    triangle1.reverse();
+    const frame0 = FrameBuilder.createFrameWithCCWPolygon(triangle0);
+    const frame1 = FrameBuilder.createFrameWithCCWPolygon(triangle1);
+    if (ck.testDefined(frame0) && ck.testDefined(frame1) && frame0 && frame1) {
+      const unitZ0 = frame0.matrix.columnZ();
+      const unitZ1 = frame1.matrix.columnZ();
+      ck.testCoordinate(-1, unitZ0.dotProduct(unitZ1), "opposing unit Z vectors");
     }
-    ck.checkpoint("FrameBuilder");
+
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("TrilinearMap", () => {
+    const ck = new Checker();
+    const range = Range3d.create(Point3d.create(1, 2, 3), Point3d.create(4, 7, 8));
+    const points = range.corners();
+    for (const uvw of [Point3d.create(0.4, 0.2, 0.3), Point3d.create(0, 0, 0)]) {
+      const q0 = range.fractionToPoint(uvw.x, uvw.y, uvw.z);
+      const q1 = Point3dArray.evaluateTrilinearPoint(points, uvw.x, uvw.y, uvw.z);
+      ck.testPoint3d(q0, q1, "Trilinear map versus range fractions");
+    }
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("PointHelperMisc", () => {
+    const ck = new Checker();
+    ck.testTrue(Point2dArray.isAlmostEqual(undefined, undefined));
+    ck.testTrue(Point3dArray.isAlmostEqual(undefined, undefined));
+    ck.testTrue(Vector3dArray.isAlmostEqual(undefined, undefined));
+    const emptyArray = Point3dArray.cloneWithMaxEdgeLength([], 1);
+    ck.testExactNumber(0, emptyArray.length);
     expect(ck.getNumErrors()).equals(0);
   });
 
 });
 
-describe("FrameBuilder.HelloWorldB", () => {
-  it("FrameBuilder.HelloWorld", () => {
-    const ck = new Checker();
-
-    const nullRangeLocalToWorld = FrameBuilder.createLocalToWorldTransformInRange(Range3d.createNull(), AxisScaleSelect.Unit, 0, 0, 0, 2.0);
-    ck.testTransform(Transform.createIdentity(), nullRangeLocalToWorld, "frame in null range");
-
-    for (const range of [Range3d.createXYZXYZ(1, 2, 3, 5, 7, 9)]
-    ) {
-      for (const select of [
-        AxisScaleSelect.Unit,
-        AxisScaleSelect.LongestRangeDirection,
-        AxisScaleSelect.NonUniformRangeContainment]) {
-        const localToWorld = FrameBuilder.createLocalToWorldTransformInRange(range, select, 0, 0, 0, 2.0);
-        if (ck.testPointer(localToWorld) && localToWorld) {
-          MatrixTests.checkProperties(ck,
-            localToWorld.matrix,
-            select === AxisScaleSelect.Unit,  // unit axes in range are identity
-            select === AxisScaleSelect.Unit,  // and of course unitPerpendicular
-            select === AxisScaleSelect.Unit,  // and of course rigid.
-            true, // always invertible
-            true);  // always diagonal
-          const worldCorners = range.corners();
-          worldCorners.push(range.fractionToPoint(0.5, 0.5, 0.5));
-        }
-      }
-    }
-
-    ck.checkpoint("FrameBuilder.HelloWorldB");
-    expect(ck.getNumErrors()).equals(0);
-  });
-});
 // ASSUME pointsA is planar with at least 3 points, and first turn is left.
 // (Therefore first cross product is its normal)
 function testCentroidNormal(ck: Checker, pointsA: Point3d[], expectedArea: number) {
@@ -314,6 +288,10 @@ describe("PolygonOps", () => {
       Point2d.create(ax1, 8),
       Point2d.create(ax0, 8),
       Point2d.create(ax0, 0)];
+    const points3d = [];
+    for (const p of points)
+      points3d.push(Point3d.create(p.x, p.y));
+    const carrier = new Point3dArrayCarrier(points3d);
     const q = 0.1;
     const onEdge = Point2d.create(0, 1);
     ck.testExactNumber(0, PolygonOps.classifyPointInPolygon(onEdge.x, onEdge.y, points)!);
@@ -335,6 +313,12 @@ describe("PolygonOps", () => {
     ck.testExactNumber(-1, PolygonOps.classifyPointInPolygon(easyOut.x, easyOut.y, points)!);
     ck.testExactNumber(-1, PolygonOps.classifyPointInPolygon(ax1 + q, ay + q, points)!);
 
+    ck.testExactNumber(1, PolygonOps.classifyPointInPolygonXY(xHit.x, xHit.y, carrier)!, "IN with horizontal vertex hits");
+    ck.testExactNumber(1, PolygonOps.classifyPointInPolygonXY(yHit.x, yHit.y, carrier)!, "IN with vertical vertex hits");
+    ck.testExactNumber(0, PolygonOps.classifyPointInPolygonXY(xyHit.x, xyHit.y, carrier)!, "ON with xy vertex hits");
+    ck.testExactNumber(-1, PolygonOps.classifyPointInPolygonXY(easyOut.x, easyOut.y, carrier)!);
+    ck.testExactNumber(-1, PolygonOps.classifyPointInPolygonXY(ax1 + q, ay + q, carrier)!);
+
     ck.testExactNumber(0, PolygonOps.testXYPolygonTurningDirections([]));
 
     for (let x = -1.5; x < 14; x += 1.0) {
@@ -346,6 +330,14 @@ describe("PolygonOps", () => {
       else if (x >= ax1 && x <= ax2)
         ck.testExactNumber(0, classification, " expect ON " + x);
     }
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("DegenerateInOut", () => {
+    const ck = new Checker();
+    const pointsOnXAxis = [Point3d.create(1, 0, 0), Point3d.create(2, 0, 0), Point3d.create(3, 0, 0)];
+    ck.testUndefined(PolygonOps.classifyPointInPolygon(0, 0, pointsOnXAxis));
+    ck.testUndefined(PolygonOps.classifyPointInPolygonXY(0, 0, new Point3dArrayCarrier(pointsOnXAxis)));
     expect(ck.getNumErrors()).equals(0);
   });
 
@@ -429,6 +421,23 @@ describe("PolygonOps", () => {
       }
       if (node0 === faceSeed)
         break;
+    }
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("XYTurningDirections", () => {
+    const ck = new Checker();
+    for (const close of [false, true]) {
+      // Note "star" construction with same inner and outer radius is a circle.
+      const circle = Sample.createStar(1, 1, 0, 2, 2, 5, close);
+      ck.testExactNumber(1, PolygonOps.testXYPolygonTurningDirections(circle), " CCW circle turn counts");
+      circle.reverse();
+      ck.testExactNumber(-1, PolygonOps.testXYPolygonTurningDirections(circle), " CW circle turn counts");
+
+      const star = Sample.createStar(1, 2, 0, 5, 2, 5, close);
+      ck.testExactNumber(0, PolygonOps.testXYPolygonTurningDirections(star), " CCW circle turn counts");
+      star.reverse();
+      ck.testExactNumber(0, PolygonOps.testXYPolygonTurningDirections(star), " CW circle turn counts");
     }
     expect(ck.getNumErrors()).equals(0);
   });
@@ -643,7 +652,10 @@ describe("Point3dArray", () => {
 
   it("Point3dArrayCarrierBadIndex", () => {
     const ck = new Checker();
-    const carrier = new Point3dArrayCarrier([Point3d.create(1, 2, 3), Point3d.create(6, 2, 9), Point3d.create(6, 2, 0), Point3d.create(-4, 2, 8)]);
+    const carrier = new Point3dArrayCarrier([Point3d.create(1, 2, 3),
+      Point3d.create(6, 2, 9),
+      Point3d.create(6, 2, 0),
+      Point3d.create(-4, 2, 8)]);
     const a = carrier.length;
     // These methods should return undefined if any index is bad.
     // (we know the index tests happen in a single validation function -- "some" calls need to test both extremes of out-of-bounds, but any particular arg only has to be tested in one direction)
@@ -670,6 +682,47 @@ describe("Point3dArray", () => {
     ck.testUndefined(carrier.vectorIndexIndex(1, 30));
     ck.testUndefined(carrier.vectorXYAndZIndex(origin, -1));
     ck.testPointer(carrier.vectorXYAndZIndex(origin, 1));
+
+    const xyz1 = carrier.getPoint3dAtCheckedPointIndex(1)!;
+    const xyz3 = carrier.getPoint3dAtCheckedPointIndex(3)!;
+    const dA = carrier.distanceIndexIndex(1, 3);
+    const dA2 = carrier.distanceSquaredIndexIndex(1, 3);
+    ck.testFalse(dA === undefined);
+    ck.testFalse(dA2 === undefined);
+    ck.testCoordinate(xyz1.distanceSquared(xyz3), dA2!, "distance indexIndex in carrier");
+    ck.testCoordinate(xyz1.distance(xyz3), dA!, "distance indexIndex in carrier");
+
+    ck.testUndefined(carrier.distanceIndexIndex(0, 100));
+    ck.testUndefined(carrier.distanceIndexIndex(1000, 0));
+
+    ck.testUndefined(carrier.distanceSquaredIndexIndex(0, 100));
+    ck.testUndefined(carrier.distanceSquaredIndexIndex(1000, 0));
+
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("Point3dArrayCarrierPushPop", () => {
+    const ck = new Checker();
+    const carrierA = new Point3dArrayCarrier([]);
+    const carrierB = new Point3dArrayCarrier([]);
+    ck.testUndefined(carrierA.front(), "front() in empty array");
+    ck.testUndefined(carrierA.back(), "back() in empty array");
+    const zData = [10, 11, 12, 13, 14, 22];
+    for (let k = 0; k < zData.length; k++) {
+      carrierA.pushXYZ(k + 1, 2 * k + 5, zData[k]);
+      carrierB.push(Point3d.create(k + 1, 2 * k + 5, zData[k]));
+    }
+    ck.testPoint3d(carrierA.front()!, carrierB.front()!);
+    ck.testPoint3d(carrierA.back()!, carrierB.back()!);
+
+    for (let k = 1; k < zData.length; k++) {
+      carrierA.pop();
+      carrierB.pop();
+      ck.testPoint3d(carrierA.front()!, carrierB.front()!);
+      ck.testPoint3d(carrierA.back()!, carrierB.back()!);
+    }
+    ck.testExactNumber(1, carrierA.length);
+    ck.testExactNumber(1, carrierB.length);
     expect(ck.getNumErrors()).equals(0);
   });
 
@@ -855,4 +908,183 @@ describe("PolygonAreas", () => {
     expect(ck.getNumErrors()).equals(0);
   });
 
+  it("streamXYZ", () => {
+    const ck = new Checker();
+    const allGeometry: GeometryQuery[] = [];
+    const zz = -14.79;
+    const pointA = [
+      Point3d.create(-0.9351812543901677, -7.103406859177103, zz),
+      Point3d.create(0.8399443606226988, 6.380010831659742, zz),
+      Point3d.create(-12.986794582812577, 8.200335547052022, zz),
+      Point3d.create(-13.582645174519337, 3.6744009645259488, zz),
+      Point3d.create(-3.545902502657718, 2.3530387241332935, zz),
+      Point3d.create(-4.725177525963828, -6.604444384177479, zz),
+      Point3d.create(-0.9351812543901677, -7.103406859177103, zz),
+    ];
+    const pointB = [
+      Point2d.create(-0.9351812543901677, -7.103406859177103),
+      Point2d.create(0.8399443606226988, 6.380010831659742),
+      Point2d.create(-12.986794582812577, 8.200335547052022),
+      Point2d.create(-13.582645174519337, 3.6744009645259488),
+      Point2d.create(-3.545902502657718, 2.3530387241332935),
+      Point2d.create(-4.725177525963828, -6.604444384177479),
+      Point2d.create(-0.9351812543901677, -7.103406859177103),
+    ];
+
+    const pointC = GrowableXYZArray.create(pointA);
+    const rangeC = Range3d.createFromVariantData(pointC);
+    const rangeA0 = Range3d.createFromVariantData(pointA);
+
+    ck.testRange3d(rangeA0, rangeC);
+    const rangeA1 = Range3d.createArray(pointA);
+    ck.testRange3d(rangeA0, rangeA1, "range by structured search, array");
+    const pointAB = [pointA, pointB];
+    const rangeAB0 = Range3d.createFromVariantData(pointAB);
+    const rangeAB1 = rangeA1.clone();
+    const rangeB0 = Range3d.createFromVariantData(pointB);
+    rangeAB1.extendRange(rangeB0);
+    ck.testRange3d(rangeAB0, rangeAB1, "create range variant");
+    GeometryCoreTestIO.saveGeometry(allGeometry, "PolygonAreas", "streamXYZ");
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("cloneVariants", () => {
+    const ck = new Checker();
+    // const allGeometry: GeometryQuery[] = [];
+    const pointA = Sample.createStar(1, 2, 3, 4, 6, 5, true);
+    const pointB = Sample.createRectangle(-2, 4, 5, 2);
+
+    const pointC = GrowableXYZArray.create([1, 2, 2, 4, 2, 1, 5, 2, 3]);
+    const dataA = Point3dArray.cloneDeepJSONNumberArrays(pointA);
+    ck.testExactNumber(11, dataA.length);
+    const dataB = Point3dArray.cloneDeepXYZPoint3dArrays(pointA);
+    ck.testExactNumber(11, dataB.length, "Round Trip as Point3d[]");
+    const dataABC = Point3dArray.cloneDeepJSONNumberArrays([pointA, pointB, pointC]);
+    const linestringsABC0 = LineString3d.createArrayOfLineString3dFromVariantData(dataABC);
+
+    const lsA = LineString3d.create(pointA);
+    const lsB = LineString3d.create(pointB);
+    const lsC = LineString3d.create(pointC);
+    if (ck.testExactNumber(3, linestringsABC0.length, "3 linestrings in flattened data")) {
+      ck.testTrue(lsA.isAlmostEqual(linestringsABC0[0]), "pointA");
+      ck.testTrue(lsB.isAlmostEqual(linestringsABC0[1]), "pointB");
+      ck.testTrue(lsC.isAlmostEqual(linestringsABC0[2]), "pointC");
+    }
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  /**
+   * Exercise streaming functions that were deprecated in favor of object args instead of immediate function callbacks.
+   */
+  it("deprecatedStreamXYZ", () => {
+    const ck = new Checker();
+    // const allGeometry: GeometryQuery[] = [];
+    const pointA = Sample.createStar(1, 2, 3, 4, 6, 5, true);
+    const pointB = Sample.createRectangle(-2, 4, 5, 2);
+
+    const pointC = GrowableXYZArray.create([1, 2, 2, 4, 2, 1, 5, 2, 3]);
+    const dataABC = [pointA, pointB, pointC];
+    const rangeOld = Range3d.createNull();
+    Point3dArray.streamXYZ(dataABC,
+      (_chainData: MultiLineStringDataVariant, _isLeaf: boolean) => { },
+      (x: number, y: number, z: number) => { rangeOld.extendXYZ(x, y, z); },
+      (_chainData: MultiLineStringDataVariant, _isLeaf: boolean) => { },
+    );
+    const rangeNew = Range3d.createFromVariantData(dataABC);
+    ck.testRange3d(rangeNew, rangeOld);
+
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  /**
+   * Exercise streaming functions that were deprecated in favor of object args instead of immediate function callbacks.
+   */
+  it("deprecatedStreamXYZXYZ", () => {
+    const ck = new Checker();
+    // const allGeometry: GeometryQuery[] = [];
+    const pointA = Sample.createStar(1, 2, 3, 4, 6, 5, true);
+    const pointB = Sample.createRectangle(-2, 4, 5, 2);
+
+    const pointC = GrowableXYZArray.create([1, 2, 2, 4, 2, 1, 5, 2, 3]);
+    const dataABC = [pointA, pointB, pointC];
+    const rangeOld = Range3d.createNull();
+    Point3dArray.streamXYZXYZ(dataABC,
+      (_chainData: MultiLineStringDataVariant, _isLeaf: boolean) => { },
+      (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => {
+        rangeOld.extendXYZ(x0, y0, z0);
+        rangeOld.extendXYZ(x1, y1, z1);
+      },
+      (_chainData: MultiLineStringDataVariant, _isLeaf: boolean) => { },
+    );
+    const rangeNew = Range3d.createFromVariantData(dataABC);
+    ck.testRange3d(rangeNew, rangeOld);
+
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("ConvexHullManyPoints", () => {
+    const ck = new Checker();
+    const allGeometry: GeometryQuery[] = [];
+    const a = 3.29;
+    const dTheta = 0.34;
+    let x0 = 0;
+    const y0 = 0;
+    for (const numPoints of [9, 42, 273]) {
+      const points: Point3d[] = [];
+      for (let theta = 0.01 * (numPoints - 8); points.length < numPoints; theta += dTheta) {
+        points.push(lisajouePoint3d(theta * theta, a, 0));
+      }
+      const range = Range3d.createFromVariantData(points);
+      const dx = Math.ceil(range.xLength() + 4);
+      const dy = Math.ceil(range.yLength() + 1);
+      const interior: Point3d[] = [];
+      const hull: Point3d[] = [];
+      Point3dArray.computeConvexHullXY(points, hull, interior, true);
+      // hull.push(hull[0].clone());    // closure point !
+      GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create([0, 0], [1, 0], [1, 1], [0, 1], [0, 0]), x0, y0);
+
+      GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create(hull), x0, y0);
+      GeometryCoreTestIO.createAndCaptureXYCircle(allGeometry, points, 0.01, x0, y0);
+      GeometryCoreTestIO.createAndCaptureXYCircle(allGeometry, points, 0.01, x0, y0 + dy);
+      GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create(interior), x0, y0);
+      ck.checkpoint("ConvexHullManyPoints");
+      if (ck.testExactNumber(points.length + 1, hull.length + interior.length)) {
+        let residual = points;
+        const y1 = y0 + 2 * dy;
+        GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create(hull), x0, y1);
+        const minXPoints = [];
+        const minYPoints = [];
+        const maxXPoints = [];
+        const maxYPoints = [];
+        while (residual.length > 0) {
+          const newInterior: Point3d[] = [];
+          const newHull: Point3d[] = [];
+          Point3dArray.computeConvexHullXY(residual, newHull, newInterior, true);
+          GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create(newHull), x0, y1);
+          const q = Point3dArray.minMaxPoints(newHull)!;
+
+          minXPoints.push(q.minXPoint);
+          minYPoints.push(q.minYPoint);
+
+          maxXPoints.push(q.maxXPoint);
+          maxYPoints.push(q.maxYPoint);
+          residual = newInterior;
+        }
+        GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create(minXPoints), x0, y1);
+        GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create(maxXPoints), x0, y1);
+        GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create(minYPoints), x0, y1);
+        GeometryCoreTestIO.captureGeometry(allGeometry, LineString3d.create(maxYPoints), x0, y1);
+      }
+      x0 += dx;
+    }
+    GeometryCoreTestIO.saveGeometry(allGeometry, "Point3dArray", "ConvexHullManyPoints");
+    expect(ck.getNumErrors()).equals(0);
+  });
+
 });
+
+// cspell:word lisajoue
+export function lisajouePoint3d(theta: number, a: number, z: number = 0): Point3d {
+  const r = Math.cos(a * theta);
+  return Point3d.create(r * Math.cos(theta), r * Math.sin(theta), z);
+}

@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Serialization */
+/** @packageDocumentation
+ * @module Serialization
+ */
 
 import { Geometry, AxisOrder } from "../Geometry";
 import { AngleSweep } from "../geometry3d/AngleSweep";
@@ -571,24 +573,31 @@ export class Sample {
   }
 
   /**
-   * Return an array of rigid transforms.  This includes (at least)
-   * * Identity
-   * * translation with identity matrix
-   * * rotation around origin and arbitrary vector
-   * * rotation around space point and arbitrary vector
+   * * Return an array of rigid transforms.  This includes (at least)
+   *   * Identity
+   *   * translation with identity matrix
+   *   * rotation around origin and arbitrary vector
+   *   * rotation around space point and arbitrary vector
+   * * use given refDistance is crude distance of translation and distance to fixed point.
    */
-  public static createRigidTransforms(): Transform[] {
+  public static createRigidTransforms(distanceScale: number = 4.0): Transform[] {
+    const distanceScale3 = distanceScale / 3.0;
+    const distanceScale4 = distanceScale / 4.0;
     return [
       Transform.createIdentity(),
-      Transform.createTranslationXYZ(1, 2, 3),
+      Transform.createTranslationXYZ(distanceScale3 * 1, distanceScale3 * 2, distanceScale3 * 3),
       Transform.createFixedPointAndMatrix(
         Point3d.create(0, 0, 0),
         Matrix3d.createRotationAroundVector(
           Vector3d.unitY(), Angle.createDegrees(10)) as Matrix3d),
       Transform.createFixedPointAndMatrix(
-        Point3d.create(4, 1, -2),
+        Point3d.create(distanceScale4 * 4, distanceScale4 * 1, -distanceScale4 * 2),
         Matrix3d.createRotationAroundVector(
-          Vector3d.create(1, 2, 3), Angle.createDegrees(10)) as Matrix3d)];
+          Vector3d.create(1, 2, 3), Angle.createDegrees(10)) as Matrix3d),
+      Transform.createFixedPointAndMatrix(
+        Point3d.create(distanceScale4 * 4, distanceScale4 * 1, -distanceScale4 * 2),
+        Matrix3d.createRotationAroundVector(
+          Vector3d.create(-2, 1, 4), Angle.createDegrees(35)) as Matrix3d)];
   }
   /**
    * Return a single rigid transform with all terms nonzero.
@@ -655,9 +664,10 @@ export class Sample {
   }
   /** Assorted simple `Path` objects. */
   public static createSimplePaths(withGaps: boolean = false): Path[] {
-    const p1 = [[Point3d.create(0, 10, 0)], [Point3d.create(6, 10, 0)], [Point3d.create(6, 10, 1), [Point3d.create(0, 10, 0)]]];
     const point0 = Point3d.create(0, 0, 0);
     const point1 = Point3d.create(10, 0, 0);
+
+    const p1 = [point1, Point3d.create(0, 10, 0), Point3d.create(6, 10, 0), Point3d.create(6, 10, 0), Point3d.create(0, 10, 0)];
     const segment1 = LineSegment3d.create(point0, point1);
     const vectorU = Vector3d.unitX(3);
     const vectorV = Vector3d.unitY(3);
@@ -667,9 +677,6 @@ export class Sample {
       Path.create(segment1, arc2),
       Path.create(
         LineSegment3d.create(point0, point1),
-        LineString3d.create(
-          Point3d.create(10, 0, 0),
-          Point3d.create(10, 5, 0)),
         LineString3d.create(p1)),
       Sample.createCappedArcPath(4, 0, 180),
     ];
@@ -681,6 +688,35 @@ export class Sample {
 
     return simplePaths;
   }
+  /** Assorted `Path` with lines and arcs.
+   * Specifically useful for offset tests.
+   */
+  public static createLineArcPaths(): Path[] {
+    const paths = [];
+    const x1 = 10.0;
+    const y2 = 5.0;
+    const y3 = 10.0;
+    for (const y0 of [0, -1, 1]) {
+      for (const x2 of [15, 11, 20, 9, 7]) {
+
+        const point0 = Point3d.create(0, y0, 0);
+        const point1 = Point3d.create(x1, 0, 0);
+        const point2 = Point3d.create(x2, y2, 0);
+        const point3 = Point3d.create(x1, y3, 0);
+        const point4 = Point3d.create(0, y3 + y0, 0);
+        const path0 = Path.create();
+        path0.tryAddChild(LineString3d.create(point0, point1, point2, point3, point4));
+        paths.push(path0);
+        const path1 = Path.create();
+        path1.tryAddChild(LineSegment3d.create(point0, point1));
+        path1.tryAddChild(Arc3d.createCircularStartMiddleEnd(point1, Point3d.create(x2, y2, 0), point3));
+        path1.tryAddChild(LineSegment3d.create(point3, point4));
+        paths.push(path1);
+      }
+    }
+    return paths;
+  }
+
   /** Assorted `PointString3d` objects. */
   public static createSimplePointStrings(): PointString3d[] {
     const p1 = [[Point3d.create(0, 10, 0)], [Point3d.create(6, 10, 0)], [Point3d.create(6, 10, 0), [Point3d.create(6, 10, 0)]]];
@@ -743,9 +779,36 @@ export class Sample {
     }
     return result;
   }
+
+  /**
+   * Create multiple interpolated points between two points
+   * @param point0 start point (at fraction0)
+   * @param point1 end point (at fraction1)
+   * @param numPoints total number of points.  This is force to at least 2.
+   * @param result optional existing array to receive points.
+   * @param index0 optional index of first point.  Default is 0.
+   * @param index1 optional index of final point.  Default is numPoints
+   */
+  public static createInterpolatedPoints(point0: Point3d, point1: Point3d, numPoints: number, result?: Point3d[], index0?: number, index1?: number): Point3d[] {
+    if (numPoints < 2)
+      numPoints = 2;
+    if (result === undefined)
+      result = [];
+    if (index0 === undefined)
+      index0 = 0;
+    if (index1 === undefined)
+      index1 = numPoints;
+
+    for (let i = index0; i <= index1; i++) {
+      result.push(point0.interpolate(i / numPoints, point1));
+    }
+    return result;
+  }
+
   /**
    * Append numPhase teeth.  Each tooth starts with dxLow dwell at initial y, then sloped rise, then dwell at top, then sloped fall
-   * If no points are present, start with 000.  (this happens in pushMove) Otherwise start from final point.
+   * * If no points are present, start with 000.  (this happens in pushMove) Otherwise start from final point.
+   * * return points array reference.
    * @param points point array to receive points
    * @param dxLow starting step along x direction
    * @param riseX width of rising and falling parts
@@ -753,13 +816,23 @@ export class Sample {
    * @param dxHigh width at top
    * @param numPhase number of phases.
    */
-  public static appendSawTooth(points: Point3d[], dxLow: number, riseX: number, riseY: number, dxHigh: number, numPhase: number) {
+  public static appendSawTooth(points: Point3d[], dxLow: number, riseX: number, riseY: number, dxHigh: number, numPhase: number): Point3d[] {
     for (let i = 0; i < numPhase; i++) {
       this.pushMove(points, dxLow, 0, 0);
       this.pushMove(points, riseX, riseY, 0);
       this.pushMove(points, dxHigh, 0, 0);
       this.pushMove(points, riseX, -riseY, 0);
     }
+    return points;
+  }
+  /** append sawtooth with x distances successively scaled by xFactor */
+  public static appendVariableSawTooth(points: Point3d[], dxLow: number, riseX: number, riseY: number, dxHigh: number, numPhase: number, xFactor: number): Point3d[] {
+    let factor = 1.0;
+    for (let i = 0; i < numPhase; i++) {
+      this.appendSawTooth(points, factor * dxLow, factor * riseX, riseY, factor * dxHigh, 1);
+      factor *= xFactor;
+    }
+    return points;
   }
   /**
    * Create a pair of sawtooth patterns, one (nominally) outbound and up, the other inbound and down.
@@ -855,57 +928,80 @@ export class Sample {
     return result;
   }
   /** Assorted `ParityRegion` objects */
-  public static createSimpleParityRegions(): ParityRegion[] {
+  public static createSimpleParityRegions(includeBCurves: boolean = false): ParityRegion[] {
     const pointC = Point3d.create(-5, 0, 0);
     const point0 = Point3d.create(0, 0, 0);
-    const point1 = Point3d.create(1, 2, 0);
+    const point1 = Point3d.create(4, 2, 0);
     const point2 = Point3d.create(6, 4, 0);
-    const point3 = Point3d.create(1, 5, 0);
+    const point3 = Point3d.create(5, 5, 0);
     const point4 = Point3d.create(8, 3, 0);
+
+    const reverseSweep = AngleSweep.createStartEndDegrees(0, -360);
     const ax = 10.0;
     const ay = 8.0;
-    const bx = 3.0;
+    const bx = -3.0;
     const by = 2.0;
     const r2 = 0.5;
     const r2A = 2.5;
+    const pointA = point0.plusXYZ(ax, 0, 0);
+    const pointB = pointA.plusXYZ(0, ay, 0);
+    const pointC1 = point0.plusXYZ(0, ay);
+
     const result = [
+      ParityRegion.create(
+        Loop.create(LineString3d.create(point0, pointA, pointB), Arc3d.createCircularStartMiddleEnd(pointB, pointC1, point0)!),
+        Loop.create(LineString3d.createRectangleXY(point1, bx, by))),
       ParityRegion.create(
         Loop.create(
           Arc3d.createXY(pointC, 2.0)),
-        Loop.create(Arc3d.createXY(pointC, 1.0))),
+        Loop.create(Arc3d.createXY(pointC, 1.0, reverseSweep))),
       ParityRegion.create(
         Loop.create(LineString3d.createRectangleXY(point0, ax, ay)),
         Loop.create(LineString3d.createRectangleXY(point1, bx, by))),
       ParityRegion.create(
         Loop.create(LineString3d.createRectangleXY(point0, ax, ay)),
         Loop.create(LineString3d.createRectangleXY(point1, bx, by)),
-        Loop.create(Arc3d.createXY(point2, r2))),
+        Loop.create(Arc3d.createXY(point2, r2, reverseSweep))),
       ParityRegion.create(
         Loop.create(LineString3d.createRectangleXY(point0, ax, ay)),
         Loop.create(LineString3d.createRectangleXY(point1, bx, by)),
-        Loop.create(Arc3d.createXY(point2, r2)),
+        Loop.create(Arc3d.createXY(point2, r2, reverseSweep)),
         Loop.create(LineString3d.createRectangleXY(point3, bx, by))),
       ParityRegion.create(
-        Loop.create(LineString3d.createRectangleXY(point0, ax, ay)),
+        Loop.create(LineString3d.create(point0, pointA, pointB), Arc3d.createCircularStartMiddleEnd(pointB, pointC1, point0)!),
         Loop.create(LineString3d.createRectangleXY(point1, bx, by)),
-        Loop.create(Arc3d.create(point4, Vector3d.create(r2, 0), Vector3d.create(0, r2A))),
+        Loop.create(Arc3d.create(point4, Vector3d.create(-r2, 0), Vector3d.create(0, r2A))),
         Loop.create(LineString3d.createRectangleXY(point3, bx, by))),
     ];
+    if (includeBCurves) {
+      const ey = 1.0;
+      result.push(
+        ParityRegion.create(Loop.create(
+          LineSegment3d.create(point0, pointA),
+          BSplineCurve3d.createUniformKnots(
+            [pointA, Point3d.create(ax + 1, ey),
+              Point3d.create(ax + 1, 2 * ey),
+              Point3d.create(ax + 2, 3 * ey),
+              Point3d.create(ax + 1, 4 * ey), pointB], 3)!,
+          Arc3d.createCircularStartMiddleEnd(pointB, pointC1, point0)!)));
+    }
     return result;
   }
   /** Union region. */
   public static createSimpleUnions(): UnionRegion[] {
     const parityRegions = Sample.createSimpleParityRegions();
-    const loops = Sample.createSimpleLoops();
+    const parityRange = parityRegions[0].range();
     const ax = 3.0;
     const ay = 1.0;
     const bx = 4.0;
     const by = 2.0;
     const result = [
-      UnionRegion.create(loops[0], parityRegions[0]),
       UnionRegion.create(
         Loop.create(LineString3d.createRectangleXY(Point3d.create(0, 0, 0), ax, ay)),
-        Loop.create(LineString3d.createRectangleXY(Point3d.create(0, 2 * ay, 0), bx, by)))];
+        Loop.create(LineString3d.createRectangleXY(Point3d.create(0, 2 * ay, 0), bx, by))),
+      UnionRegion.create(
+        Loop.create(LineString3d.create(Sample.createRectangleXY(parityRange.low.x, parityRange.high.y + 0.5, parityRange.xLength(), parityRange.yLength()))),
+        parityRegions[0])];
     return result;
   }
   /** Assorted unstructured curve sets. */
@@ -1380,6 +1476,16 @@ export class Sample {
       points.push(Point3d.create(x0, y0, z));
     return points;
   }
+  /** create an array of points for a rectangle with corners of a Range2d.
+   */
+  public static createRectangleInRange2d(range: Range2d, z: number = 0.0, closed: boolean = false): Point3d[] {
+    const x0 = range.low.x;
+    const x1 = range.high.x;
+    const y0 = range.low.y;
+    const y1 = range.high.y;
+    return this.createRectangle(x0, y0, x1, y1, z, closed);
+  }
+
   /** Create assorted ruled sweeps */
   public static createRuledSweeps(includeParityRegion: boolean = false, includeBagOfCurves: boolean = false): RuledSweep[] {
     const allSweeps = [];
@@ -1739,7 +1845,6 @@ export class Sample {
       }
       return BezierCurve3d.create(points);
     }
-    return undefined;
   }
   /**
    * Create various curve chains with distance indexing.
@@ -2002,12 +2107,12 @@ export class Sample {
     dx1: number,
     dx4: number): Point3d[] {
     return [Point3d.create(0, 0),
-    Point3d.create(ax + dx1, dy1),
-    Point3d.create(2 * ax, dy2),
-    Point3d.create(2 * ax, ay + dy3),
-    Point3d.create(ax + dx4, ay + dy4),
-    Point3d.create(0.0, ay),
-    Point3d.create(0, 0)];
+      Point3d.create(ax + dx1, dy1),
+      Point3d.create(2 * ax, dy2),
+      Point3d.create(2 * ax, ay + dy3),
+      Point3d.create(ax + dx4, ay + dy4),
+      Point3d.create(0.0, ay),
+      Point3d.create(0, 0)];
   }
   /**
    * make line segments for each pair of adjacent points.
@@ -2025,21 +2130,43 @@ export class Sample {
     return segments;
   }
   /**
-   * Create a star by alternating radii (with equal angular steps)
-   * @param r0 first point radius
-   * @param r1 second point radius
+   * Create a regular polygon
+   * @param angle0 angle from x axis to first point.
    * @param numPoint number of points
    * @param close true to add closure edge.
    */
-  public static createStar(cx: number, cy: number, cz: number, r0: number, r1: number, numPoint: number, close: boolean): Point3d[] {
+  public static createRegularPolygon(cx: number, cy: number, cz: number, angle0: Angle, r: number, numPoint: number, close: boolean): Point3d[] {
     const points = [];
-    const angleStepRadians = Math.PI / numPoint;
+    const angleStepRadians = 2.0 * Math.PI / numPoint;
     let radians;
     for (let i = 0; i < numPoint; i++) {
-      radians = 2 * i * angleStepRadians;
+      radians = angle0.radians + i * angleStepRadians;
+      points.push(Point3d.create(cx + r * Math.cos(radians), cy + r * Math.sin(radians), cz));
+    }
+    if (close)
+      points.push(points[0].clone());
+    return points;
+  }
+
+  /**
+   * Create a star by alternating radii (with equal angular steps)
+   * @param r0 first point radius
+   * @param r1 second point radius (if undefined, this is skipped and the result is points on a circle.)
+   * @param numPoint number of points
+   * @param close true to add closure edge.
+   */
+  public static createStar(cx: number, cy: number, cz: number, r0: number, r1: number | undefined, numPoint: number, close: boolean, theta0?: Angle): Point3d[] {
+    const points = [];
+    const angleStepRadians = Math.PI / numPoint;
+    const radians0 = theta0 === undefined ? 0.0 : theta0.radians;
+    let radians;
+    for (let i = 0; i < numPoint; i++) {
+      radians = radians0 + 2 * i * angleStepRadians;
       points.push(Point3d.create(cx + r0 * Math.cos(radians), cy + r0 * Math.sin(radians), cz));
-      radians = (2 * i + 1) * angleStepRadians;
-      points.push(Point3d.create(cx + r1 * Math.cos(radians), cy + r1 * Math.sin(radians), cz));
+      if (r1 !== undefined) {
+        radians = radians0 + (2 * i + 1) * angleStepRadians;
+        points.push(Point3d.create(cx + r1 * Math.cos(radians), cy + r1 * Math.sin(radians), cz));
+      }
     }
     if (close)
       points.push(points[0].clone());
@@ -2073,6 +2200,7 @@ export class Sample {
   private static appendGeometry(source: GeometryQuery[], dest: GeometryQuery[]) {
     for (const g of source) dest.push(g);
   }
+
   /** Create a simple example of each GeometryQuery type .... */
   public static createAllGeometryQueryTypes(): GeometryQuery[] {
     const result: GeometryQuery[] = [];

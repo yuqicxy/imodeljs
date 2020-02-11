@@ -1,13 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ViewDefinitions */
+/** @packageDocumentation
+ * @module ViewDefinitions
+ */
 
-import { Id64, Id64Array, Id64String, JsonUtils } from "@bentley/bentleyjs-core";
+import { Id64, Id64Array, Id64Set, Id64String, JsonUtils } from "@bentley/bentleyjs-core";
 import { Angle, Matrix3d, Point2d, Point3d, Range2d, Range3d, StandardViewIndex, Transform, Vector3d, YawPitchRollAngles } from "@bentley/geometry-core";
-import { AnalysisStyleProps, AuxCoordSystem2dProps, AuxCoordSystem3dProps, AuxCoordSystemProps, BisCodeSpec, Camera, CategorySelectorProps, Code, CodeScopeProps, CodeSpec, ColorDef, ContextRealityModelProps, DisplayStyle3dSettings, DisplayStyleProps, DisplayStyleSettings, LightLocationProps, ModelSelectorProps, RelatedElement, SpatialViewDefinitionProps, ViewAttachmentProps, ViewDefinition2dProps, ViewDefinition3dProps, ViewDefinitionProps, ViewFlags, BackgroundMapProps } from "@bentley/imodeljs-common";
+import { AnalysisStyleProps, AuxCoordSystem2dProps, AuxCoordSystem3dProps, AuxCoordSystemProps, BackgroundMapProps, BisCodeSpec, Camera, CategorySelectorProps, Code, CodeScopeProps, CodeSpec, ColorDef, ContextRealityModelProps, DisplayStyle3dSettings, DisplayStyleProps, DisplayStyleSettings, LightLocationProps, ModelSelectorProps, RelatedElement, SpatialViewDefinitionProps, ViewAttachmentProps, ViewDefinition2dProps, ViewDefinition3dProps, ViewDefinitionProps, ViewFlags } from "@bentley/imodeljs-common";
 import { DefinitionElement, GraphicalElement2d, SpatialLocationElement } from "./Element";
+import { IModelCloneContext } from "./IModelCloneContext";
 import { IModelDb } from "./IModelDb";
 
 /** A DisplayStyle defines the parameters for 'styling' the contents of a view.
@@ -34,6 +37,33 @@ export abstract class DisplayStyle extends DefinitionElement implements DisplayS
     const codeSpec: CodeSpec = iModel.codeSpecs.getByName(BisCodeSpec.displayStyle);
     return new Code({ spec: codeSpec.id, scope: scopeModelId, value: codeValue });
   }
+
+  /** @alpha */
+  protected collectPredecessorIds(predecessorIds: Id64Set): void {
+    super.collectPredecessorIds(predecessorIds);
+    for (const [id] of this.settings.subCategoryOverrides) {
+      predecessorIds.add(id);
+    }
+    this.settings.excludedElements.forEach((id: Id64String) => predecessorIds.add(id));
+  }
+  /** @alpha */
+  protected static onCloned(context: IModelCloneContext, sourceElementProps: DisplayStyleProps, targetElementProps: DisplayStyleProps): void {
+    super.onCloned(context, sourceElementProps, targetElementProps);
+    if (context.isBetweenIModels && targetElementProps.jsonProperties && targetElementProps.jsonProperties.styles) {
+      const subCategoryOverrides = JsonUtils.asArray(targetElementProps.jsonProperties.styles.subCategoryOvr);
+      if (undefined !== subCategoryOverrides) {
+        for (const subCategoryOverride of subCategoryOverrides) {
+          subCategoryOverride.subCategory = context.findTargetElementId(Id64.fromJSON(subCategoryOverride.subCategory));
+        }
+      }
+      const excludedElements = JsonUtils.asArray(targetElementProps.jsonProperties.styles.excludedElements);
+      if (undefined !== excludedElements) {
+        const targetExcludedElementIds: Id64String[] = [];
+        excludedElements.forEach((sourceId: Id64String) => targetExcludedElementIds.push(context.findTargetElementId(sourceId)));
+        targetElementProps.jsonProperties.styles.excludedElements = targetExcludedElementIds;
+      }
+    }
+  }
 }
 
 /** A DisplayStyle for 2d views.
@@ -51,8 +81,7 @@ export class DisplayStyle2d extends DisplayStyle {
     super(props, iModel);
     this._settings = new DisplayStyleSettings(this.jsonProperties);
   }
-  /**
-   * Create a DisplayStyle2d for use by a ViewDefinition.
+  /** Create a DisplayStyle2d for use by a ViewDefinition.
    * @param iModelDb The iModel
    * @param definitionModelId The [[DefinitionModel]]
    * @param name The name/CodeValue of the DisplayStyle2d
@@ -65,14 +94,17 @@ export class DisplayStyle2d extends DisplayStyle {
       code: this.createCode(iModelDb, definitionModelId, name),
       model: definitionModelId,
       isPrivate: false,
-      backgroundColor: new ColorDef(),
-      monochromeColor: ColorDef.white,
-      viewFlags: ViewFlags.createFrom(),
+      jsonProperties: {
+        styles: {
+          backgroundColor: new ColorDef(),
+          monochromeColor: ColorDef.white,
+          viewflags: ViewFlags.createFrom(),
+        },
+      },
     };
     return new DisplayStyle2d(displayStyleProps, iModelDb);
   }
-  /**
-   * Insert a DisplayStyle2d for use by a ViewDefinition.
+  /** Insert a DisplayStyle2d for use by a ViewDefinition.
    * @param iModelDb Insert into this iModel
    * @param definitionModelId Insert the new DisplayStyle2d into this DefinitionModel
    * @param name The name of the DisplayStyle2d
@@ -183,6 +215,11 @@ export class ModelSelector extends DefinitionElement implements ModelSelectorPro
     val.models = this.models;
     return val;
   }
+  /** @alpha */
+  protected collectPredecessorIds(predecessorIds: Id64Set): void {
+    super.collectPredecessorIds(predecessorIds);
+    this.models.forEach((modelId: Id64String) => predecessorIds.add(modelId));
+  }
   /** Create a Code for a ModelSelector given a name that is meant to be unique within the scope of the specified DefinitionModel.
    * @param iModel  The IModelDb
    * @param scopeModelId The Id of the DefinitionModel that contains the ModelSelector and provides the scope for its name.
@@ -243,6 +280,11 @@ export class CategorySelector extends DefinitionElement implements CategorySelec
     const val = super.toJSON() as CategorySelectorProps;
     val.categories = this.categories;
     return val;
+  }
+  /** @alpha */
+  protected collectPredecessorIds(predecessorIds: Id64Set): void {
+    super.collectPredecessorIds(predecessorIds);
+    this.categories.forEach((categoryId: Id64String) => predecessorIds.add(categoryId));
   }
   /** Create a Code for a CategorySelector given a name that is meant to be unique within the scope of the specified DefinitionModel.
    * @param iModel  The IModelDb
@@ -322,6 +364,13 @@ export abstract class ViewDefinition extends DefinitionElement implements ViewDe
     json.categorySelectorId = this.categorySelectorId;
     json.displayStyleId = this.displayStyleId;
     return json;
+  }
+
+  /** @alpha */
+  protected collectPredecessorIds(predecessorIds: Id64Set): void {
+    super.collectPredecessorIds(predecessorIds);
+    predecessorIds.add(this.categorySelectorId);
+    predecessorIds.add(this.displayStyleId);
   }
 
   /** Type guard for `instanceof ViewDefinition3d`  */
@@ -417,8 +466,70 @@ export class SpatialViewDefinition extends ViewDefinition3d implements SpatialVi
     json.modelSelectorId = this.modelSelectorId;
     return json;
   }
+  /** @alpha */
+  protected collectPredecessorIds(predecessorIds: Id64Set): void {
+    super.collectPredecessorIds(predecessorIds);
+    predecessorIds.add(this.modelSelectorId);
+  }
   /** Load this view's ModelSelector from the IModelDb. */
   public loadModelSelector(): ModelSelector { return this.iModel.elements.getElement<ModelSelector>(this.modelSelectorId); }
+  /**
+   * Create an SpatialViewDefinition with camera.
+   * @param iModelDb The iModel
+   * @param definitionModelId The [[DefinitionModel]]
+   * @param name The name/CodeValue of the view
+   * @param modelSelectorId The [[ModelSelector]] that this view should use
+   * @param categorySelectorId The [[CategorySelector]] that this view should use
+   * @param displayStyleId The [[DisplayStyle3d]] that this view should use
+   * @param range Defines the view origin and extents
+   * @param standardView Optionally defines the view's rotation
+   * @param cameraAngle Camera angle in radians.
+   * @returns The newly constructed OrthographicViewDefinition element
+   * @throws [[IModelError]] if there is a problem creating the view
+   */
+  public static createWithCamera(iModelDb: IModelDb, definitionModelId: Id64String, name: string, modelSelectorId: Id64String, categorySelectorId: Id64String, displayStyleId: Id64String, range: Range3d, standardView = StandardViewIndex.Iso, cameraAngle = Angle.piOver2Radians): SpatialViewDefinition {
+    const rotation = Matrix3d.createStandardWorldToView(standardView);
+    const angles = YawPitchRollAngles.createFromMatrix3d(rotation);
+    const rotationTransform = Transform.createOriginAndMatrix(undefined, rotation);
+    const rotatedRange = rotationTransform.multiplyRange(range);
+    const cameraDistance = 2 * (rotatedRange.diagonal().magnitudeXY() / 2.0) / Math.tan(cameraAngle / 2.0);
+    const cameraLocation = rotatedRange.diagonalFractionToPoint(.5);    // Start at center.
+    cameraLocation.z += cameraDistance;                                 // Back up by camera distance.
+    rotation.multiplyTransposeVectorInPlace(cameraLocation);
+
+    const viewDefinitionProps: SpatialViewDefinitionProps = {
+      classFullName: this.classFullName,
+      model: definitionModelId,
+      code: this.createCode(iModelDb, definitionModelId, name),
+      modelSelectorId,
+      categorySelectorId,
+      displayStyleId,
+      origin: rotation.multiplyTransposeXYZ(rotatedRange.low.x, rotatedRange.low.y, rotatedRange.low.z),
+      extents: rotatedRange.diagonal(),
+      angles,
+      cameraOn: true,
+      camera: { lens: { radians: cameraAngle }, focusDist: cameraDistance, eye: cameraLocation },
+    };
+    return new SpatialViewDefinition(viewDefinitionProps, iModelDb);
+  }
+  /**
+   * Insert an SpatialViewDefinition with camera On
+   * @param iModelDb Insert into this iModel
+   * @param definitionModelId Insert the new OrthographicViewDefinition into this DefinitionModel
+   * @param name The name/CodeValue of the view
+   * @param modelSelectorId The [[ModelSelector]] that this view should use
+   * @param categorySelectorId The [[CategorySelector]] that this view should use
+   * @param displayStyleId The [[DisplayStyle3d]] that this view should use
+   * @param range Defines the view origin and extents
+   * @param standardView Optionally defines the view's rotation
+   * @param cameraAngle Camera angle in radians.
+   * @returns The Id of the newly inserted OrthographicViewDefinition element
+   * @throws [[IModelError]] if there is an insert problem.
+   */
+  public static insertWithCamera(iModelDb: IModelDb, definitionModelId: Id64String, name: string, modelSelectorId: Id64String, categorySelectorId: Id64String, displayStyleId: Id64String, range: Range3d, standardView = StandardViewIndex.Iso, cameraAngle = Angle.piOver2Radians): Id64String {
+    const viewDefinition = this.createWithCamera(iModelDb, definitionModelId, name, modelSelectorId, categorySelectorId, displayStyleId, range, standardView, cameraAngle);
+    return iModelDb.elements.insertElement(viewDefinition);
+  }
 }
 
 /** Defines a spatial view that displays geometry on the image plane using a parallel orthographic projection.
@@ -521,7 +632,11 @@ export class ViewDefinition2d extends ViewDefinition implements ViewDefinition2d
     val.angle = this.angle;
     return val;
   }
-
+  /** @alpha */
+  protected collectPredecessorIds(predecessorIds: Id64Set): void {
+    super.collectPredecessorIds(predecessorIds);
+    predecessorIds.add(this.baseModelId);
+  }
   /** Load this view's DisplayStyle2d from the IModelDb. */
   public loadDisplayStyle2d(): DisplayStyle2d { return this.iModel.elements.getElement<DisplayStyle2d>(this.displayStyleId); }
 }
@@ -686,6 +801,11 @@ export class ViewAttachment extends GraphicalElement2d implements ViewAttachment
     super(props, iModel);
     this.view = new RelatedElement(props.view);
     // ###NOTE: scale, displayPriority, and clipping vectors are stored in jsonProperties...
+  }
+  /** @alpha */
+  protected collectPredecessorIds(predecessorIds: Id64Set): void {
+    super.collectPredecessorIds(predecessorIds);
+    predecessorIds.add(this.view.id);
   }
 }
 

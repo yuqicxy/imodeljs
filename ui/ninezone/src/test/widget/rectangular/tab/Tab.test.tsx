@@ -1,20 +1,22 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { mount, shallow } from "enzyme";
 import * as React from "react";
 import * as sinon from "sinon";
-import { createRect } from "../../../Utils";
-import { HorizontalAnchor, Tab, TabMode, TabModeHelpers, PointProps } from "../../../../ui-ninezone";
+import { PointProps } from "@bentley/ui-core";
+import { createBoundingClientRect, createPointerEvent } from "../../../Utils";
+import { HorizontalAnchor, Tab, TabMode, TabModeHelpers } from "../../../../ui-ninezone";
 import { PointerCaptor } from "../../../../ui-ninezone/base/PointerCaptor";
 import { VerticalAnchor } from "../../../../ui-ninezone/widget/Stacked";
+import { DragHandle } from "../../../../ui-ninezone/base/DragHandle";
 
 describe("<Tab />", () => {
-  let createRefStub: sinon.SinonStub | undefined;
+  const sandbox = sinon.createSandbox();
 
   afterEach(() => {
-    createRefStub && createRefStub.restore();
+    sandbox.restore();
   });
 
   it("should render", () => {
@@ -33,14 +35,14 @@ describe("<Tab />", () => {
     />).should.matchSnapshot();
   });
 
-  it("renders with betaBadge correctly", () => {
+  it("renders with badge correctly", () => {
     const sut = mount(<Tab
-      betaBadge={true}
+      badge
       horizontalAnchor={HorizontalAnchor.Left}
       mode={TabMode.Open}
       verticalAnchor={VerticalAnchor.Middle}
     />);
-    const badge = sut.find("div.nz-beta-badge");
+    const badge = sut.find("div.nz-badge");
     badge.length.should.eq(1);
   });
 
@@ -72,7 +74,7 @@ describe("<Tab />", () => {
       verticalAnchor={VerticalAnchor.Middle}
     />);
     const element = sut.getDOMNode() as HTMLDivElement;
-    sinon.stub(element, "getBoundingClientRect").returns(createRect(10, 15, 20, 30));
+    sinon.stub(element, "getBoundingClientRect").returns(createBoundingClientRect(10, 15, 20, 30));
 
     const result = sut.instance().getBounds();
     result.left.should.eq(10);
@@ -86,15 +88,14 @@ describe("<Tab />", () => {
       current: null,
     };
     sinon.stub(ref, "current").set(() => { });
-    createRefStub = sinon.stub(React, "createRef");
-    createRefStub.returns(ref);
+    sandbox.stub(React, "createRef").returns(ref);
     const sut = mount<Tab>(<Tab
       horizontalAnchor={HorizontalAnchor.Left}
       mode={TabMode.Open}
       verticalAnchor={VerticalAnchor.Middle}
     />);
     const element = sut.getDOMNode() as HTMLDivElement;
-    sinon.stub(element, "getBoundingClientRect").returns(createRect(10, 15, 20, 30));
+    sinon.stub(element, "getBoundingClientRect").returns(createBoundingClientRect(10, 15, 20, 30));
 
     const result = sut.instance().getBounds();
     result.left.should.eq(0);
@@ -103,7 +104,7 @@ describe("<Tab />", () => {
     result.bottom.should.eq(0);
   });
 
-  it("should prevent default on mouse down", () => {
+  it("should prevent default on pointer down", () => {
     const sut = mount(<Tab
       horizontalAnchor={HorizontalAnchor.Left}
       mode={TabMode.Open}
@@ -111,10 +112,10 @@ describe("<Tab />", () => {
     />);
     const pointerCaptor = sut.find(PointerCaptor);
 
-    const mouseDown = new MouseEvent("");
-    const spy = sinon.spy(mouseDown, "preventDefault");
+    const pointerDown = createPointerEvent();
+    const spy = sinon.spy(pointerDown, "preventDefault");
 
-    pointerCaptor.prop("onMouseDown")!(mouseDown);
+    pointerCaptor.prop("onPointerDown")!(pointerDown);
 
     spy.calledOnceWithExactly().should.true;
   });
@@ -127,13 +128,8 @@ describe("<Tab />", () => {
       onClick={spy}
       verticalAnchor={VerticalAnchor.Middle}
     />);
-    const pointerCaptor = sut.find(PointerCaptor);
-
-    const mouseDown = new MouseEvent("");
-    pointerCaptor.prop("onMouseDown")!(mouseDown);
-
-    const mouseUp = new MouseEvent("");
-    pointerCaptor.prop("onMouseUp")!(mouseUp);
+    const dragHandle = sut.find(DragHandle);
+    dragHandle.prop("onClick")!();
 
     spy.calledOnceWithExactly().should.true;
   });
@@ -148,12 +144,12 @@ describe("<Tab />", () => {
     />);
     const pointerCaptor = sut.find(PointerCaptor);
 
-    const mouseDown = new MouseEvent("");
-    pointerCaptor.prop("onMouseDown")!(mouseDown);
+    const pointerDown = createPointerEvent();
+    pointerCaptor.prop("onPointerDown")!(pointerDown);
 
-    const mouseMove = new MouseEvent("");
-    sinon.stub(mouseMove, "clientX").get(() => 6);
-    pointerCaptor.prop("onMouseMove")!(mouseMove);
+    const pointerMove = createPointerEvent();
+    sinon.stub(pointerMove, "clientX").get(() => 6);
+    pointerCaptor.prop("onPointerMove")!(pointerMove);
 
     const expectedInitialPosition: PointProps = {
       x: 0,
@@ -162,7 +158,7 @@ describe("<Tab />", () => {
     spy.calledOnceWithExactly(sinon.match(expectedInitialPosition)).should.true;
   });
 
-  it("should not invoke onDragStart handler if mouse down was not received", () => {
+  it("should not invoke onDragStart handler if pointer down was not received", () => {
     const spy = sinon.spy();
     const sut = mount(<Tab
       horizontalAnchor={HorizontalAnchor.Left}
@@ -172,9 +168,9 @@ describe("<Tab />", () => {
     />);
     const pointerCaptor = sut.find(PointerCaptor);
 
-    const mouseMove = new MouseEvent("");
-    sinon.stub(mouseMove, "clientX").get(() => 6);
-    pointerCaptor.prop("onMouseMove")!(mouseMove);
+    const pointerMove = createPointerEvent();
+    sinon.stub(pointerMove, "clientX").get(() => 6);
+    pointerCaptor.prop("onPointerMove")!(pointerMove);
 
     spy.notCalled.should.true;
   });
@@ -193,12 +189,12 @@ describe("<Tab />", () => {
     />);
     const pointerCaptor = sut.find(PointerCaptor);
 
-    const mouseDown = new MouseEvent("");
-    pointerCaptor.prop("onMouseDown")!(mouseDown);
+    const pointerDown = createPointerEvent();
+    pointerCaptor.prop("onPointerDown")!(pointerDown);
 
-    const mouseMove = new MouseEvent("");
-    sinon.stub(mouseMove, "clientX").get(() => 6);
-    pointerCaptor.prop("onMouseMove")!(mouseMove);
+    const pointerMove = createPointerEvent();
+    sinon.stub(pointerMove, "clientX").get(() => 6);
+    pointerCaptor.prop("onPointerMove")!(pointerMove);
 
     const expectedInitialPosition: PointProps = {
       x: -4,
@@ -221,11 +217,11 @@ describe("<Tab />", () => {
     />);
     const pointerCaptor = sut.find(PointerCaptor);
 
-    const mouseDown = new MouseEvent("");
-    pointerCaptor.prop("onMouseDown")!(mouseDown);
+    const pointerDown = createPointerEvent();
+    pointerCaptor.prop("onPointerDown")!(pointerDown);
 
-    const mouseUp = new MouseEvent("");
-    pointerCaptor.prop("onMouseUp")!(mouseUp);
+    const pointerUp = createPointerEvent();
+    pointerCaptor.prop("onPointerUp")!(pointerUp);
 
     spy.calledOnceWithExactly().should.true;
   });
@@ -235,8 +231,7 @@ describe("<Tab />", () => {
       current: null,
     };
     sinon.stub(ref, "current").set(() => { });
-    createRefStub = sinon.stub(React, "createRef");
-    createRefStub.returns(ref);
+    sandbox.stub(React, "createRef").returns(ref);
 
     const spy = sinon.spy();
     const sut = mount(<Tab
@@ -247,13 +242,13 @@ describe("<Tab />", () => {
     />);
     const pointerCaptor = sut.find(PointerCaptor);
 
-    const mouseUp = new MouseEvent("");
-    pointerCaptor.prop("onMouseUp")!(mouseUp);
+    const pointerUp = createPointerEvent();
+    pointerCaptor.prop("onPointerUp")!(pointerUp);
 
     spy.notCalled.should.true;
   });
 
-  it("should not invoke onClick handler if mouse is released outside of tab bounds", () => {
+  it("should not invoke onClick handler if pointer is released outside of tab bounds", () => {
     const spy = sinon.spy();
     const sut = mount(<Tab
       horizontalAnchor={HorizontalAnchor.Left}
@@ -263,10 +258,10 @@ describe("<Tab />", () => {
     />);
     const pointerCaptor = sut.find(PointerCaptor);
     const tabElement = sut.find("div").first().getDOMNode() as HTMLDivElement;
-    sinon.stub(tabElement, "getBoundingClientRect").returns(createRect(10, 10, 15, 15));
+    sinon.stub(tabElement, "getBoundingClientRect").returns(createBoundingClientRect(10, 10, 15, 15));
 
-    const mouseUp = new MouseEvent("");
-    pointerCaptor.prop("onMouseUp")!(mouseUp);
+    const pointerUp = createPointerEvent();
+    pointerCaptor.prop("onPointerUp")!(pointerUp);
 
     spy.notCalled.should.true;
   });

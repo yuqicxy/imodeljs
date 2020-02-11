@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import * as React from "react";
@@ -15,7 +15,6 @@ import {
   MapMode,
   DrawingNavigationAidControl,
   AnyWidgetProps,
-  WidgetDefFactory,
   NavigationWidgetDef,
   ContentControl,
 } from "../../ui-framework";
@@ -27,10 +26,16 @@ import { DrawingNavigationCanvas } from "../../ui-framework/navigationaids/Drawi
 describe("DrawingNavigationAid", () => {
 
   before(async () => {
+    sinon.restore();
     await TestUtils.initializeUiFramework();
 
     if (!ConfigurableUiManager.isControlRegistered("DrawingNavigationAid"))
       ConfigurableUiManager.registerControl("DrawingNavigationAid", DrawingNavigationAidControl);
+  });
+
+  after(() => {
+    TestUtils.terminateUiFramework();
+    sinon.restore();
   });
 
   let extents = Vector3d.create(400, 400);
@@ -615,7 +620,7 @@ describe("DrawingNavigationAid", () => {
 
     it("DrawingNavigationAidControl creates DrawingNavigationAid", () => {
 
-      const widgetDef = WidgetDefFactory.create(widgetProps);
+      const widgetDef = new NavigationWidgetDef(widgetProps);
       expect(widgetDef).to.be.instanceof(NavigationWidgetDef);
 
       const navigationWidgetDef = widgetDef as NavigationWidgetDef;

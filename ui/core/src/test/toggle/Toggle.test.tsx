@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import { mount, shallow } from "enzyme";
 import * as sinon from "sinon";
 import { expect } from "chai";
+import { render } from "@testing-library/react";
 
 import { Toggle, ToggleButtonType } from "../../ui-core";
 
@@ -16,9 +17,9 @@ describe("<Toggle />", () => {
     );
 
     let label = wrapper.find("label.core-toggle");
-    label.should.exist;
+    label.length.should.eq(1);
     label = wrapper.find("label.core-toggle.rounded");
-    label.should.exist;
+    label.length.should.eq(1);
 
     wrapper.unmount();
   });
@@ -27,6 +28,10 @@ describe("<Toggle />", () => {
     shallow(
       <Toggle />,
     ).should.matchSnapshot();
+  });
+
+  it("renders large correctly", () => {
+    shallow(<Toggle large={true} />).should.matchSnapshot();
   });
 
   it("Toggle should call onChange handler", () => {
@@ -40,7 +45,7 @@ describe("<Toggle />", () => {
     );
 
     const input = wrapper.find("input.core-toggle-input");
-    input.should.exist;
+    input.length.should.eq(1);
 
     input.simulate("change", { checked: true });
     spyMethod.calledOnce.should.true;
@@ -56,7 +61,7 @@ describe("<Toggle />", () => {
     );
 
     const input = wrapper.find("input.core-toggle-input");
-    input.should.exist;
+    input.length.should.eq(1);
 
     input.simulate("blur");
     spyMethod.calledOnce.should.true;
@@ -97,12 +102,20 @@ describe("<Toggle />", () => {
     wrapper.update();
 
     const input = wrapper.find("input.core-toggle-input");
-    input.should.exist;
+    input.length.should.eq(1);
     input.getDOMNode().hasAttribute("disabled").should.true;
     const label = wrapper.find("label.core-toggle.disabled");
-    label.should.exist;
+    label.length.should.eq(1);
 
     wrapper.unmount();
+  });
+
+  it("focus into input with setFocus prop", () => {
+    const component = render(<Toggle setFocus={true} />);
+    const input = component.container.querySelector("input[type='checkbox']");
+
+    const element = document.activeElement as HTMLElement;
+    expect(element && element === input).to.be.true;
   });
 
 });

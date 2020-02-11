@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import React from "react";
@@ -134,7 +134,7 @@ describe("<WeightPickerButton/>", () => {
       // wait for button to receive focus
       await new Promise((r) => { setTimeout(r, 80); });
 
-      renderedComponent.debug();
+      // renderedComponent.debug();
       fireEvent.keyDown(popupDiv, { key: "ArrowDown" });  // down to 4
       fireEvent.keyDown(popupDiv, { key: "ArrowUp" });    // back up to 3
       fireEvent.keyDown(popupDiv, { key: "ArrowUp" });    // up to 2

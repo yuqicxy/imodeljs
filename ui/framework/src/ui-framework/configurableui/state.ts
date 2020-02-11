@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module State */
+/** @packageDocumentation
+ * @module State
+ */
 
 import { createAction, ActionsUnion } from "../utils/redux-ts";
 import { SnapMode } from "@bentley/imodeljs-frontend";
@@ -16,8 +18,8 @@ import { COLOR_THEME_DEFAULT } from "../theme/ThemeManager";
  */
 export enum ConfigurableUiActionId {
   SetSnapMode = "configurableui:set_snapmode",
-  SetToolPrompt = "configurableui:set_toolprompt",
   SetTheme = "configurableui:set_theme",
+  SetToolPrompt = "configurableui:set_toolprompt",
   SetWidgetOpacity = "configurableui:set_widget_opacity",
 }
 
@@ -44,8 +46,8 @@ const initialState: ConfigurableUiState = {
  */
 export const ConfigurableUiActions = {   // tslint:disable-line:variable-name
   setSnapMode: (snapMode: number) => createAction(ConfigurableUiActionId.SetSnapMode, snapMode),
-  setToolPrompt: (toolPrompt: string) => createAction(ConfigurableUiActionId.SetToolPrompt, toolPrompt),
   setTheme: (theme: string) => createAction(ConfigurableUiActionId.SetTheme, theme),
+  setToolPrompt: (toolPrompt: string) => createAction(ConfigurableUiActionId.SetToolPrompt, toolPrompt),
   setWidgetOpacity: (opacity: number) => createAction(ConfigurableUiActionId.SetWidgetOpacity, opacity),
 };
 

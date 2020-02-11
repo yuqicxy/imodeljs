@@ -1,59 +1,49 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Models */
+/** @packageDocumentation
+ * @module Models
+ */
 
-import { DbOpcode, Id64, Id64String, JsonUtils } from "@bentley/bentleyjs-core";
+import { DbOpcode, GuidString, Id64String, JsonUtils } from "@bentley/bentleyjs-core";
 import { Point2d, Range3d } from "@bentley/geometry-core";
-import { AxisAlignedBox3d, GeometricModel2dProps, IModel, IModelError, InformationPartitionElementProps, ModelProps, RelatedElement } from "@bentley/imodeljs-common";
+import { AxisAlignedBox3d, GeometricModel2dProps, GeometricModel3dProps, GeometricModelProps, IModel, IModelError, InformationPartitionElementProps, ModelProps, RelatedElement } from "@bentley/imodeljs-common";
 import { DefinitionPartition, DocumentPartition, InformationRecordPartition, PhysicalPartition } from "./Element";
 import { Entity } from "./Entity";
 import { IModelDb } from "./IModelDb";
 import { SubjectOwnsPartitionElements } from "./NavigationRelationship";
 
 /** A Model is a container for persisting a collection of related elements within an iModel.
- * See [[IModelDb.Models]] for how to query and manage the Models in an IModelDB.
+ * See [[IModelDb.Models]] for how to query and manage the Models in an IModelDb.
  * See [Creating models]($docs/learning/backend/CreateModels.md)
  * @public
  */
 export class Model extends Entity implements ModelProps {
   /** @internal */
   public static get className(): string { return "Model"; }
-  public readonly modeledElement: RelatedElement;
+  public readonly modeledElement!: RelatedElement;
   public readonly name: string;
-  public readonly parentModel: Id64String;
-  public readonly jsonProperties: any;
+  public readonly parentModel!: Id64String;
+  public readonly jsonProperties: { [key: string]: any };
   public isPrivate: boolean;
   public isTemplate: boolean;
 
   /** @internal */
   constructor(props: ModelProps, iModel: IModelDb) {
     super(props, iModel);
-    this.id = Id64.fromJSON(props.id);
-    this.name = props.name ? props.name : "";
-    this.modeledElement = RelatedElement.fromJSON(props.modeledElement)!;
-    this.parentModel = Id64.fromJSON(props.parentModel)!; // NB! Must always match the model of the modeledElement!
+    this.name = props.name ? props.name : ""; // NB this isn't really a property of Model (it's the code.value of the modeled element), but it comes in ModelProps because it's often needed
     this.isPrivate = JsonUtils.asBool(props.isPrivate);
     this.isTemplate = JsonUtils.asBool(props.isTemplate);
     this.jsonProperties = Object.assign({}, props.jsonProperties); // make sure we have our own copy
   }
 
-  /** Add all custom-handled properties of a Model to a json object.
+  /** Add all properties of a Model to a json object.
    * @internal
    */
   public toJSON(): ModelProps {
     const val = super.toJSON() as ModelProps;
-    val.id = this.id;
-    val.modeledElement = this.modeledElement;
-    val.parentModel = this.parentModel;
-    val.name = this.name;
-    if (this.isPrivate)
-      val.isPrivate = this.isPrivate;
-    if (this.isTemplate)
-      val.isTemplate = this.isTemplate;
-    if (Object.keys(this.jsonProperties).length > 0)
-      val.jsonProperties = this.jsonProperties;
+    val.name = this.name; // for cloning
     return val;
   }
 
@@ -107,14 +97,25 @@ export class Model extends Entity implements ModelProps {
    * @param opcode The operation that will be performed on the element.
    */
   public buildConcurrencyControlRequest(opcode: DbOpcode): void { this.iModel.concurrencyControl.buildRequestForModel(this, opcode); }
+
+  /** Insert this Model in the iModel */
+  public insert() { return this.iModel.models.insertModel(this); }
+  /** Update this Model in the iModel. */
+  public update() { this.iModel.models.updateModel(this); }
+  /** Delete this Model from the iModel. */
+  public delete() { this.iModel.models.deleteModel(this.id); }
 }
 
 /** A container for persisting geometric elements.
  * @public
  */
-export class GeometricModel extends Model {
+export class GeometricModel extends Model implements GeometricModelProps {
+  public geometryGuid?: GuidString; // Initialized by the Entity constructor
+
   /** @internal */
   public static get className(): string { return "GeometricModel"; }
+  /** @internal */
+  constructor(props: GeometricModelProps, iModel: IModelDb) { super(props, iModel); }
 
   /** Query for the union of the extents of the elements contained by this model. */
   public queryExtents(): AxisAlignedBox3d {
@@ -129,17 +130,50 @@ export class GeometricModel extends Model {
  * @public
  */
 export abstract class GeometricModel3d extends GeometricModel {
+  /** If true, then the elements in this GeometricModel3d are expected to be in an XY plane.
+   * @note The associated ECProperty was added to the BisCore schema in version 1.0.8
+   */
+  public readonly isPlanProjection: boolean;
+  /** If true, then the elements in this GeometricModel3d are not in real-world coordinates and will not be in the spatial index.
+   * @note The associated ECProperty was added to the BisCore schema in version 1.0.8
+   */
+  public readonly isNotSpatiallyLocated: boolean;
+  /** If true, then the elements in this GeometricModel3d are in real-world coordinates and will be in the spatial index. */
+  public get iSpatiallyLocated(): boolean { return !this.isNotSpatiallyLocated; }
+
   /** @internal */
   public static get className(): string { return "GeometricModel3d"; }
+  /** @internal */
+  constructor(props: GeometricModel3dProps, iModel: IModelDb) {
+    super(props, iModel);
+    this.isNotSpatiallyLocated = JsonUtils.asBool(props.isNotSpatiallyLocated);
+    this.isPlanProjection = JsonUtils.asBool(props.isPlanProjection);
+  }
+  /** @internal */
+  public toJSON(): GeometricModel3dProps {
+    const val = super.toJSON() as GeometricModel3dProps;
+    if (this.isNotSpatiallyLocated) val.isNotSpatiallyLocated = true;
+    if (this.isPlanProjection) val.isPlanProjection = true;
+    return val;
+  }
 }
 
 /** A container for persisting 2d geometric elements.
  * @public
  */
 export abstract class GeometricModel2d extends GeometricModel implements GeometricModel2dProps {
+  /** The actual coordinates of (0,0) in modeling coordinates. An offset applied to all modeling coordinates. */
+  public globalOrigin?: Point2d; // Initialized by the Entity constructor
   /** @internal */
   public static get className(): string { return "GeometricModel2d"; }
-  public globalOrigin?: Point2d;
+  /** @internal */
+  constructor(props: GeometricModel2dProps, iModel: IModelDb) { super(props, iModel); }
+  /** @internal */
+  public toJSON(): GeometricModel2dProps {
+    const val = super.toJSON() as GeometricModel2dProps;
+    if (undefined !== this.globalOrigin) val.globalOrigin = Point2d.fromJSON(this.globalOrigin);
+    return val;
+  }
 }
 
 /** A container for persisting 2d graphical elements.
@@ -148,6 +182,16 @@ export abstract class GeometricModel2d extends GeometricModel implements Geometr
 export abstract class GraphicalModel2d extends GeometricModel2d {
   /** @internal */
   public static get className(): string { return "GraphicalModel2d"; }
+}
+
+/** A container for persisting GraphicalElement3d instances.
+ * @note The associated ECClass was added to the BisCore schema in version 1.0.8
+ * @see [[GraphicalPartition3d]]
+ * @public
+ */
+export abstract class GraphicalModel3d extends GeometricModel3d {
+  /** @internal */
+  public static get className(): string { return "GraphicalModel3d"; }
 }
 
 /** A container for persisting 3d geometric elements that are spatially located.
@@ -159,6 +203,7 @@ export abstract class SpatialModel extends GeometricModel3d {
 }
 
 /** A container for persisting physical elements that model physical space.
+ * @see [[PhysicalPartition]]
  * @public
  */
 export class PhysicalModel extends SpatialModel {
@@ -187,6 +232,7 @@ export class PhysicalModel extends SpatialModel {
 }
 
 /** A container for persisting spatial location elements.
+ * @see [[SpatialLocationPartition]]
  * @public
  */
 export class SpatialLocationModel extends SpatialModel {
@@ -237,6 +283,7 @@ export abstract class InformationModel extends Model {
 }
 
 /** A container for persisting group information elements.
+ * @see [[GroupInformationPartition]]
  * @public
  */
 export abstract class GroupInformationModel extends InformationModel {
@@ -245,6 +292,7 @@ export abstract class GroupInformationModel extends InformationModel {
 }
 
 /** A container for persisting Information Record Elements
+ * @see [[InformationRecordPartition]]
  * @public
  */
 export class InformationRecordModel extends InformationModel {
@@ -274,6 +322,7 @@ export class InformationRecordModel extends InformationModel {
 }
 
 /** A container for persisting definition elements.
+ * @see [[DefinitionPartition]]
  * @public
  */
 export class DefinitionModel extends InformationModel {
@@ -311,6 +360,7 @@ export class RepositoryModel extends DefinitionModel {
 }
 
 /** Contains a list of document elements.
+ * @see [[DocumentPartition]]
  * @public
  */
 export class DocumentListModel extends InformationModel {
@@ -339,6 +389,7 @@ export class DocumentListModel extends InformationModel {
 }
 
 /** A container for persisting link elements.
+ * @see [[LinkPartition]]
  * @public
  */
 export class LinkModel extends InformationModel {

@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Solid */
+/** @packageDocumentation
+ * @module Solid
+ */
 
 import { Point3d, Vector3d } from "../geometry3d/Point3dVector3d";
 import { Range3d } from "../geometry3d/Range";
@@ -42,6 +44,9 @@ import { Vector2d } from "../geometry3d/Point2dVector2d";
  * @public
  */
 export class TorusPipe extends SolidPrimitive implements UVSurface, UVSurfaceIsoParametricDistance {
+  /** String name for schema properties */
+  public readonly solidPrimitiveType = "torusPipe";
+
   private _localToWorld: Transform;
   private _radiusA: number;  // radius of (large) circle in xy plane
   private _radiusB: number;  // radius of (small) circle in xz plane.

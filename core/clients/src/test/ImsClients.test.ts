@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as chai from "chai";
 import { ClientRequestContext } from "@bentley/bentleyjs-core";
@@ -15,7 +15,7 @@ describe("ImsFederatedAuthenticationClient", () => {
   const requestContext = new ClientRequestContext();
   const authorizationClient = new ImsActiveSecureTokenClient();
 
-  it("should find the access token with the right credentials (#integration)", async function (this: Mocha.ITestCallbackContext) {
+  it("should find the access token with the right credentials (#integration)", async () => {
     let loginError: any;
     try {
       await authorizationClient.getToken(requestContext, { email: TestUsers.regular.email, password: "WrongPassword" });
@@ -45,7 +45,7 @@ describe("ImsDelegationSecureTokenClient", () => {
   const delegationClient = new ImsDelegationSecureTokenClient();
   const requestContext = new ClientRequestContext();
 
-  it("should find the delegation token with the right credentials for all test users  (#integration)", async function (this: Mocha.ITestCallbackContext) {
+  it("should find the delegation token with the right credentials for all test users  (#integration)", async () => {
     const users: ImsUserCredentials[] = [
       TestUsers.regular,
       TestUsers.manager,

@@ -1,14 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Item */
+/** @packageDocumentation
+ * @module Item
+ */
 
-import { AnyItemDef, ConditionalItemProps } from "./ItemProps";
+import { AbstractConditionalItemProps, OnItemExecutedFunc } from "@bentley/ui-abstract";
+
 import { ItemList, ItemMap } from "./ItemMap";
 import { ItemDefBase, BaseItemState } from "./ItemDefBase";
 import { SyncUiEventArgs } from "../syncui/SyncUiEventDispatcher";
 import { ActionButtonItemDef } from "./ActionButtonItemDef";
+import { ConditionalItemProps } from "./ConditionalItemProps";
+import { ItemDefFactory } from "./ItemDefFactory";
+import { AnyItemDef } from "./AnyItemDef";
 
 /** An Item that conditionally renders other items based on UiSync events.
  * @beta
@@ -34,12 +40,23 @@ export class ConditionalItemDef extends ItemDefBase {
     this.items = props.items;
   }
 
+  /** @internal */
+  public static constructFromAbstractItemProps(abstractItemProps: AbstractConditionalItemProps, onItemExecuted?: OnItemExecutedFunc): ConditionalItemDef {
+    const items = ItemDefFactory.createItemListForGroupItem(abstractItemProps.items, onItemExecuted);
+    const itemProps: ConditionalItemProps = {
+      conditionalId: abstractItemProps.conditionalId,
+      items,
+    };
+
+    return new ConditionalItemDef(itemProps);
+  }
+
   public get id(): string {
     return this.conditionalId;
   }
 
-  public resolveItems(): void {
-    if (this._itemList)
+  public resolveItems(force?: boolean): void {
+    if (this._itemList && !force)
       return;
 
     this._itemList = new ItemList();

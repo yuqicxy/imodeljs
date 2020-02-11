@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Topology */
+/** @packageDocumentation
+ * @module Topology
+ */
 
 import { HalfEdgeMask, HalfEdge, HalfEdgeGraph } from "./Graph";
 import { XAndY, XYAndZ } from "../geometry3d/XYZProps";
@@ -11,12 +13,16 @@ import { Point3d } from "../geometry3d/Point3dVector3d";
 import { Geometry } from "../Geometry";
 import { GrowableXYZArray } from "../geometry3d/GrowableXYZArray";
 import { IndexedXYZCollection } from "../geometry3d/IndexedXYZCollection";
+import { PointStreamXYZXYZHandlerBase, VariantPointDataStream } from "../geometry3d/PointStreaming";
+import { Point3dArray } from "../geometry3d/PointHelpers";
+import { InsertAndRetriangulateContext } from "./InsertAndRetriangulateContext";
+import { MarkedEdgeSet } from "./HalfEdgeMarkSet";
 
 /**
  * type for use as signature for xyz data of a single linestring appearing in a parameter list.
  * @public
  */
-export type LineStringDataVariant = IndexedXYZCollection | XYAndZ[] | XAndY[];
+export type LineStringDataVariant = IndexedXYZCollection | XYAndZ[] | XAndY[] | number[][];
 
 /**
  * type for use as signature for multiple xyz data of multiple linestrings appearing in a parameter list.
@@ -64,26 +70,28 @@ export class Triangulator {
    * * (vx,vy): nodeA to nodeA2,
    * * (wx,wy): nodeA to nodeB2
    * * this determinant is positive if nodeA is "in the circle" of nodeB2, nodeA1, nodeA2
+   * * Return true if clearly positive
+   * * Return false if clearly negative or almost zero.
    * @param nodeA node on the diagonal edge of candidate for edge flip.
    * @param if true, divide the determinant by the sum of absolute values of the cubic terms of the determinant.
-   * @return the determinant (but undefined if the faces are not triangles as expected.)
+   * @return the determinant as modified per comment (but undefined if the faces are not triangles as expected.)
    */
-  private static computeInCircleDeterminant(nodeA: HalfEdge, normalize: boolean): number | undefined {
+  public static computeInCircleDeterminantIsStrongPositive(nodeA: HalfEdge): boolean {
     const nodeA1 = nodeA.faceSuccessor;
     const nodeA2 = nodeA1.faceSuccessor;
     if (nodeA2.faceSuccessor !== nodeA)
-      return undefined;
+      return false;
     const nodeB = nodeA.edgeMate;
     const nodeB1 = nodeB.faceSuccessor;
     const nodeB2 = nodeB1.faceSuccessor;
     if (nodeB2.faceSuccessor !== nodeB)
-      return undefined;
+      return false;
     const ux = nodeA1.x - nodeA.x;
     const uy = nodeA1.y - nodeA.y;
     const vx = nodeA2.x - nodeA.x;
     const vy = nodeA2.y - nodeA.y;
     if (Geometry.crossProductXYXY(ux, uy, vx, vy) < 0)
-      return undefined;
+      return false;
     // we assume identical coordinates in pairs (nodeA, nodeB1)  and (nodeA1, nodeB)
     const wx = nodeB2.x - nodeA.x;
     const wy = nodeB2.y - nodeA.y;
@@ -94,59 +102,97 @@ export class Triangulator {
       wx, wy, tx,
       vx, vy, ty,
       ux, uy, tz);
-    if (!normalize) return q;
+    if (q < 0)
+      return false;
     const denom = Math.abs(wx * vy * tz) + Math.abs(wx * ty * ux) + Math.abs(tx * vx * uy)
       + Math.abs(wx * ty * uy) + Math.abs(wy * vx * tz) + Math.abs(tx * vy * ux);
-    return q / denom;   // divide by zero?  only if collapsed to a point.
+    return q > 1.0e-12 * denom;
   }
+
   /**
    *  *  Visit each node of the graph array
    *  *  If a flip would be possible, test the results of flipping using incircle condition
    *  *  If revealed to be an improvement, conduct the flip, mark involved nodes as unvisited, and repeat until all nodes are visited
    */
-  public static flipTriangles(graph: HalfEdgeGraph) {
-    const nodeArray = graph.allHalfEdges;
-    graph.clearMask(HalfEdgeMask.VISITED);
-    let foundNonVisited = false;
-    const smallDeterminant = 1.0e-15;
-    const maxFlip = 10.0 * nodeArray.length;
-    let numFlip = 0;
-    const numNode = nodeArray.length;
+  public static flipTriangles(graph: HalfEdgeGraph): number {
+    const edgeSet = MarkedEdgeSet.create(graph)!;
+    for (const node of graph.allHalfEdges)
+      edgeSet.addToSet(node);
+    const numFlip = this.flipTrianglesInEdgeSet(graph, edgeSet);
+    edgeSet.teardown();
+    return numFlip;
+  }
+
+  /**
+   *  *  Visit each node of the graph array
+   *  *  If a flip would be possible, test the results of flipping using incircle condition
+   *  *  If revealed to be an improvement, conduct the flip, mark involved nodes as unvisited, and repeat until all nodes are visited
+   */
+  public static flipTrianglesInEdgeSet(graph: HalfEdgeGraph, edgeSet: MarkedEdgeSet): number {
     const barrierMasks = HalfEdgeMask.EXTERIOR | HalfEdgeMask.PRIMARY_EDGE | HalfEdgeMask.BOUNDARY_EDGE;
-    for (let i = 0; i < numNode && numFlip < maxFlip; i++) {
-      const node = nodeArray[i];
 
-      // HalfEdge has already been visited or is exterior node
-      if (node.isMaskSet(HalfEdgeMask.VISITED))
+    const nodeArray = graph.allHalfEdges;
+    const maxTest = 10.0 * nodeArray.length;
+    let numFlip = 0;
+    let numOK = 0;
+    let node;
+    while (undefined !== (node = edgeSet.chooseAndRemoveAny())) {
+
+      if (node.isMaskSet(barrierMasks)) // Flip not allowed
         continue;
 
-      node.setMask(HalfEdgeMask.VISITED);
-      node.edgeMate.setMask(HalfEdgeMask.VISITED);
-
-      if (node.edgeMate === undefined || node.isMaskSet(barrierMasks)) // Flip not allowed
-        continue;
-
-      foundNonVisited = true;
-      const incircle = Triangulator.computeInCircleDeterminant(node, true);
-      if (incircle !== undefined && incircle > smallDeterminant) {
-        // Mark all nodes involved in flip as needing to be buffer (other than alpha and beta node we started with)
-        node.facePredecessor.clearMask(HalfEdgeMask.VISITED);
-        node.faceSuccessor.clearMask(HalfEdgeMask.VISITED);
-        node.edgeMate.facePredecessor.clearMask(HalfEdgeMask.VISITED);
-        node.edgeMate.faceSuccessor.clearMask(HalfEdgeMask.VISITED);
+      if (Triangulator.computeInCircleDeterminantIsStrongPositive(node)) {
         // Flip the triangles
         Triangulator.flipEdgeBetweenTriangles(node.edgeMate.faceSuccessor, node.edgeMate.facePredecessor, node.edgeMate, node.faceSuccessor, node, node.facePredecessor);
+        // keep looking at the 2 faces
+        edgeSet.addAroundFace(node);
+        edgeSet.addAroundFace(node.edgeMate);
         numFlip++;
+      } else {
+        numOK++;
       }
+      if (numFlip + numOK > maxTest)
+        break;
+    }
+    return numFlip;
+  }
 
-      // If at the end of the loop, check if we found an unvisited node we tried to flip.. if so, restart loop
-      if (i === nodeArray.length - 1 && foundNonVisited) {
-        i = -1;
-        foundNonVisited = false;
+  /** Create a graph with a triangulation points.
+   * * The outer limit of the graph is the convex hull of the points.
+   * * The outside loop is marked `HalfEdgeMask.EXTERIOR`
+   */
+  public static createTriangulatedGraphFromPoints(points: Point3d[]): HalfEdgeGraph | undefined {
+    if (points.length < 3)
+      return undefined;
+    const hull: Point3d[] = [];
+    const interior: Point3d[] = [];
+    Point3dArray.computeConvexHullXY(points, hull, interior, true);
+    const graph = new HalfEdgeGraph();
+    const context = InsertAndRetriangulateContext.create(graph);
+    Triangulator.createFaceLoopFromCoordinates(graph, hull, true, true);
+    // HalfEdgeGraphMerge.clusterAndMergeXYTheta(graph);
+    let numInsert = 0;
+    for (const p of interior) {
+      context.insertAndRetriangulate(p, true);
+      numInsert++;
+      if (numInsert > 16) {
+        /*
+        context.reset();
+        Triangulator.flipTriangles(context.graph);
+        // console.log (" intermediate flips " + numFlip);
+        */
+        numInsert = 0;
       }
     }
-
-    graph.clearMask(HalfEdgeMask.VISITED);
+    /*
+        // final touchup for aspect ratio flip
+        for (let i = 0; i < 15; i++) {
+          const numFlip = Triangulator.flipTriangles(graph);
+          if (numFlip === 0)
+            break;
+        }
+        */
+    return graph;
   }
   /**
    * * Only one outer loop permitted.
@@ -235,15 +281,25 @@ export class Triangulator {
    * * if xy is distinct from the coordinates at both baseNode and its successor, insert xy as a new node within that edge.
    * * also include z coordinate if present.
    */
-  private static interiorEdgeSplit(graph: HalfEdgeGraph, baseNode: HalfEdge | undefined, xy: XAndY): HalfEdge | undefined {
-    const z = (xy as any).hasOwnProperty("z") ? (xy as any).z : 0.0;
+  private static interiorEdgeSplit(graph: HalfEdgeGraph, baseNode: HalfEdge | undefined, xy: XAndY | number[]): HalfEdge | undefined {
+    let x = 0, y = 0, z = 0;
+    if (Array.isArray(xy)) {
+      x = xy[0];
+      y = xy[1];
+      z = xy.length > 2 ? xy[3] : 0.0;
+    } else {
+      const q = xy as any;
+      if (q.hasOwnProperty("x")) x = q.x;
+      if (q.hasOwnProperty("y")) y = q.y;
+      if (q.hasOwnProperty("y")) z = q.z;
+    }
     if (!baseNode)
-      return graph.splitEdge(baseNode, xy.x, xy.y, z);
-    if (Triangulator.equalXAndY(baseNode, xy))
+      return graph.splitEdge(baseNode, x, y, z);
+    if (Triangulator.equalXAndYXY(baseNode, x, y))
       return baseNode;
-    if (Triangulator.equalXAndY(baseNode.faceSuccessor, xy))
+    if (Triangulator.equalXAndYXY(baseNode.faceSuccessor, x, y))
       return baseNode;
-    return graph.splitEdge(baseNode, xy.x, xy.y, z);
+    return graph.splitEdge(baseNode, x, y, z);
   }
   /** Create a loop from coordinates.
    * * Return a pointer to any node on the loop.
@@ -264,6 +320,20 @@ export class Triangulator {
       }
     }
     return baseNode;
+  }
+
+  /** Create chains from coordinates.
+   * * Return array of pointers to base node of the chains.
+   * * no masking or other markup is applied.
+   * @param graph New edges are built in this graph
+   * @param data coordinate data
+   * @param id id to attach to (both side of all) edges
+   */
+  public static directCreateChainsFromCoordinates(graph: HalfEdgeGraph, data: MultiLineStringDataVariant, id: number = 0): HalfEdge[] {
+    // Add the starting nodes as the boundary, and apply initial masks to the primary edge and exteriors
+    const assembler = new AssembleXYZXYZChains(graph, id);
+    VariantPointDataStream.streamXYZ(data, assembler);
+    return assembler.claimSeeds();
   }
 
   /**
@@ -390,8 +460,8 @@ export class Triangulator {
     let a0 = b0.facePredecessor;
     let b1 = a0.edgeMate;
     while (Triangulator.isInteriorTriangle(a0) && Triangulator.isInteriorTriangle(b1)) {
-      const detA = Triangulator.computeInCircleDeterminant(a0, true);
-      if (detA === undefined || detA < 1.0e-10)
+      const detA = Triangulator.computeInCircleDeterminantIsStrongPositive(a0);
+      if (!detA)
         break;
       // Flip the triangles
       const a1 = b1.faceSuccessor;
@@ -491,7 +561,7 @@ export class Triangulator {
   private static eliminateHole(graph: HalfEdgeGraph, hole: HalfEdge, outerNode: HalfEdge) {
     const outerNodeA = Triangulator.findHoleBridge(hole, outerNode);
     if (outerNodeA) {
-      Triangulator.splitPolygon(graph, outerNodeA, hole);
+      Triangulator.splitFace(graph, outerNodeA, hole);
     }
   }
   // cspell:word Eberly
@@ -586,8 +656,8 @@ export class Triangulator {
   }
 
   /** check if two points are equal */
-  private static equalXAndY(p1: XAndY, p2: XAndY) {
-    return Geometry.isSameCoordinate(p1.x, p2.x) && Geometry.isSameCoordinate(p1.y, p2.y);
+  private static equalXAndYXY(p1: XAndY, x: number, y: number) {
+    return Geometry.isSameCoordinate(p1.x, x) && Geometry.isSameCoordinate(p1.y, y);
   }
 
   /** check if a polygon diagonal is locally inside the polygon */
@@ -604,7 +674,7 @@ export class Triangulator {
    * * "a" and "b" still represent the same physical pieces of edges
    * @returns Returns the (base of) the new half edge, at the "a" end.
    */
-  private static splitPolygon(graph: HalfEdgeGraph, a: HalfEdge, b: HalfEdge): HalfEdge {
+  private static splitFace(graph: HalfEdgeGraph, a: HalfEdge, b: HalfEdge): HalfEdge {
     const a2 = graph.createEdgeXYZXYZ(a.x, a.y, a.z, a.i, b.x, b.y, b.z, b.i);
     const b2 = a2.faceSuccessor;
 
@@ -622,9 +692,6 @@ export class Triangulator {
     let left = start.facePredecessor;
     let right = start.faceSuccessor;
     // P0, P1, P2 are successive edges along evolving chain
-    let P0: HalfEdge = start;  // will be reinitialized -- use start to quiet linter
-    let P1: HalfEdge = start;  // will be reinitialized -- use start to quiet linter
-    let P2: HalfEdge = start;  // will be reinitialized -- use start to quiet linter
     let upperSideOfNewEdge;
     while (left !== right
       && right !== start
@@ -642,9 +709,9 @@ export class Triangulator {
 
         /*      Phase 1: move upward, adding back edges
            when prior nodes are visible. */
-        P0 = left;
-        P1 = start;
-        P2 = right;
+        let P0 = left;
+        let P1 = start;
+        let P2 = right;
         /*      Invariant: the path from P0 back to P1 is concave.
            Each loop pass moves P0 up the left side, filling in
            edges as needed.  The right side edge
@@ -655,7 +722,7 @@ export class Triangulator {
             && P2 !== P0
             && P2 !== P1
             && HalfEdge.crossProductXYAlongChain(P0, P1, P2) > 0) {
-            upperSideOfNewEdge = Triangulator.splitPolygon(graph, P0, P2);
+            upperSideOfNewEdge = Triangulator.splitFace(graph, P0, P2);
             P0 = upperSideOfNewEdge;
             P1 = P0.faceSuccessor;
             P2 = P1.faceSuccessor;
@@ -672,7 +739,7 @@ export class Triangulator {
         P1 = P2.facePredecessor;
         P0 = P1.facePredecessor;
         while (P2.faceSuccessor !== P0 && P0 !== left) {
-          upperSideOfNewEdge = Triangulator.splitPolygon(graph, P0, P2);
+          upperSideOfNewEdge = Triangulator.splitFace(graph, P0, P2);
           P1 = upperSideOfNewEdge;
           P0 = P1.facePredecessor;
         }
@@ -680,7 +747,7 @@ export class Triangulator {
            left node to the right, except when already
            topped out */
         if (P2.faceSuccessor !== P0) {
-          upperSideOfNewEdge = Triangulator.splitPolygon(graph, P0, P2);
+          upperSideOfNewEdge = Triangulator.splitFace(graph, P0, P2);
           P0 = upperSideOfNewEdge;
         }
         start = P0;
@@ -693,9 +760,9 @@ export class Triangulator {
 
         /*      Phase 1: move upward, adding back edges
            when prior nodes are visible. */
-        P0 = left;
-        P1 = start;
-        P2 = right;
+        let P0 = left;
+        let P1 = start;
+        let P2 = right;
         /*      Invariant: the path up to P1 is concave.
            Each loop pass advances P1, filling in
            edges as needed. Note that the
@@ -708,7 +775,7 @@ export class Triangulator {
             && P2 !== P0
             && P2 !== P1
             && HalfEdge.crossProductXYAlongChain(P0, P1, P2) > 0) {
-            upperSideOfNewEdge = Triangulator.splitPolygon(graph, P0, P2);
+            upperSideOfNewEdge = Triangulator.splitFace(graph, P0, P2);
             P0 = upperSideOfNewEdge.facePredecessor;
             P1 = upperSideOfNewEdge;
           }
@@ -724,16 +791,16 @@ export class Triangulator {
         P1 = P0.faceSuccessor;
         P2 = P1.faceSuccessor;
         while (P2.faceSuccessor !== P0 && P2 !== right) {
-          upperSideOfNewEdge = Triangulator.splitPolygon(graph, P0, P2);
+          upperSideOfNewEdge = Triangulator.splitFace(graph, P0, P2);
           P0 = upperSideOfNewEdge;
-          P1 = P2;
+          // P1 = P2;   // original code (ported from native) carefully maintained P1..P2 relationship.  But code analyzer says P1 is not used again.  So skip it.
           P2 = P2.faceSuccessor;
         }
         /*      Finish off with the last stroke from the
            left node to the right, except when already
            topped out */
         if (P2.faceSuccessor !== P0) {
-          Triangulator.splitPolygon(graph, P0, P2);
+          Triangulator.splitFace(graph, P0, P2);
         }
         start = right;
         right = start.faceSuccessor;
@@ -743,4 +810,54 @@ export class Triangulator {
     return true;
   }
 
+}
+
+/**
+ * Internal class for assembling chains
+ * @internal
+ */
+class AssembleXYZXYZChains extends PointStreamXYZXYZHandlerBase {
+  // Add the starting nodes as the boundary, and apply initial masks to the primary edge and exteriors
+  private _seeds?: HalfEdge[];
+  private _baseNode: HalfEdge | undefined;
+  private _nodeB: HalfEdge | undefined;
+  private _nodeC: HalfEdge | undefined;
+  private _graph: HalfEdgeGraph;
+  private _id: any;
+  public constructor(graph: HalfEdgeGraph, id: any) {
+    super();
+    this._graph = graph;
+    this._id = id;
+  }
+  public startChain(chainData: MultiLineStringDataVariant, isLeaf: boolean): void {
+    super.startChain(chainData, isLeaf);
+    this._baseNode = undefined;
+    this._nodeB = undefined;
+  }
+  public handleXYZXYZ(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
+    this._nodeC = this._graph.createEdgeXYZXYZ(x0, y0, z0, this._id, x1, y1, z1, this._id);
+    if (this._baseNode === undefined) {
+      this._baseNode = this._nodeC;
+      this._nodeB = this._baseNode!.faceSuccessor;
+    } else {
+      HalfEdge.pinch(this._nodeB!, this._nodeC);
+      this._nodeB = this._nodeC!.faceSuccessor;
+    }
+  }
+  public endChain(chainData: MultiLineStringDataVariant, isLeaf: boolean): void {
+    super.endChain(chainData, isLeaf);
+    if (this._baseNode !== undefined) {
+      if (this._seeds === undefined)
+        this._seeds = [];
+      this._seeds.push(this._baseNode);
+    }
+    this._baseNode = undefined;
+    this._nodeB = undefined;
+    this._nodeC = undefined;
+  }
+  public claimSeeds(): HalfEdge[] {
+    if (this._seeds === undefined)
+      return [];
+    return this._seeds;
+  }
 }

@@ -1,7 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Bspline
+ */
 
 import { Point2d } from "../geometry3d/Point2dVector2d";
 import { Point3d, Vector3d } from "../geometry3d/Point3dVector3d";
@@ -9,14 +12,12 @@ import { Point4d } from "../geometry4d/Point4d";
 import { Transform } from "../geometry3d/Transform";
 import { Ray3d } from "../geometry3d/Ray3d";
 import { Plane3dByOriginAndVectors } from "../geometry3d/Plane3dByOriginAndVectors";
-import { StrokeOptions } from "../curve/StrokeOptions";
-import { Geometry } from "../Geometry";
-import { Angle } from "../geometry3d/Angle";
 import { GeometryHandler } from "../geometry3d/GeometryHandler";
 import { LineString3d } from "../curve/LineString3d";
 import { BezierCurveBase } from "./BezierCurveBase";
 import { BezierPolynomialAlgebra } from "../numerics/BezierPolynomials";
 import { Range3d } from "../geometry3d/Range";
+
 // ================================================================================================================
 // ================================================================================================================
 // ================================================================================================================
@@ -127,7 +128,7 @@ export class BezierCurve3d extends BezierCurveBase {
     curve1.tryTransformInPlace(transform);
     return curve1;
   }
-  /** Return a (deweighted) point on the curve. If deweight fails, returns 000 */
+  /** Return a (de-weighted) point on the curve. If de-weight fails, returns 000 */
   public fractionToPoint(fraction: number, result?: Point3d): Point3d {
     this._polygon.evaluate(fraction, this._workData0);
     return Point3d.create(this._workData0[0], this._workData0[1], this._workData0[2], result);
@@ -163,34 +164,6 @@ export class BezierCurve3d extends BezierCurveBase {
       return this._polygon.isAlmostEqual(other._polygon);
     }
     return false;
-  }
-  /**
-   * Assess length and turn to determine a stroke count.
-   * @param options stroke options structure.
-   */
-  public computeStrokeCountForOptions(options?: StrokeOptions): number {
-    const data = this._polygon.packedData;
-    let dx0 = data[3] - data[0];
-    let dy0 = data[4] - data[1];
-    let dz0 = data[5] - data[2];
-    let dx1, dy1, dz1; // first differences of leading edge
-    // let ex, ey, ez; // second differences.
-    let sweepRadians = 0.0;
-    let sumLength = Geometry.hypotenuseXYZ(dx0, dy0, dz0);
-    const n = data.length;
-    for (let i = 6; i + 2 < n; i += 3) {
-      dx1 = data[i] - data[i - 3];
-      dy1 = data[i + 1] - data[i - 2];
-      dz1 = data[i + 2] - data[i - 1];
-      //        ex = dx1 - dx0; ey = dy1 - dy0; ez = dz1 - dz0;
-      sweepRadians += Angle.radiansBetweenVectorsXYZ(dx0, dy0, dz0, dx1, dy1, dz1);
-      sumLength += Geometry.hypotenuseXYZ(dx1, dy1, dz1);
-      dx0 = dx1;
-      dy0 = dy1;
-      dz0 = dz1;
-    }
-    const numPerSpan = StrokeOptions.applyAngleTol(options, StrokeOptions.applyMaxEdgeLength(options, 1, sumLength), sweepRadians, 0.2);
-    return numPerSpan;
   }
   /** Second step of double dispatch:  call `handler.handleBezierCurve3d(this)` */
   public dispatchToGeometryHandler(handler: GeometryHandler): any {

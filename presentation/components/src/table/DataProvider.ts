@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Table */
+/** @packageDocumentation
+ * @module Table
+ */
 
 import * as _ from "lodash";
 import { SortDirection as UiSortDirection } from "@bentley/ui-core";
@@ -14,13 +16,13 @@ import { IModelConnection } from "@bentley/imodeljs-frontend";
 import {
   PresentationError, PresentationStatus,
   DefaultContentDisplayTypes, Descriptor, SortDirection,
-  Content, Field, PropertyValueFormat, Item, Ruleset,
+  Content, Field, Item, Ruleset,
   InstanceKey,
 } from "@bentley/presentation-common";
 import { ContentDataProvider, CacheInvalidationProps, IContentDataProvider } from "../common/ContentDataProvider";
 import { ContentBuilder } from "../common/ContentBuilder";
 import { PageContainer, Page } from "../common/PageContainer";
-import { prioritySortFunction } from "../common/Utils";
+import { priorityAndNameSortFunction } from "../common/Utils";
 
 interface PromisedPage<TItem> extends Page<TItem> {
   promise?: Promise<void>;
@@ -234,7 +236,7 @@ export class PresentationTableDataProvider extends ContentDataProvider implement
 const createColumns = (descriptor: Readonly<Descriptor> | undefined): ColumnDescription[] => {
   if (!descriptor)
     return [];
-  const sortedFields = [...descriptor.fields].sort(prioritySortFunction);
+  const sortedFields = [...descriptor.fields].sort(priorityAndNameSortFunction);
   return sortedFields.map((field) => createColumn(field));
 };
 
@@ -244,7 +246,9 @@ const createColumn = (field: Readonly<Field>): ColumnDescription => {
     label: field.label,
     sortable: true,
     editable: !field.isReadonly,
-    filterable: (field.type.valueFormat === PropertyValueFormat.Primitive),
+    filterable: false,
+    // note: disable column filtering until this data provider supports filtering
+    // filterable: (field.type.valueFormat === PropertyValueFormat.Primitive),
   };
 };
 

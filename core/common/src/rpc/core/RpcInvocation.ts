@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module RpcInterface */
+/** @packageDocumentation
+ * @module RpcInterface
+ */
 
 import { BentleyStatus, Logger, RpcInterfaceStatus } from "@bentley/bentleyjs-core";
 import { IModelError } from "../../IModelError";
@@ -111,8 +113,12 @@ export class RpcInvocation {
   }
 
   private async resolve(): Promise<any> {
-    const clientRequestContext = await RpcConfiguration.requestContext.deserialize(this.request);
-    clientRequestContext.enter();
+    try {
+      const clientRequestContext = await RpcConfiguration.requestContext.deserialize(this.request);
+      clientRequestContext.enter();
+    } catch (error) {
+      return this.reject(error);
+    }
 
     this.protocol.events.raiseEvent(RpcProtocolEvent.RequestReceived, this);
 

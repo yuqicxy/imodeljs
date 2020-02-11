@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 // The purpose of this file (which is standalone, and not webpacked into the imodeljs-frontend module)
@@ -119,6 +119,7 @@ class ScriptLoader {
 }
 
 // Load Options. Loading the UiComponents and UiFramework are optional.
+
 class IModelJsLoadOptions {
   private _iModelJsCDN: string;
 
@@ -127,6 +128,7 @@ class IModelJsLoadOptions {
   public loadUiFramework: boolean;
   public loadECPresentation: boolean;
   public loadMarkup: boolean;
+  public loadFrontendDevTools: boolean;
 
   // IModelJsVersionString is a JSON string. The object properties are the module names, and the values are the versions.
   constructor(iModelJsVersionString: string | null, iModelJsModuleCDN: string | null) {
@@ -134,6 +136,7 @@ class IModelJsLoadOptions {
     this.loadUiFramework = true;
     this.loadECPresentation = true;
     this.loadMarkup = true;
+    this.loadFrontendDevTools = false;
 
     if (iModelJsVersionString) {
       this.iModelJsVersions = JSON.parse(iModelJsVersionString);
@@ -141,6 +144,7 @@ class IModelJsLoadOptions {
       this.loadUiFramework = (undefined !== this.iModelJsVersions["ui-ninezone"]) || (undefined !== this.iModelJsVersions["ui-framework"]);
       this.loadECPresentation = (undefined !== this.iModelJsVersions["presentation-common"]) || (undefined !== this.iModelJsVersions["presentation-frontend"]) || (undefined !== this.iModelJsVersions["presentation-components"]);
       this.loadMarkup = (undefined !== this.iModelJsVersions["imodeljs-markup"]);
+      this.loadFrontendDevTools = (undefined !== this.iModelJsVersions["frontend-devtools"]);
 
       // we need the uiComponents for either ECPresentation or uiFramework.
       if (this.loadECPresentation || this.loadUiFramework) {
@@ -177,14 +181,20 @@ export async function loadIModelJs(options: IModelJsLoadOptions): Promise<void> 
     thirdPartyRootPromise = ScriptLoader.loadPackagesParallel(["lodash", "react", "redux"], options);
 
   // load the lowest level stuff. geometry-core doesn't depend on bentleyjs-core, so they can be loaded together.
-  await ScriptLoader.loadPackagesParallel(["bentleyjs-core", "geometry-core"], options);
+  await ScriptLoader.loadPackage(options.prefixVersion("bentleyjs-core"));
+  await ScriptLoader.loadPackage(options.prefixVersion("geometry-core"));
   await ScriptLoader.loadPackage(options.prefixVersion("imodeljs-i18n"));
   await ScriptLoader.loadPackage(options.prefixVersion("imodeljs-clients"));
   await ScriptLoader.loadPackage(options.prefixVersion("imodeljs-common"));
   await ScriptLoader.loadPackage(options.prefixVersion("imodeljs-quantity"));
+  await ScriptLoader.loadPackage(options.prefixVersion("ui-abstract"));
   await ScriptLoader.loadPackage(options.prefixVersion("imodeljs-frontend"));
   if (options.loadMarkup)
     await ScriptLoader.loadPackage(options.prefixVersion("imodeljs-markup"));
+
+  if (options.loadFrontendDevTools)
+    await ScriptLoader.loadPackage(options.prefixVersion("frontend-devtools"));
+
   if (options.loadUiComponents) {
     await thirdPartyRootPromise;
     // load the rest of the third party modules that depend on react and redux.

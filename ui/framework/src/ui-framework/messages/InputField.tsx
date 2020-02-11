@@ -1,16 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Notification */
+/** @packageDocumentation
+ * @module Notification
+ */
 
 import * as React from "react";
-import { Popup, Position } from "@bentley/ui-core";
-import { MessageManager, InputFieldMessageEventArgs } from "../messages/MessageManager";
+import classnames = require("classnames");
 import { OutputMessagePriority } from "@bentley/imodeljs-frontend";
+import { Popup, Position } from "@bentley/ui-core";
+
+import { MessageManager, InputFieldMessageEventArgs } from "../messages/MessageManager";
+import { MessageDiv } from "./MessageSpan";
 
 import "./InputField.scss";
-import { MessageDiv } from "./MessageSpan";
 
 /** Properties of [[InputFieldMessage]] component.
  * @beta
@@ -49,6 +53,19 @@ export class InputFieldMessage extends React.PureComponent<InputFieldMessageProp
       return null;
     }
 
+    let iconClassName = "";
+    switch (priority) {
+      case OutputMessagePriority.Warning:
+        iconClassName = "icon-status-warning";
+        break;
+      case OutputMessagePriority.Error:
+        iconClassName = "icon-status-error";
+        break;
+      case OutputMessagePriority.Info:
+        iconClassName = "icon-info";
+        break;
+    }
+
     return (
       <Popup
         isOpen={isVisible}
@@ -58,16 +75,16 @@ export class InputFieldMessage extends React.PureComponent<InputFieldMessageProp
         <div className="uifw-popup-message-inputField">
           <div className="uifw-popup-message-inputField-content">
             <div className="uifw-popup-message-inputField-primary">
-              {(priority === OutputMessagePriority.Warning) && <div className="icon icon-status-warning" />}
-              {(priority === OutputMessagePriority.Error) && <div className="icon icon-status-error" />}
-              {(priority === OutputMessagePriority.Info) && <div className="icon icon-info" />}
-              {
-                message && <MessageDiv className="uifw-popup-message-brief" message={message} />
+              {iconClassName &&
+                <span className="uifw-popup-message-icon"> <i className={classnames("icon", iconClassName)} /> </span>
               }
+              <span className="uifw-popup-message-text">
+                <MessageDiv className="uifw-popup-message-brief" message={message} />
+                {detailedMessage &&
+                  <MessageDiv className="uifw-popup-message-detailed" message={detailedMessage} />
+                }
+              </span>
             </div>
-            {
-              detailedMessage && <MessageDiv className="uifw-popup-message-detailed" message={detailedMessage} />
-            }
           </div>
           {showCloseButton && <div className="uifw-popup-message-close" onClick={this._onInputMessageClose}>
             <i className="icon icon-close" />
@@ -87,22 +104,20 @@ export class InputFieldMessage extends React.PureComponent<InputFieldMessageProp
   }
 
   private _onInputMessageClose = () => {
-    this.setState((_prevState) => ({ isVisible: false }));
+    this.setState({ isVisible: false });
   }
 
   private _handleInputFieldMessageAddedEvent = (args: InputFieldMessageEventArgs) => {
-    this.setState((_prevState) => ({
+    this.setState({
       inputFieldElement: args.target as HTMLElement,
       message: args.messageText,
       isVisible: true,
       priority: args.priority,
       detailedMessage: args.detailedMessage,
-    }));
+    });
   }
 
   private _handleInputFieldMessageRemovedEvent = () => {
-    this.setState((_prevState) => ({
-      isVisible: false,
-    }));
+    this.setState({ isVisible: false });
   }
 }

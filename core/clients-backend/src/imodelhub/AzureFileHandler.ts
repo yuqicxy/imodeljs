@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModelHub */
+/** @packageDocumentation
+ * @module iModelHub
+ */
 
 import { Logger } from "@bentley/bentleyjs-core";
 import { ArgumentCheck, AuthorizedClientRequestContext, FileHandler, ProgressInfo, request, RequestOptions, ResponseError } from "@bentley/imodeljs-clients";
@@ -12,9 +14,10 @@ import WriteStreamAtomic = require("fs-write-stream-atomic");
 import { AzCopy, ProgressEventArgs, StringEventArgs, InitEventArgs } from "../util/AzCopy";
 import * as fs from "fs";
 import * as https from "https";
+import * as http from "http";
 import * as path from "path";
 import * as os from "os";
-import { URL } from "url";
+import * as urllib from "url";
 
 const loggerCategory: string = ClientsBackendLoggerCategory.IModelHub;
 
@@ -203,7 +206,7 @@ export class AzureFileHandler implements FileHandler {
     }
 
     return new Promise((resolve, reject) => {
-      https.get(downloadUrl, ((res) => {
+      const downloadCallback = ((res: http.IncomingMessage) => {
         res.pipe(bufferedStream)
           .on("data", (chunk: any) => {
             bytesWritten += chunk.length;
@@ -216,11 +219,15 @@ export class AzureFileHandler implements FileHandler {
           .on("finish", () => {
             resolve();
           });
-      }))
-        .on("error", (error: any) => {
-          const parsedError = ResponseError.parse(error);
-          reject(parsedError);
-        });
+      });
+
+      const clientRequest = downloadUrl.startsWith("https:") ?
+        https.get(downloadUrl, downloadCallback) : http.get(downloadUrl, downloadCallback);
+
+      clientRequest.on("error", (error: any) => {
+        const parsedError = ResponseError.parse(error);
+        reject(parsedError);
+      });
     });
   }
   /**
@@ -228,10 +235,10 @@ export class AzureFileHandler implements FileHandler {
    * @param url input url that will be strip of search and query parameters and replace them by ... for security reason
    */
   private static getSafeUrlForLogging(url: string): string {
-    const safeToLogDownloadUrl: URL = new URL(url);
-    if (safeToLogDownloadUrl.search.length > 0)
+    const safeToLogDownloadUrl = urllib.parse(url);
+    if (safeToLogDownloadUrl.search && safeToLogDownloadUrl.search.length > 0)
       safeToLogDownloadUrl.search = "...";
-    if (safeToLogDownloadUrl.hash.length > 0)
+    if (safeToLogDownloadUrl.hash && safeToLogDownloadUrl.hash.length > 0)
       safeToLogDownloadUrl.hash = "...";
     return safeToLogDownloadUrl.toString();
   }
@@ -326,34 +333,38 @@ export class AzureFileHandler implements FileHandler {
     const file = fs.openSync(uploadFromPathname, "r");
     const chunkSize = 4 * 1024 * 1024;
 
-    let blockList = '<?xml version=\"1.0\" encoding=\"utf-8\"?><BlockList>';
-    let i = 0;
-    const callback = (progress: ProgressInfo) => {
-      const uploaded = i * chunkSize + progress.loaded;
-      progressCallback!({ loaded: uploaded, percent: uploaded / fileSize, total: fileSize });
-    };
-    for (; i * chunkSize < fileSize; ++i) {
-      await this.uploadChunk(requestContext, uploadUrlString, file, i, progressCallback ? callback : undefined);
-      blockList += `<Latest>${this.getBlockId(i)}</Latest>`;
+    try {
+      let blockList = '<?xml version=\"1.0\" encoding=\"utf-8\"?><BlockList>';
+      let i = 0;
+      const callback = (progress: ProgressInfo) => {
+        const uploaded = i * chunkSize + progress.loaded;
+        progressCallback!({ loaded: uploaded, percent: uploaded / fileSize, total: fileSize });
+      };
+      for (; i * chunkSize < fileSize; ++i) {
+        await this.uploadChunk(requestContext, uploadUrlString, file, i, progressCallback ? callback : undefined);
+        blockList += `<Latest>${this.getBlockId(i)}</Latest>`;
+      }
+      blockList += "</BlockList>";
+
+      const options: RequestOptions = {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/xml",
+          "Content-Length": blockList.length,
+        },
+        body: blockList,
+        agent: this.agent,
+        timeout: {
+          response: 5000,
+          deadline: 60000,
+        },
+      };
+
+      const uploadUrl = `${uploadUrlString}&comp=blocklist`;
+      await request(requestContext, uploadUrl, options);
+    } finally {
+      fs.closeSync(file);
     }
-    blockList += "</BlockList>";
-
-    const options: RequestOptions = {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/xml",
-        "Content-Length": blockList.length,
-      },
-      body: blockList,
-      agent: this.agent,
-      timeout: {
-        response: 5000,
-        deadline: 60000,
-      },
-    };
-
-    const uploadUrl = `${uploadUrlString}&comp=blocklist`;
-    await request(requestContext, uploadUrl, options);
   }
 
   /**

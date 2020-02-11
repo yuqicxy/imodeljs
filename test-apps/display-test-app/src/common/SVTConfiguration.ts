@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 /** Parameters for starting display-test-app with a specified initial configuration */
 export interface SVTConfiguration {
@@ -14,16 +14,16 @@ export interface SVTConfiguration {
   signInForStandalone?: boolean; // If true, and standalone is true, then sign in. Required when opening local files containing reality models.
   enableDiagnostics?: boolean; // If true, all RenderDiagnostics will be enabled (assertions, debug output, GL state checks).
   disabledExtensions?: string[]; // An array of names of WebGL extensions to be disabled
-  enableOptimizedSurfaceShaders?: boolean;
-  disableInstancing?: boolean;
-  disableActiveVolumeCulling?: boolean;
+  disableInstancing?: boolean; // default false
+  enableImprovedElision?: boolean; // default false
+  disableMagnification?: boolean;
   preserveShaderSourceCode?: boolean;
-  useProjectExtents?: boolean;
-  displaySolarShadows?: boolean; // default ON
+  useProjectExtents?: boolean; // default ON
   tileTreeExpirationSeconds?: number;
-}
-
-export interface ConnectProjectConfiguration {
-  projectName: string;
-  iModelName: string;
+  logarithmicZBuffer?: boolean; // default ON (if extension supported)
+  filterMapTextures?: boolean;  // default OFF
+  filterMapDrapeTextures?: boolean; // default ON (if extension supported)
+  useFakeCloudStorageTileCache?: boolean; // default OFF
+  dpiAwareViewports?: boolean; // default ON
+  cancelBackendTileRequests?: boolean; // default ON
 }

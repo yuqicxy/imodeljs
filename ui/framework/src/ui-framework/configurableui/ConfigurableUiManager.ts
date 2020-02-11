@@ -1,10 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ConfigurableUi */
+/** @packageDocumentation
+ * @module ConfigurableUi
+ */
 
-import { UiError } from "@bentley/ui-core";
+import { UiError } from "@bentley/ui-abstract";
 
 import { FrontstageDef } from "../frontstage/FrontstageDef";
 import { FrontstageManager } from "../frontstage/FrontstageManager";
@@ -29,9 +31,13 @@ import { ContentLayoutProps } from "../content/ContentLayoutProps";
  */
 export class ConfigurableUiManager {
   private static _registeredControls = new Map<string, ConfigurableUiControlConstructor>();
+  private static _initialized = false;
 
   /** Initializes the ConfigurableUiManager and registers core controls. */
   public static initialize() {
+    if (this._initialized)
+      return;
+
     // Register core controls
     ConfigurableUiManager.registerControl(StandardRotationNavigationAidControl.navigationAidId, StandardRotationNavigationAidControl);
     ConfigurableUiManager.registerControl(SheetNavigationAidControl.navigationAidId, SheetNavigationAidControl);
@@ -46,6 +52,8 @@ export class ConfigurableUiManager {
 
     // Initialize the ToolUiManager that manages Tool Settings properties.
     ToolUiManager.initialize();
+
+    this._initialized = true;
   }
 
   /** Registers a control implementing the [[ConfigurableUiElement]] interface.
@@ -54,7 +62,7 @@ export class ConfigurableUiManager {
    * [[NavigationAidControl]],
    * [[StatusBarWidgetControl]],
    * [[WidgetControl]] or
-   * [ToolUiProvider]($framework).
+   * [ToolUiProvider]($ui-framework).
    * @param classId the class id of the control to register
    * @param constructor the constructor of the control to register
    */
@@ -186,4 +194,12 @@ export class ConfigurableUiManager {
   public static loadKeyboardShortcuts(shortcutList: KeyboardShortcutProps[]): void {
     KeyboardShortcutManager.loadKeyboardShortcuts(shortcutList);
   }
+
+  /** Gets the HTML wrapper element for Configurable UI */
+  public static getWrapperElement(): HTMLElement {
+    const wrapper = document.getElementById("uifw-configurableui-wrapper");
+    const htmlElement = wrapper!;
+    return htmlElement;
+  }
+
 }

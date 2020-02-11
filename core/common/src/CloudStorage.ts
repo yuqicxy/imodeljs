@@ -1,18 +1,25 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module CloudStorage
+ */
+
 /** @beta */
 export enum CloudStorageProvider {
   Azure,
   Amazon,
   AliCloud,
+  External,
+  Unknown,
 }
 
 /** @beta */
 export interface CloudStorageContainerDescriptor {
   provider?: CloudStorageProvider;
   name: string;
+  resource?: string;
 }
 
 /** @beta */
@@ -23,6 +30,7 @@ export interface CloudStorageContainerUrl {
   url: string;
   method?: string;
   headers?: Record<string, string>;
+  bound?: boolean;
 }
 
 /** @beta */
@@ -41,8 +49,10 @@ export namespace CloudStorageContainerUrl {
 export abstract class CloudStorageCache<TContentId, TContentType> {
   private _containers: Map<string, CloudStorageContainerUrl>;
 
+  public provider: CloudStorageProvider = CloudStorageProvider.Unknown;
   public abstract formContainerName(id: TContentId): string;
   public abstract formResourceName(id: TContentId): string;
+  protected formContainerKey(id: TContentId): string { return this.formContainerName(id); }
   protected abstract obtainContainerUrl(id: TContentId, descriptor: CloudStorageContainerDescriptor): Promise<CloudStorageContainerUrl>;
   protected abstract instantiateResource(response: Response): Promise<TContentType | undefined>;
   protected supplyUrlBase(_container: CloudStorageContainerUrl, _id: TContentId): string | undefined { return undefined; }
@@ -76,7 +86,10 @@ export abstract class CloudStorageCache<TContentId, TContentType> {
 
   protected async requestResource(container: CloudStorageContainerUrl, id: TContentId): Promise<Response> {
     const url = new URL(container.url, this.supplyUrlBase(container, id));
-    url.pathname += `/${this.formResourceName(id)}`;
+
+    if (!container.bound) {
+      url.pathname += `/${this.formResourceName(id)}`;
+    }
 
     const init: RequestInit = {
       headers: container.headers,
@@ -91,29 +104,31 @@ export abstract class CloudStorageCache<TContentId, TContentType> {
   protected async getContainer(id: TContentId): Promise<CloudStorageContainerUrl> {
     const now = new Date().getTime();
     const name = this.formContainerName(id);
+    const resource = this.formResourceName(id);
+    const key = this.formContainerKey(id);
 
-    let container = this._containers.get(name);
+    let container = this._containers.get(key);
     if (container && container.url && (container.valid > now || container.expires < now)) {
       container = undefined;
-      this._containers.delete(name);
+      this._containers.delete(key);
     }
 
     if (!container) {
-      let request = this._pendingContainerRequests.get(name);
+      let request = this._pendingContainerRequests.get(key);
       if (!request) {
         request = new Promise(async (resolve, reject) => {
           try {
-            container = await this.obtainContainerUrl(id, { name });
-            this._containers.set(name, container);
-            this._pendingContainerRequests.delete(name);
+            container = await this.obtainContainerUrl(id, { name, resource });
+            this._containers.set(key, container);
+            this._pendingContainerRequests.delete(key);
             resolve(container);
           } catch (err) {
-            this._pendingContainerRequests.delete(name);
+            this._pendingContainerRequests.delete(key);
             reject(err);
           }
         });
 
-        this._pendingContainerRequests.set(name, request);
+        this._pendingContainerRequests.set(key, request);
       }
 
       return request;

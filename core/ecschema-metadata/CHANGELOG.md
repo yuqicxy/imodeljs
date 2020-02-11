@@ -1,6 +1,85 @@
 # Change Log - @bentley/ecschema-metadata
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Setting ECEnumeration property 'isStrict' to true if not present when parsing schema XML.
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Diagnostic is now a parameter in rule suppression functions
+- deprecating EC schema file locater classes (moved to ecschema-locaters package)
+- Adding SchemaReferenceDelta to allow reporting of schema reference version differences during schema comparison.
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Update sinon version.
+- Resolving an error in schema validation in ecschema-metadata
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Edited Schema.ts and all related .test.ts files to require a schema alias.
+- Bis-Rule Suppression Implementation
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Fix in Schema XML serialization to ensure type references include Schema alias, not Schema name.
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+### Updates
+
+- Updating ECSchema-Metadata docs to clarify that FormatOverrides return a fully qualified name for both name and fullname.  Update tests to make it clear as well
+- Add ability to get inherited custom attributes from base properties
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Fixing bug where format overrides which specified a unit but no label set the label to 'undefined'  #177676
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Add public method getCustomAttributes() and getCustomAttributesSync() to ECClass to recursively retrieve all custom attributes in the current class and its bases
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Fix bug with OverrideFormat names.  Remove the setter from KindOfQuantity for persistence format as that shouldn't be set by the public API.
+- Fix issues with KindOfQuantity serialization and deserialization to ECXml
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Add Xml serialization methods for Schema, SchemaItem and Property
+- Fixing XmlParser.getQualifiedTypeName() to be able to parse alias:ItemName correctly
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

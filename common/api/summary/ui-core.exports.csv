@@ -2,6 +2,14 @@ sep=;
 Release Tag;API Item
 internal;AnnularSector
 internal;Annulus
+alpha;AutoSuggest 
+alpha;AutoSuggestData
+alpha;AutoSuggestProps 
+internal;Badge 
+internal;BadgeProps 
+internal;BadgeUtilities
+internal;BetaBadge: React.FunctionComponent
+public;BlockText: React.FunctionComponent
 public;BodyText: React.FunctionComponent
 alpha;BoundsFunctionProp = number | (() => number | undefined)
 public;Button 
@@ -16,7 +24,7 @@ public;CheckBoxState
 beta;CheckListBox 
 beta;CheckListBoxItem 
 beta;CheckListBoxItemProps 
-beta;CheckListBoxSeparator: React.StatelessComponent
+beta;CheckListBoxSeparator: React.FunctionComponent
 internal;Circle
 public;ClassNameProps
 public;CommonDivProps 
@@ -29,6 +37,7 @@ public;ContextMenuItemProps
 public;ContextMenuProps 
 public;ContextSubMenu 
 public;ContextSubMenuProps 
+internal;Corner
 beta;Cube 
 internal;CubeFace 
 internal;CubeFaceProps 
@@ -42,6 +51,7 @@ public;DialogButtonType
 public;DialogProps 
 internal;Div 
 internal;DivProps 
+beta;DivWithOutsideClick:
 public;ElementSeparator 
 public;ElementSeparatorProps 
 public;ExecuteHandler = (this: void) => void
@@ -52,10 +62,19 @@ public;ExpandableListProps
 public;ExpansionToggle 
 public;ExpansionToggleProps 
 beta;Face
+alpha;FeaturedTile: React.FunctionComponent
+alpha;Field 
+alpha;FieldDef
+alpha;FieldDefinitions
+alpha;FieldEditor = "textbox" | "multilinetextbox" | "dropdown" | "checkbox"
+alpha;FieldValues
 public;FillCentered: React.FunctionComponent
 internal;flattenChildren: (children: React.ReactNode) => React.ReactNode
 public;FlexWrapContainer: React.FunctionComponent
 beta;FocusTrap 
+alpha;Form 
+alpha;FormContext: React.Context
+alpha;FormContextState 
 internal;getClassName: (obj: any) => string
 internal;getDisplayName: (component: React.ComponentType
 internal;getUserColor(email: string): string
@@ -66,10 +85,16 @@ public;GlobalDialogProps
 public;Headline: React.FunctionComponent
 public;HorizontalAlignment
 beta;HorizontalTabs 
-beta;HorizontalTabsProps 
+public;Icon: React.FunctionComponent
+alpha;IconInput 
+alpha;IconInputProps 
+public;IconProps
+public;IconSpec = string | React.ReactNode
 beta;ImageCheckBox 
 beta;ImageCheckBoxProps 
 public;Input 
+public;InputLabel 
+public;InputLabelProps 
 public;InputProps 
 public;InputStatus
 internal;isPromiseLike(obj: unknown): obj is PromiseLike
@@ -80,6 +105,8 @@ public;LabeledSelect
 public;LabeledSelectProps 
 public;LabeledTextarea 
 public;LabeledTextareaProps 
+public;LabeledToggle 
+public;LabeledToggleProps 
 public;LeadingText: React.FunctionComponent
 public;LeadingText2: React.FunctionComponent
 internal;Line
@@ -92,13 +119,17 @@ beta;LoadingSpinnerProps
 beta;LoadingStatus 
 beta;LoadingStatusProps 
 beta;LocalUiSettings 
+beta;MainTabsProps 
 public;MessageBox 
 public;MessageBoxProps 
 public;MessageContainer 
 public;MessageContainerProps 
 public;MessagedComponentProps
 public;MessageSeverity
+alpha;MinimalFeaturedTile: React.FunctionComponent
+alpha;MinimalTile: React.FunctionComponent
 public;MutedText: React.FunctionComponent
+internal;NewBadge: React.FunctionComponent
 beta;NoChildrenProps
 beta;NodeCheckboxProps
 beta;NodeCheckboxRenderer = (props: NodeCheckboxRenderProps) => React.ReactNode
@@ -109,7 +140,8 @@ alpha;NumericInputProps
 public;Omit
 beta;OmitChildrenProp
 public;Orientation
-internal;Point
+internal;Point 
+beta;PointProps
 beta;Popup 
 beta;PopupProps 
 beta;Position
@@ -122,6 +154,9 @@ public;RadioProps
 internal;ReactNumericInput 
 alpha;ReactNumericInputProps 
 internal;ReactStepFunctionProp = number | ((component: ReactNumericInput, direction: string) => number | undefined)
+internal;Rectangle 
+beta;RectangleProps
+alpha;ScrollPositionMaintainer 
 public;ScrollView: React.FunctionComponent
 public;SearchBox 
 public;SearchBoxProps 
@@ -129,6 +164,8 @@ public;Select
 public;SelectProps 
 beta;SessionUiSettings 
 internal;shallowDiffers: (a:
+internal;Size 
+beta;SizeProps
 public;SmallText: React.FunctionComponent
 public;SortDirection
 public;Spinner 
@@ -146,10 +183,15 @@ public;SvgPath
 public;SvgPathProps 
 public;SvgSprite 
 public;SvgSpriteProps 
+beta;Tabs 
+beta;TabsProps 
 public;Textarea 
 public;TextareaProps 
 public;TextProps 
 internal;TildeFinder
+alpha;Tile 
+internal;TileDefaultProps = Pick
+alpha;TileProps 
 public;TimeFormat
 public;Timer
 public;Title: React.FunctionComponent
@@ -166,14 +208,16 @@ public;TreeNodePlaceholderProps
 public;TreeNodeProps 
 public;TreeProps 
 public;UiCore
-public;UiError 
+public;UiError: typeof UiError_2
 public;UiEvent
 beta;UiSettings
 beta;UiSettingsResult
 beta;UiSettingsStatus
 public;UnderlinedButton(props: UnderlinedButtonProps): JSX.Element
 public;UnderlinedButtonProps
+alpha;useEffectSkipFirst(callback: () => (void | (() => void | undefined)) | void, deps?: any[]): void
 public;VerticalAlignment
+beta;VerticalTabs 
 public;WebFontIcon: React.FunctionComponent
 public;WebFontIconProps 
 public;withIsPressed: 

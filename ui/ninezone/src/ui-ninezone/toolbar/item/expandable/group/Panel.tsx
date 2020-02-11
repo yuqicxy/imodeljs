@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Toolbar */
+/** @packageDocumentation
+ * @module Toolbar
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
@@ -21,9 +23,11 @@ export interface PanelProps extends CommonProps {
  * @alpha
  */
 export class Panel extends React.PureComponent<PanelProps> {
+  private static _groupPanelClassName = "nz-toolbar-item-expandable-group-panel";
+
   public render() {
     const className = classnames(
-      "nz-toolbar-item-expandable-group-panel",
+      Panel._groupPanelClassName,
       this.props.className);
 
     return (
@@ -34,5 +38,12 @@ export class Panel extends React.PureComponent<PanelProps> {
         {this.props.children}
       </div>
     );
+  }
+
+  /** Determines if an expandable group panel is open.
+   * @deprecated
+   */
+  public static get isPanelOpen(): boolean {
+    return (document.getElementsByClassName(Panel._groupPanelClassName).length > 0);
   }
 }

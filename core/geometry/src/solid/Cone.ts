@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Solid */
+/** @packageDocumentation
+ * @module Solid
+ */
 
 import { Point3d, Vector3d } from "../geometry3d/Point3dVector3d";
 import { Range3d } from "../geometry3d/Range";
@@ -30,6 +32,9 @@ import { Vector2d } from "../geometry3d/Point2dVector2d";
  * @public
  */
 export class Cone extends SolidPrimitive implements UVSurface, UVSurfaceIsoParametricDistance {
+  /** String name for schema properties */
+  public readonly solidPrimitiveType = "cone";
+
   private _localToWorld: Transform;       // Transform from local to global.
   private _radiusA: number;    // nominal radius at z=0.  skewed axes may make it an ellipse
   private _radiusB: number;    // radius at z=1.  skewed axes may make it an ellipse
@@ -238,7 +243,7 @@ export class Cone extends SolidPrimitive implements UVSurface, UVSurfaceIsoParam
  * * v = 1 is the top plane
  * * u = 0 to u = 1 wraps the angular range.
  */
-public uvFractionToPointAndTangents(uFraction: number, vFraction: number, result?: Plane3dByOriginAndVectors): Plane3dByOriginAndVectors {
+  public uvFractionToPointAndTangents(uFraction: number, vFraction: number, result?: Plane3dByOriginAndVectors): Plane3dByOriginAndVectors {
     const theta = uFraction * Math.PI * 2.0;
     const r = Geometry.interpolate(this._radiusA, vFraction, this._radiusB);
     const drdv = this._radiusB - this._radiusA;

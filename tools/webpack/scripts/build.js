@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
@@ -31,6 +31,12 @@ exports.builder = (yargs) =>
         type: "boolean",
         describe: "Use auto locate imodel.js config folder."
       }
+    })
+    .options({
+      "sourceMap": {
+        type: "boolean",
+        describe: "Create sourcemaps for each bundle."
+      }
     });
 
 exports.handler = async (argv) => {
@@ -38,10 +44,14 @@ exports.handler = async (argv) => {
     process.env.IMODELJS_USE_CONFIG_LOADER = "yes";
   }
 
+  if (!argv.sourceMap) {
+    process.env.DISABLE_SOURCE_MAPS = true;
+  }
+
   // Do this as the first thing so that any code reading it knows the right env.
   require("./utils/initialize")("production");
 
-  const buildTarget = argv.target
+  const buildTarget = argv.target;
 
   if ("electron" === buildTarget)
     process.env.ELECTRON_ENV = "production";
@@ -51,10 +61,7 @@ exports.handler = async (argv) => {
 
   const path = require("path");
   const fs = require("fs-extra");
-  const webpack = require("webpack");
   const checkRequiredFiles = require("react-dev-utils/checkRequiredFiles");
-  const formatWebpackMessages = require("react-dev-utils/formatWebpackMessages");
-  const printHostingInstructions = require("react-dev-utils/printHostingInstructions");
   const { measureFileSizesBeforeBuild, printFileSizesAfterBuild } = require("react-dev-utils/FileSizeReporter");
   const { buildFrontend, buildBackend, saveJsonStats } = require("./utils/webpackWrappers");
 
@@ -62,10 +69,10 @@ exports.handler = async (argv) => {
   let frontendConfig;
   let backendConfig;
   if (process.env.IOS_ENV) {
-    backendConfig = require("../config/ios.config.backend.dev")
+    backendConfig = require("../config/ios.config.backend.dev");
     frontendConfig = require("../config/ios.config.frontend.dev");
   } else {
-    backendConfig = require("../config/webpack.config.backend.prod")
+    backendConfig = require("../config/webpack.config.backend.prod");
     frontendConfig = require("../config/webpack.config.frontend.prod");
   }
 

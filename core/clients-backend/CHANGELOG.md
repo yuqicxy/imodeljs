@@ -1,6 +1,83 @@
 # Change Log - @bentley/imodeljs-clients-backend
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Add localhost file handler
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Setup OidcDesktopClient for Electron use cases. 
+- Switched to electron version 6.1.5 from 7.1.2
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Fix buffering tests for iModelBank
+- Added missing topic descriptions
+- Update to allow Node 12
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Update https-proxy-agent to 3.x for security issues
+- Added Basic authentication for iModelBank
+- fixed ios azure downloader
+- Resurrected the old way of doing agent registrations
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+*Version update only*
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Setup OidcAgentClient to implement IAuthorizationClient
+- Bug 173765: Fixed the iModelHub client to properly dispose a file handle after upload to the iModelHub. 
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Allow to create baseline Named Version
+- Setup OidcAgentClient to implement IAuthorizationClient
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Added application data querying for iModelHub Briefcases and ChangeSets
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Various OIDC related fixes - Bugs: 148507, 148508, Product Backlog Items: 148510, 148517, 148522.
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

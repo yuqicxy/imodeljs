@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
@@ -23,7 +23,7 @@ exports.builder = (yargs) =>
     });
 
 exports.handler = async (argv) => {
-
+  console.warn("WARNING: The test-e2e script is deprecated!");
   // Do this as the first thing so that any code reading it knows the right env.
   require("./utils/initialize")("test-e2e");
   const path = require("path");
@@ -48,7 +48,7 @@ exports.handler = async (argv) => {
     require.resolve("webdriverio/bin/wdio"),
     require.resolve(`../config/wdio/wdio.config.${argv.type}`)
   ];
-  spawn("node", wdioArgs).then((code) =>  process.exit(code));
+  spawn("node", wdioArgs).then((code) => process.exit(code));
 
   handleInterrupts();
 };

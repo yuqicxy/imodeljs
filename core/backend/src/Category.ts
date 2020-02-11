@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Categories */
+/** @packageDocumentation
+ * @module Categories
+ */
 
 import { Id64, Id64String, JsonUtils } from "@bentley/bentleyjs-core";
 import { BisCodeSpec, CategoryProps, Code, CodeScopeProps, CodeSpec, ElementProps, Rank, SubCategoryAppearance, SubCategoryProps } from "@bentley/imodeljs-common";
@@ -30,7 +32,7 @@ export class SubCategory extends DefinitionElement implements SubCategoryProps {
 
   /** @internal */
   public toJSON(): SubCategoryProps {
-    const val = super.toJSON();
+    const val = super.toJSON() as SubCategoryProps;
     val.appearance = this.appearance.toJSON();
     if (this.description && this.description.length > 0)
       val.description = this.description;
@@ -108,7 +110,7 @@ export class Category extends DefinitionElement implements CategoryProps {
 
   /** @internal */
   public toJSON(): CategoryProps {
-    const val = super.toJSON();
+    const val = super.toJSON() as CategoryProps;
     val.rank = this.rank;
     if (this.description && this.description.length > 0)
       val.description = this.description;

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 "use strict";
@@ -79,7 +79,7 @@ const opts = {
     fgrep: yargs.argv.fgrep,
     invert: yargs.argv.invert,
   }
-}
+};
 
 const configFilePath = path.resolve(process.cwd(), yargs.argv.config);
 let config;

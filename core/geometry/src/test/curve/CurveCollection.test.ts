@@ -1,17 +1,26 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { Sample } from "../../serialization/GeometrySamples";
-import { CurveCollection } from "../../curve/CurveCollection";
-import { Point3d } from "../../geometry3d/Point3dVector3d";
+import { CurveCollection, ConsolidateAdjacentCurvePrimitivesOptions } from "../../curve/CurveCollection";
+import { Point3d, Vector3d } from "../../geometry3d/Point3dVector3d";
 import { Transform } from "../../geometry3d/Transform";
 import { Checker } from "../Checker";
 import { expect } from "chai";
 import { Range3d } from "../../geometry3d/Range";
-// import { prettyPrint } from "./testFunctions";
-// import { CurveLocationDetail } from "../curve/CurvePrimitive";
+import { Loop } from "../../curve/Loop";
+import { Path } from "../../curve/Path";
+import { LineSegment3d } from "../../curve/LineSegment3d";
+import { LineString3d } from "../../curve/LineString3d";
+import { GeometryCoreTestIO } from "../GeometryCoreTestIO";
+import { GeometryQuery } from "../../curve/GeometryQuery";
+import { CurvePrimitive } from "../../curve/CurvePrimitive";
+import { CurveFactory } from "../../curve/CurveFactory";
+import { RegionOps } from "../../curve/RegionOps";
+import { BezierCurve3d } from "../../bspline/BezierCurve3d";
+import { Arc3d } from "../../curve/Arc3d";
 /* tslint:disable:no-console */
 
 function verifyCurveCollection(ck: Checker, collection: CurveCollection) {
@@ -50,7 +59,7 @@ function verifyCurveCollection(ck: Checker, collection: CurveCollection) {
 
   if (path3) {
     const length3 = path3.sumLengths();
-    ck.testCoordinate(length1, length3, "length of clone(transfom), transformInPlace");
+    ck.testCoordinate(length1, length3, "length of clone(transform), transformInPlace");
     const path5 = collection.cloneTransformed(scaleTransform)!;
     path5.sumLengths();
 
@@ -70,7 +79,7 @@ function verifyCurveCollection(ck: Checker, collection: CurveCollection) {
     let i = 0;
     for (const child of collection.children) {
       const child1 = collection.getChild(i++);
-      ck.testTrue(child === child1, "collection.getChild matcehs iterator ");
+      ck.testTrue(child === child1, "collection.getChild matches iterator ");
     }
   }
 
@@ -100,4 +109,189 @@ describe("CurveCollection", () => {
     ck.checkpoint("CurveCollection.hasNonLinearPrimitives");
     expect(ck.getNumErrors()).equals(0);
   });
+  it("CyclicIndex", () => {
+    const ck = new Checker();
+    const loop = Loop.create();
+    ck.testUndefined(loop.cyclicCurvePrimitive(0), "cyclicCurvePrimitive returns undefined in empty loop");
+    const path = Path.create();
+    ck.testUndefined(path.cyclicCurvePrimitive(0), "cyclicCurvePrimitive returns undefined in empty path");
+    const line = LineSegment3d.createXYZXYZ(1, 2, 3, 6, 2, 3);
+    const linestring = LineString3d.create([[6, 2, 3], [5, 3, 9], [1, 2, 3]]);
+    loop.tryAddChild(line);
+    loop.tryAddChild(linestring);
+    path.tryAddChild(line);
+    path.tryAddChild(linestring);
+
+    ck.testPointer(loop.cyclicCurvePrimitive(0), "cyclicCurvePrimitive in singleton loop");
+    ck.testPointer(path.cyclicCurvePrimitive(0), "cyclicCurvePrimitive in singleton path");
+    for (const g of [loop, path]) {
+      const n = g.children.length;
+      for (let k = 0; k < n; k++) {
+        const c0 = g.cyclicCurvePrimitive(k);
+        for (let i = -2; i < 4; i++) {
+          ck.testTrue(loop.cyclicCurvePrimitive(k + i * n) === c0, "cyclicCurvePrimitive ");
+        }
+      }
+    }
+    expect(ck.getNumErrors()).equals(0);
+  });
 });
+
+describe("ConsolidateAdjacentPrimitives", () => {
+
+  it("Lines", () => {
+    const ck = new Checker();
+    const allGeometry: GeometryQuery[] = [];
+    let x0 = 0.0;
+    const xStep = 5.0;
+    const yStep = 5.0;
+    const y0 = 0.0;
+    for (const originalPoints of [Sample.createStar(0, 0, 0, 3, 1, 40, false), Sample.createStar(0, 0, 0, 1, Math.sqrt(2), 4, false)]) {
+      const path0 = Path.create();
+      let i0 = 0;
+      for (const edgesInBlock of [2, 5, 1, 9]) {
+        if (i0 + edgesInBlock >= originalPoints.length)
+          break;
+        if (edgesInBlock === 1) {
+          path0.children.push(LineSegment3d.create(originalPoints[i0], originalPoints[i0 + 1]));
+          i0 += 1;
+        } else {
+          const linestring = LineString3d.create();
+          for (let i = i0; i < i0 + edgesInBlock + 1; i++) {
+            linestring.addPoint(originalPoints[i]);
+          }
+          path0.children.push(linestring);
+          i0 += edgesInBlock;
+        }
+        x0 += xStep;
+      }
+      GeometryCoreTestIO.captureCloneGeometry(allGeometry, path0, x0, y0);
+      markLimits(allGeometry, path0.collectCurvePrimitives(), 0.01, 0.03, 0.01, x0, y0);
+      RegionOps.consolidateAdjacentPrimitives(path0);
+      GeometryCoreTestIO.captureCloneGeometry(allGeometry, path0, x0, y0 + yStep);
+      ck.testExactNumber(1, path0.children.length, "full consolidation");
+      markLimits(allGeometry, path0.collectCurvePrimitives(), 0.01, 0.03, 0.01, x0, y0 + yStep);
+    }
+    GeometryCoreTestIO.saveGeometry(allGeometry, "ConsolidateAdjacentPrimitives", "Lines");
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("FilletsInLinestring", () => {
+    const ck = new Checker();
+    const allGeometry: GeometryQuery[] = [];
+    let x0 = 0.0;
+    const points = [Point3d.create(0, 0, 0), Point3d.create(2, 0, 0), Point3d.create(2, 3, 1), Point3d.create(4, 3, 1), Point3d.create(6, 2, 1)];
+    const lineString0 = LineString3d.create(points);
+    points.reverse();
+    const lineString1 = LineString3d.create(points);
+    for (const filletRadius of [0.2, 0.4, 0.6, 1.2, 2.0, 4.0]) {
+      let y0 = 0.0;
+      for (const lineString of [lineString0, lineString1]) {
+        const chain0 = CurveFactory.createFilletsInLineString(lineString, filletRadius, false)!;
+        GeometryCoreTestIO.captureCloneGeometry(allGeometry, chain0, x0, y0);
+        y0 += 8.0;
+      }
+      x0 += 20.0;
+    }
+    GeometryCoreTestIO.saveGeometry(allGeometry, "ConsolidateAdjacentPrimitives", "FilletsInLineString");
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("LinesAndArcs", () => {
+    const ck = new Checker();
+    const allGeometry: GeometryQuery[] = [];
+    ck.testUndefined(CurveFactory.createFilletsInLineString([Point3d.create(0, 0, 0)], 0.2, false));
+    let x0 = 0.0;
+    const y0 = 0.0;
+    const points = [Point3d.create(0, 0, 0), Point3d.create(2, 0, 0), Point3d.create(2, 3, 1), Point3d.create(4, 3, 1), Point3d.create(6, 2, 1)];
+    const tail = points[points.length - 1];
+    const chain0 = CurveFactory.createFilletsInLineString(points, 0.2, false)!;
+    GeometryCoreTestIO.captureCloneGeometry(allGeometry, chain0, x0, y0);
+    x0 += 10;
+    chain0.tryAddChild(BezierCurve3d.create([tail,
+      tail.plus(Vector3d.create(1, 1, 0)),
+      tail.plus(Vector3d.create(2, 0, -1)),
+      tail.plus(Vector3d.create(-2, 3, 0))]));
+    const chain1 = Path.create();
+    const breakFractionRadius = 0.4;
+    let radians = 0.3;
+    for (const c of chain0.children) {
+      radians += 0.25;
+      const breakFraction = 0.5 + Math.cos(radians) * breakFractionRadius;
+      chain1.tryAddChild(c.clonePartialCurve(0.0, breakFraction));
+      chain1.tryAddChild(c.clonePartialCurve(breakFraction, 1.0));
+    }
+    GeometryCoreTestIO.captureCloneGeometry(allGeometry, chain1, x0, y0);
+    markLimits(allGeometry, chain1.collectCurvePrimitives(), 0.01, 0.03, 0.01, x0, y0);
+    x0 += 20.0;
+    for (const optionBits of [0, 1, 2, 3]) {
+      const options = new ConsolidateAdjacentCurvePrimitivesOptions();
+      let dx = 0;
+      let dy = 0;
+      options.consolidateLinearGeometry = false;
+      options.consolidateCompatibleArcs = false;
+      if ((optionBits & 0x01) !== 0) {
+        dx = 10;
+        options.consolidateLinearGeometry = true;
+      }
+      if ((optionBits & 0x02) !== 0) {
+        dy = 10;
+        options.consolidateCompatibleArcs = true;
+      }
+      const chainA = chain1.clone()!;
+      RegionOps.consolidateAdjacentPrimitives(chainA, options);
+      GeometryCoreTestIO.captureCloneGeometry(allGeometry, chainA, x0 + dx, y0 + dy);
+      markLimits(allGeometry, chainA.collectCurvePrimitives(), 0.01, 0.03, 0.01, x0 + dx, y0 + dy);
+      ck.testCoordinate(chain0.sumLengths(), chainA.sumLengths(), " compressed length with ", options);
+    }
+
+    GeometryCoreTestIO.saveGeometry(allGeometry, "ConsolidateAdjacentPrimitives", "LinesAndArcs");
+    expect(ck.getNumErrors()).equals(0);
+  });
+  it("Misc", () => {
+    const ck = new Checker();
+    const unitCircle = Arc3d.createUnitCircle();
+    const loop0 = Loop.create(unitCircle);
+    const loop1 = Loop.create(unitCircle.clonePartialCurve(0, 0.25)!, unitCircle.clonePartialCurve(0.25, 1.0)!);
+
+    RegionOps.consolidateAdjacentPrimitives(loop0);
+    RegionOps.consolidateAdjacentPrimitives(loop1);
+    ck.testExactNumber(1, loop0.children.length);
+    ck.testExactNumber(1, loop1.children.length);
+
+    const arc1 = Arc3d.createCircularStartMiddleEnd(Point3d.create(0, 0, 0), Point3d.create(1, 1, 0), Point3d.create(0, 2, 0))!;
+    const arc2 = Arc3d.createCircularStartMiddleEnd(arc1.endPoint(), Point3d.create(1, 3, 0), Point3d.create(2, 2, 0))!;
+    const arcArcPath = Path.create(arc1, arc2);
+    RegionOps.consolidateAdjacentPrimitives(arcArcPath);
+    ck.testExactNumber(2, arcArcPath.children.length, " arcs with cusp are not consolidated");
+
+    const zero = Point3d.create(0, 0, 0);
+    const singlePointPathA = Path.create(LineString3d.createPoints([zero, zero, zero]));
+    RegionOps.consolidateAdjacentPrimitives(singlePointPathA);
+    ck.testExactNumber(1, singlePointPathA.children.length, "Single point path consolidates to stub");
+    singlePointPathA.tryAddChild(LineSegment3d.create(zero, zero));
+    RegionOps.consolidateAdjacentPrimitives(singlePointPathA);
+
+    ck.testExactNumber(1, singlePointPathA.children.length, "Single point path consolidates to stub");
+    const singlePointPathB = Path.create(LineString3d.create(Point3d.create(1, 1, 2)));
+    RegionOps.consolidateAdjacentPrimitives(singlePointPathB);
+    ck.testExactNumber(1, singlePointPathB.children.length, "Single point path consolidates to stub");
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+});
+/**
+ * Capture markers at shiftFraction and (1-shiftFraction) on each primitive of curves.
+ * @param allGeometry
+ * @param curves
+ * @param markerSize
+ * @param shiftFraction
+ * @param x0
+ * @param y0
+ */
+function markLimits(allGeometry: GeometryQuery[], primitives: CurvePrimitive[], shiftFraction: number, markerSize0: number, markerSize1: number, x0: number, y0: number) {
+  for (const p of primitives) {
+    GeometryCoreTestIO.createAndCaptureXYCircle(allGeometry, p.fractionToPoint(shiftFraction), markerSize0, x0, y0);
+    GeometryCoreTestIO.createAndCaptureXYCircle(allGeometry, p.fractionToPoint(1.0 - shiftFraction), markerSize1, x0, y0);
+  }
+}

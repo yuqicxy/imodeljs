@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { getDefaultZonesManagerProps, WidgetZoneIndex, DraggingWidgetProps, ZonesManagerProps } from "../../ui-ninezone";
+import { getDefaultZonesManagerProps, WidgetZoneId, ZonesManagerProps } from "../../ui-ninezone";
 import { getDefaultProps as getDefaultNestedStagePanelsProps } from "./NestedStagePanels.test";
 
 // tslint:disable: completed-docs
@@ -10,6 +10,80 @@ export namespace NineZoneManagerTestProps {
   export const defaultProps = {
     nested: getDefaultNestedStagePanelsProps(),
     zones: getDefaultZonesManagerProps(),
+  };
+
+  export const visibleWidget2 = {
+    ...defaultProps,
+    zones: {
+      ...defaultProps.zones,
+      zones: {
+        ...defaultProps.zones.zones,
+        2: {
+          ...defaultProps.zones.zones[2],
+          widgets: [
+            2 as WidgetZoneId,
+          ],
+        },
+      },
+    },
+  };
+
+  export const widget2and4InLeftPanelPane = {
+    ...defaultProps,
+    nested: {
+      ...defaultProps.nested,
+      panels: {
+        ...defaultProps.nested.panels,
+        0: {
+          ...defaultProps.nested.panels[0],
+          left: {
+            ...defaultProps.nested.panels[0].left,
+            panes: [
+              {
+                ...defaultProps.nested.panels[0].left.panes[0],
+                widgets: [2 as WidgetZoneId, 4 as WidgetZoneId],
+              },
+            ],
+          },
+        },
+      },
+    },
+    zones: {
+      ...defaultProps.zones,
+      widgets: {
+        ...defaultProps.zones.widgets,
+        2: {
+          ...defaultProps.zones.widgets[2],
+          tabIndex: 0,
+        },
+        4: {
+          ...defaultProps.zones.widgets[4],
+          tabIndex: -1,
+        },
+      },
+    },
+  };
+
+  export const widget2InLeftPanel = {
+    ...defaultProps,
+    nested: {
+      ...defaultProps.nested,
+      panels: {
+        ...defaultProps.nested.panels,
+        0: {
+          ...defaultProps.nested.panels[0],
+          left: {
+            ...defaultProps.nested.panels[0].left,
+            panes: [
+              {
+                ...defaultProps.nested.panels[0].left.panes[0],
+                widgets: [2 as WidgetZoneId],
+              },
+            ],
+          },
+        },
+      },
+    },
   };
 
   export const widget6InRightPanel = {
@@ -25,7 +99,7 @@ export namespace NineZoneManagerTestProps {
             panes: [
               {
                 ...defaultProps.nested.panels[0].right.panes[0],
-                widgets: [6 as WidgetZoneIndex],
+                widgets: [6 as WidgetZoneId],
               },
             ],
           },
@@ -73,7 +147,7 @@ export namespace NineZoneManagerTestProps {
             panes: [
               {
                 ...defaultProps.nested.panels[0].left.panes[0],
-                widgets: [6 as WidgetZoneIndex],
+                widgets: [6 as WidgetZoneId],
               },
             ],
           },
@@ -96,7 +170,7 @@ export namespace NineZoneManagerTestProps {
             panes: [
               {
                 ...defaultProps.nested.panels[0].top.panes[0],
-                widgets: [6 as WidgetZoneIndex],
+                widgets: [6 as WidgetZoneId],
               },
             ],
           },
@@ -119,7 +193,7 @@ export namespace NineZoneManagerTestProps {
             panes: [
               {
                 ...defaultProps.nested.panels[0].right.panes[0],
-                widgets: [6 as WidgetZoneIndex, 9 as WidgetZoneIndex],
+                widgets: [6 as WidgetZoneId, 9 as WidgetZoneId],
               },
             ],
           },
@@ -138,47 +212,58 @@ export namespace NineZoneManagerTestProps {
     },
   };
 
-  export const draggingWidget6 = {
+  export const draggedWidget6 = {
     ...defaultProps,
     zones: {
       ...defaultProps.zones,
-      draggingWidget: {
-        id: 6,
+      draggedWidget: {
+        id: 6 as WidgetZoneId,
         isUnmerge: false,
         lastPosition: {
           x: 0,
           y: 0,
         },
         tabIndex: 20,
-      } as DraggingWidgetProps,
-    },
-  };
-
-  export const draggingWidget4 = {
-    ...NineZoneManagerTestProps.draggingWidget6,
-    zones: {
-      ...NineZoneManagerTestProps.draggingWidget6.zones,
-      draggingWidget: {
-        ...NineZoneManagerTestProps.draggingWidget6.zones.draggingWidget,
-        id: 4 as WidgetZoneIndex,
       },
     },
   };
 
-  export const draggingWidget9WithWidget6InRightPanel = {
+  export const draggedWidget2 = {
+    ...NineZoneManagerTestProps.draggedWidget6,
+    zones: {
+      ...NineZoneManagerTestProps.draggedWidget6.zones,
+      draggedWidget: {
+        ...NineZoneManagerTestProps.draggedWidget6.zones.draggedWidget,
+        id: 2 as WidgetZoneId,
+      },
+    },
+  };
+
+  export const draggedWidget4 = {
+    ...NineZoneManagerTestProps.draggedWidget6,
+    zones: {
+      ...NineZoneManagerTestProps.draggedWidget6.zones,
+      draggedWidget: {
+        ...NineZoneManagerTestProps.draggedWidget6.zones.draggedWidget,
+        id: 4 as WidgetZoneId,
+      },
+    },
+  };
+
+  export const draggedWidget9WithWidget6InRightPanel = {
     ...defaultProps,
     nested: widget6InRightPanel.nested,
     zones: {
       ...defaultProps.zones,
-      draggingWidget: {
-        id: 9,
+      draggedWidget: {
+        id: 9 as WidgetZoneId,
         isUnmerge: false,
         lastPosition: {
           x: 0,
           y: 0,
         },
         tabIndex: 20,
-      } as DraggingWidgetProps,
+      },
     },
   };
 }

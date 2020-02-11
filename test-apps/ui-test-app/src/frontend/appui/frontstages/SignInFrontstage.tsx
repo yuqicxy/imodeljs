@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import {
   CoreTools, ContentGroup, ContentControl, ConfigurableCreateInfo,
-  FrontstageProvider, FrontstageProps, Frontstage, SignIn,
+  FrontstageProvider, FrontstageProps, Frontstage, SignIn, UiFramework,
 } from "@bentley/ui-framework";
 import { SampleAppIModelApp } from "../../index";
 
@@ -13,7 +13,7 @@ class SignInControl extends ContentControl {
   constructor(info: ConfigurableCreateInfo, options: any) {
     super(info, options);
 
-    this.reactElement = <SignIn onOffline={this._onWorkOffline} onRegister={this._onRegister} onSignedIn={SampleAppIModelApp.onSignedIn} />;
+    this.reactElement = <SignIn oidcClient={UiFramework.oidcClient} onOffline={this._onWorkOffline} onRegister={this._onRegister} />;
   }
 
   // user chose to work offline from the sign in page
@@ -22,7 +22,7 @@ class SignInControl extends ContentControl {
   }
 
   private _onRegister = () => {
-    window.open("https://imodeljs.github.io/iModelJs-docs-output/getting-started/#developer-registration", "_blank");
+    window.open("https://www.imodeljs.org/getting-started/#developer-registration", "_blank");
   }
 }
 

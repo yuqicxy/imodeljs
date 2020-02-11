@@ -1,11 +1,27 @@
 sep=;
 Release Tag;API Item
+internal;A3xTile
+internal;A3xTileIO
 internal;AccuDraw
+internal;AccuDrawChangeModeTool 
 internal;AccudrawData
 internal;AccuDrawFlags
 beta;AccuDrawHintBuilder
+internal;AccuDrawRotateAxesTool 
+internal;AccuDrawRotateCycleTool 
+internal;AccuDrawRotateElementTool 
+internal;AccuDrawRotateFrontTool 
+internal;AccuDrawRotateSideTool 
+internal;AccuDrawRotateTopTool 
+internal;AccuDrawRotateViewTool 
+internal;AccuDrawSetLockAngleTool 
+internal;AccuDrawSetLockDistanceTool 
+internal;AccuDrawSetLockSmartTool 
+internal;AccuDrawSetLockXTool 
+internal;AccuDrawSetLockYTool 
+internal;AccuDrawSetLockZTool 
+internal;AccuDrawSetOriginTool 
 alpha;AccuDrawShortcuts
-internal;class AccuDrawTool
 public;AccuSnap 
 public;AccuSnap
 public;ACSDisplayOptions
@@ -13,9 +29,11 @@ public;ACSType
 alpha;ActiveClipStatus
 public;ActivityMessageDetails
 public;ActivityMessageEndReason
+beta;AngleDescription 
 internal;AnimationBranchState
 internal;AnimationBranchStates = Map
-internal;AppearanceOverrideProps
+beta;Animator
+beta;AppearanceOverrideProps
 beta;ArrayValue 
 internal;Attachments
 public;AuthorizedFrontendRequestContext 
@@ -24,8 +42,10 @@ public;AuxCoordSystem3dState
 public;AuxCoordSystemSpatialState 
 public;class AuxCoordSystemState 
 internal;BackgroundMapTileTreeReference 
+internal;BackgroundTerrainTileTreeReference 
 beta;BasePropertyEditorParams
 beta;BasePropertyValue
+beta;class BaseQuantityDescription 
 internal;BatchedTileIdMap
 public;BeButton
 public;BeButtonEvent 
@@ -37,8 +57,7 @@ public;BeTouchEventProps
 public;BeWheelEvent 
 public;BeWheelEventProps 
 internal;BingElevationProvider
-internal;bisectRange2d(range: Range3d, takeUpper: boolean): void
-internal;bisectRange3d(range: Range3d, takeUpper: boolean): void
+beta;BlankConnectionProps
 beta;ButtonGroupEditorParams 
 internal;CachedIModelCoordinatesResponseProps
 beta;calculateSolarAngles(date: Date, location: Cartographic):
@@ -54,34 +73,40 @@ beta;ChangeFlags
 public;ChangeViewedModel2dOptions
 alpha;CheckBoxIconsEditorParams 
 alpha;ClipEventType
-alpha;ClipOrientation
 beta;enum ClippingType
 internal;ClipResult
 internal;Clips
 public;Cluster
 beta;ColorEditorParams 
 internal;CompassMode
+internal;computeMercatorFractionToDb(iModel: IModelConnection, groundBias: number, tilingScheme: MapTilingScheme): Transform
 internal;ContextMode
 internal;ContextRealityModelState
+internal;class ContextTileLoader 
 alpha;ConversionData 
 public;CoordinateLockOverrides
 public;CoordSource
 public;CoordSystem
-internal;createClassifierTileTreeReference(classifiers: SpatialClassifiers, classifiedTree: TileTree.Reference, iModel: IModelConnection): TileTree.Reference
-internal;createTileTreeFromImageryProvider(imageryProvider: ImageryProvider, groundBias: number, applyTerrain: boolean, iModel: IModelConnection): Promise
+internal;CoreTools
+internal;createClassifierTileTreeReference(classifiers: SpatialClassifiers, classifiedTree: TileTreeReference, iModel: IModelConnection, source: ViewState | DisplayStyleState): SpatialClassifierTileTreeReference
+internal;createTileTreeFromImageryProvider(imageryProvider: ImageryProvider, groundBias: number, filterTextures: boolean, iModel: IModelConnection): Promise
 internal;CurrentInputState
 internal;CurrentState
 beta;CustomFormattedNumberParams 
 public;DecorateContext 
-alpha;DecorationAnimator 
 public;Decorations 
 public;Decorator
 internal;DefaultViewTouchTool 
+internal;DefineACSByElementTool 
+internal;DefineACSByPointsTool 
+alpha;DepthPointOptions
+alpha;DepthPointSource
 public;DepthRangeNpc
 internal;DevTools
 public;DisplayStyle2dState 
 public;DisplayStyle3dState 
 public;class DisplayStyleState 
+alpha;DrawClipOptions
 public;DrawingModelState 
 public;DrawingViewState 
 public;DynamicsContext 
@@ -93,8 +118,9 @@ public;ElementPicker
 public;ElementState 
 internal;ElemMethod
 internal;ElemSource
-internal;EmphasizeElements 
-internal;EmphasizeElementsProps
+beta;EmphasizeElements 
+beta;EmphasizeElementsProps
+beta;EngineeringLengthDescription 
 public;EntityState 
 beta;EnumerationChoice
 beta;EnumerationChoicesInfo
@@ -102,21 +128,20 @@ public;Environment
 internal;ErrorNums
 public;EventController
 public;EventHandled
+internal;EventSourceOptions
 public;ExtentLimits
 public;extractImageSourceDimensions(source: ImageSource): Promise
 public;FeatureOverrideProvider
-internal;FeatureOverrideType
+beta;FeatureOverrideType
 public;FeatureSymbology
+internal;FeatureToggleClient
 alpha;findAvailableRealityModels(projectid: string, modelCartographicRange?: CartographicRange | undefined): Promise
 alpha;findAvailableUnattachedRealityModels(projectid: string, iModel?: IModelConnection, modelCartographicRange?: CartographicRange | undefined): Promise
 public;FitViewTool 
 internal;Flags
 public;FlyViewTool 
-internal;fromSumOf(p: Point3d, v: Vector3d, scale: number, out?: Point3d): Point3d
 public;FrontendLoggerCategory
 public;FrontendRequestContext 
-internal;FrustumUniforms
-internal;enum FrustumUniformType
 public;FuzzySearch
 public;FuzzySearchResult
 public;FuzzySearchResults
@@ -125,9 +150,19 @@ public;GeometricModel2dState
 public;GeometricModel3dState 
 public;class GeometricModelState 
 internal;GeoServices
+beta;getCenteredViewRect(viewRect: ViewRect, aspectRatio?: number): ViewRect
+internal;getCesiumWorldTerrainLoader(iModel: IModelConnection, modelId: Id64String, groundBias: number, heightRange: Range1d, wantSkirts: boolean): Promise
+beta;getCompressedJpegFromCanvas(canvas: HTMLCanvasElement, maxBytes?: number, minCompressionQuality?: number): string | undefined
+internal;getGcsConverterAvailable(iModel: IModelConnection): Promise
 public;getImageSourceFormatForMimeType(mimeType: string): ImageSourceFormat | undefined
 public;getImageSourceMimeType(format: ImageSourceFormat): string
+internal;class GltfReader
+internal;GltfReaderProps
+internal;GltfReaderResult 
+internal;GLTimerResult
+internal;GLTimerResultCallback = (result: GLTimerResult) => void
 public;GraphicBranch 
+internal;GraphicBranchOptions
 public;class GraphicBuilder
 public;GraphicList = RenderGraphic[]
 public;GraphicType
@@ -146,20 +181,23 @@ public;HitPriority
 public;HitSource
 beta;IconDefinition
 alpha;IconEditorParams 
+beta;IconListEditorParams 
 public;IconSprites
 public;IdleTool 
-public;imageBufferToBase64EncodedPng(buffer: ImageBuffer): string | undefined
-public;imageBufferToCanvas(buffer: ImageBuffer): HTMLCanvasElement | undefined
-public;imageBufferToPngDataUrl(buffer: ImageBuffer): string | undefined
+public;imageBufferToBase64EncodedPng(buffer: ImageBuffer, preserveAlpha?: boolean): string | undefined
+public;imageBufferToCanvas(buffer: ImageBuffer, preserveAlpha?: boolean): HTMLCanvasElement | undefined
+public;imageBufferToPngDataUrl(buffer: ImageBuffer, preserveAlpha?: boolean): string | undefined
 public;imageElementFromImageSource(source: ImageSource): Promise
 public;imageElementFromUrl(url: string): Promise
 internal;class ImageryProvider
 internal;class ImageryProviderEPSG3857 
+internal;ImdlReader 
 public;IModelApp
 public;IModelAppOptions
 public;IModelConnection 
 public;IModelConnection
 internal;Tiles
+internal;IModelTileLoader 
 public;class InputCollector 
 beta;InputEditorSizeParams 
 public;InputSource
@@ -169,16 +207,22 @@ public;IntersectDetail
 alpha;ItemField
 alpha;JsonEditorParams 
 internal;KeyinStatus
+beta;LengthDescription 
 internal;linePlaneIntersect(outP: Point3d, linePt: Point3d, lineNormal: Vector3d | undefined, planePt: Point3d, planeNormal: Vector3d, perpendicular: boolean): void
 beta;LinkElementsInfo
+internal;LoadSavedPluginsResult
+internal;LoadSavedPluginsStatus
 public;LocateAction
 public;LocateFilterStatus
 public;LocateOptions
 public;LocateResponse
 internal;LockedStates
+beta;LookAndMoveTool 
 public;LookViewTool 
 alpha;ManipulatorToolEvent
 internal;MapImageryTileTreeReference 
+internal;MapTileGeometryAttributionProvider
+internal;class MapTileLoaderBase 
 internal;class MapTileTreeReference 
 public;MarginPercent
 public;Marker 
@@ -187,12 +231,19 @@ public;MarkerImage = HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | I
 public;class MarkerSet
 public;MarkerTextAlign = "left" | "right" | "center" | "start" | "end"
 public;MarkerTextBaseline = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
+alpha;MeasureAreaByPointsTool 
+alpha;MeasureAreaTool 
 alpha;MeasureDistanceTool 
+alpha;class MeasureElementTool 
+alpha;MeasureLengthTool 
 alpha;MeasureLocationTool 
+alpha;MeasureVolumeTool 
 public;MessageBoxIconType
 public;MessageBoxType
 public;MessageBoxValue
 internal;MockRender
+internal;ModalOptions
+internal;ModalReturn
 public;ModelSelectorState 
 public;ModelState 
 internal;ModifyElementSource
@@ -205,13 +256,14 @@ internal;NullTarget
 internal;OffScreenTarget 
 internal;OffScreenViewport 
 beta;OidcBrowserClient 
+internal;OidcBrowserSamlClient 
+alpha;OidcDesktopClientRenderer 
 internal;OnScreenTarget 
+beta;openImageDataUrlInNewWindow(url: string, title?: string): void
 public;OrthographicViewState 
 public;OutputMessageAlert
 public;OutputMessagePriority
 public;OutputMessageType
-internal;PackedFeature
-internal;PackedFeatureTable
 public;PanViewTool 
 beta;ParseResults
 internal;PerformanceMetrics
@@ -219,38 +271,41 @@ beta;PerModelCategoryVisibility
 public;PhysicalModelState 
 internal;PingTestResult
 beta;Pixel
-beta;PlanarClassifierMap = Map
-internal;PlanarClassifiers
-public;class Plugin
-public;PluginAdmin
+internal;PlanarClassifierMap = Map
+beta;class Plugin
+beta;PluginAdmin
+beta;PluginLoadResults = Plugin | undefined | string | string[]
 beta;Primitives
 public;class PrimitiveTool 
 beta;PrimitiveValue 
-internal;enum PrimitiveVisibility
+alpha;enum PrimitiveVisibility
 beta;PropertyDescription
 beta;PropertyEditorInfo
-beta;PropertyEditorParams = ButtonGroupEditorParams | ColorEditorParams | InputEditorSizeParams | SuppressLabelEditorParams | BasePropertyEditorParams | CustomFormattedNumberParams
+beta;PropertyEditorParams = BasePropertyEditorParams
 beta;PropertyEditorParamTypes
 beta;PropertyRecord
 beta;PropertyValue = PrimitiveValue | StructValue | ArrayValue
 beta;PropertyValueFormat
+internal;QuadId
 alpha;QuantityFormatter 
 beta;QuantityType
 alpha;RangeEditorParams 
 public;RelativePosition
-public;RemoveMe
 beta;class RenderClipVolume 
 public;RenderContext
 internal;enum RenderDiagnostics
 public;class RenderGraphic 
+public;class RenderGraphicOwner 
 internal;RenderMemory
 internal;RenderPlan
-beta;class RenderPlanarClassifier 
-internal;class RenderSolarShadowMap 
+internal;class RenderPlanarClassifier 
+internal;RenderScheduleState
 public;class RenderSystem 
 public;RenderSystem
 beta;Options
+beta;RenderSystemDebugControl
 internal;class RenderTarget 
+beta;RenderTargetDebugControl
 internal;class RenderTextureDrape 
 public;RotateViewTool 
 alpha;RotationMode
@@ -274,9 +329,11 @@ public;SelectionSetEventType
 public;SelectionTool 
 public;SelectRemoveEvent
 public;SelectReplaceEvent
+alpha;SetupCameraTool 
 internal;SheetBorder
 public;SheetModelState 
 public;SheetViewState 
+internal;ShouldAbortReadGltf = (reader: GltfReader) => boolean
 public;class SkyBox 
 public;SkyBox
 internal;SkyBoxParams = Promise
@@ -289,8 +346,11 @@ public;SnapHeat
 public;SnapMode
 public;SnapStatus
 beta;SpatialClassifiers
+internal;SpatialClassifiersContainer
+internal;class SpatialClassifierTileTreeReference 
 public;SpatialLocationModelState 
 public;SpatialModelState 
+internal;SpatialModelTileTrees
 public;SpatialViewState 
 public;Sprite
 public;SpriteLocation 
@@ -304,14 +364,14 @@ internal;SubCategoriesCache
 internal;SubCategoriesRequest
 beta;SuppressLabelEditorParams 
 alpha;SuppressUnitLabelEditorParams 
+beta;SurveyLengthDescription 
 internal;SuspendedToolState
-internal;SyncFlags
 internal;class Target 
 internal;TentativeOrAccuSnap
 public;TentativePoint
 internal;class TerrainProvider 
+internal;class TerrainTileLoaderBase 
 internal;TextureDrapeMap = Map
-internal;TextureDrapes
 internal;TextureImage
 internal;ThreeAxes
 internal;Tile 
@@ -321,12 +381,22 @@ alpha;TileAdmin
 internal;ViewportSet 
 internal;TiledGraphicsProvider
 internal;class TileLoader
+internal;TileRequest
+internal;TileRequest
 internal;TileTree 
 internal;TileTree
 internal;TileTreeDiscloser
+internal;class TileTreeReference 
 internal;TileTreeSet
 public;Tool
 public;ToolAdmin
+beta;ToolAssistance
+beta;ToolAssistanceImage
+beta;ToolAssistanceInputMethod
+beta;ToolAssistanceInstruction
+beta;ToolAssistanceInstructions
+beta;ToolAssistanceKeyboardInfo
+beta;ToolAssistanceSection
 public;ToolList = ToolType[]
 public;ToolRegistry
 public;ToolSettings
@@ -337,13 +407,18 @@ internal;ToolSettingsState
 beta;ToolSettingsValue 
 internal;ToolState
 public;ToolTipOptions
+internal;ToolTipProvider
 public;ToolType = typeof Tool
 internal;TouchCursor 
+internal;TraversalChildrenDetails
+internal;TraversalDetails
+internal;TraversalSelectionContext
 alpha;TwoWayViewportSync
 internal;UsesDragSelect
 internal;UsesFence
 internal;UsesSelection
-public;ViewChangeOptions
+public;ViewAnimationOptions
+public;ViewChangeOptions 
 alpha;ViewClipByElementTool 
 alpha;ViewClipByPlaneTool 
 alpha;ViewClipByRangeTool 
@@ -358,27 +433,34 @@ alpha;ViewClipPlanesModifyTool
 alpha;ViewClipSettingsProvider
 alpha;ViewClipShapeModifyTool 
 alpha;ViewClipTool 
-internal;ViewFrustum
 internal;ViewHandleArray
 internal;enum ViewHandleType
+internal;ViewingSpace
 internal;class ViewingToolHandle
 public;ViewManager
 public;class ViewManip 
 public;class Viewport 
-public;ViewportAnimator
+public;class ViewPose
+internal;ViewPose2d 
+internal;ViewPose3d 
 public;ViewRect
 public;ViewRedoTool 
 public;class ViewState 
 public;class ViewState2d 
 public;class ViewState3d 
-internal;class ViewStateUndo
 public;ViewStatus
 public;ViewToggleCameraTool 
 public;class ViewTool 
 beta;ViewUndoEvent
 public;ViewUndoTool 
 public;WalkViewTool 
-internal;WebGLExtensionName = "WEBGL_draw_buffers" | "OES_element_index_uint" | "OES_texture_float" | "OES_texture_half_float" | "WEBGL_depth_texture" | "EXT_color_buffer_float" | "EXT_shader_texture_lod" | "ANGLE_instanced_arrays"
+internal;WebGLExtensionName = "WEBGL_draw_buffers" | "OES_element_index_uint" | "OES_texture_float" | "OES_texture_float_linear" | "OES_texture_half_float" | "OES_texture_half_float_linear" | "EXT_texture_filter_anisotropic" | "WEBGL_depth_texture" | "EXT_color_buffer_float" | "EXT_shader_texture_lod" | "ANGLE_instanced_arrays" | "OES_vertex_array_object" | "WEBGL_lose_context" | "EXT_frag_depth" | "EXT_disjoint_timer_query"
+beta;WebGLFeature
+beta;WebGLRenderCompatibilityInfo
+beta;WebGLRenderCompatibilityStatus
+internal;WebMapTileLoader 
+internal;WebMapTileProps 
+internal;WebMapTileTreeProps 
 internal;WheelEventProcessor
 public;WindowAreaTool 
 public;ZoomToOptions

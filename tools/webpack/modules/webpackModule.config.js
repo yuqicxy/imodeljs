@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 // This script sets module.export to the proper value for webpacking one of our packages as a Universal Module Definition library.
@@ -25,7 +25,9 @@ const autoprefixer = require("autoprefixer");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
 // NOTE: This was set up to return an array of configs, one for target: "web" and one for target: "node", but the node target didn't work, so I dropped it.
-module.exports = (env) => { return getConfig(env); };
+module.exports = (env) => {
+  return getConfig(env);
+};
 
 function getExternalModuleVersionsFromPackage(externalModuleVersions, packageContents, sourceDir, nestedDir, externalList, plugin, depth) {
   // we need the dependents and peer dependents. We care only about those in externalList.
@@ -34,7 +36,7 @@ function getExternalModuleVersionsFromPackage(externalModuleVersions, packageCon
     dependentsAndPeerDependents = Object.getOwnPropertyNames(packageContents.dependencies);
   if (packageContents.peerDependencies)
     dependentsAndPeerDependents = dependentsAndPeerDependents.concat(Object.getOwnPropertyNames(packageContents.peerDependencies));
-  for (dependent of dependentsAndPeerDependents) {
+  for (const dependent of dependentsAndPeerDependents) {
     if (externalList[dependent]) {
       let packageName = dependent;
       if (dependent.startsWith("@bentley")) {
@@ -85,6 +87,8 @@ function addExternalCssFiles(externalVersions, styleSheets) {
     externalVersions["ui-ninezone.css"] = externalVersions["ui-ninezone"];
   if (externalVersions["ui-framework"])
     externalVersions["ui-framework.css"] = externalVersions["ui-framework"];
+  if (externalVersions["presentation-components"])
+    externalVersions["presentation-components.css"] = externalVersions["presentation-components"];
   if (styleSheets && externalVersions["main"])
     externalVersions["main.css"] = externalVersions["main"];
 }
@@ -121,7 +125,7 @@ function getConfig(env) {
     env.outdir = "./lib/module" + (env.prod ? "/prod" : "/dev");
 
   // get the directory for the bundle.
-  bundleDirectory = path.resolve(sourceDir, env.outdir);
+  const bundleDirectory = path.resolve(sourceDir, env.outdir);
 
   // the context directory (for looking up imports, etc.) is the original module source directory.
   const contextDirectory = path.resolve(sourceDir);
@@ -140,7 +144,7 @@ function getConfig(env) {
 
   // build the object for the webpack configuration
   const webpackLib = {
-    bail: true,                    // don't continue on error.
+    bail: true, // don't continue on error.
     context: contextDirectory,
     output: {
       path: bundleDirectory,
@@ -148,8 +152,8 @@ function getConfig(env) {
       library: dropDashes(bundleName),
       libraryTarget: 'umd',
       umdNamedDefine: true,
-      jsonpFunction: 'webpackJsonp',  // used only for web target
-      globalObject: 'this',           // used only for web target.
+      jsonpFunction: 'webpackJsonp', // used only for web target
+      globalObject: 'this', // used only for web target.
       devtoolModuleFilenameTemplate: "file:///[absolute-resource-path]"
     },
     target: env.webworker ? 'webworker' : 'web',
@@ -162,6 +166,8 @@ function getConfig(env) {
       '@bentley/imodeljs-quantity': 'imodeljs_quantity',
       '@bentley/imodeljs-frontend': 'imodeljs_frontend',
       '@bentley/imodeljs-markup': 'imodeljs_markup',
+      '@bentley/frontend-devtools': 'frontend_devtools',
+      '@bentley/ui-abstract': 'ui_abstract',
       '@bentley/ui-core': 'ui_core',
       '@bentley/ui-components': 'ui_components',
       '@bentley/ui-framework': 'ui_framework',
@@ -169,14 +175,54 @@ function getConfig(env) {
       '@bentley/presentation-common': 'presentation_common',
       '@bentley/presentation-components': 'presentation_components',
       '@bentley/presentation-frontend': 'presentation_frontend',
-      'react': { root: 'React', commonjs2: 'react', commonjs: 'react', amd: 'react' },
-      'react-dnd': { root: 'ReactDnD', commonjs2: 'react-dnd', commonjs: 'react-dnd', amd: 'react-dnd' },
-      'react-dnd-html5-backend': { root: 'ReactDnDHTML5Backend', commonjs2: 'react-dnd5-html-backend', commonjs: 'react-dnd5-html-backend', amd: 'react-dnd5-html-backend' },
-      'react-dom': { root: 'ReactDOM', commonjs2: 'react-dom', commonjs: 'react-dom', amd: 'react-dom' },
-      'react-redux': { root: 'ReactRedux', commonjs2: 'react-redux', commonjs: 'react-redux', amd: 'react-redux' },
-      'redux': { root: 'Redux', commonjs2: 'redux', commonjs: 'redux', amd: 'redux' },
-      'inspire-tree': { root: 'InspireTree', commonjs2: 'inspire-tree', commonjs: 'inspire-tree', amd: 'inspire-tree' },
-      'lodash': { root: '_', commonjs2: 'lodash', commonjs: 'lodash', amd: 'lodash' },
+      'react': {
+        root: 'React',
+        commonjs2: 'react',
+        commonjs: 'react',
+        amd: 'react'
+      },
+      'react-dnd': {
+        root: 'ReactDnD',
+        commonjs2: 'react-dnd',
+        commonjs: 'react-dnd',
+        amd: 'react-dnd'
+      },
+      'react-dnd-html5-backend': {
+        root: 'ReactDnDHTML5Backend',
+        commonjs2: 'react-dnd5-html-backend',
+        commonjs: 'react-dnd5-html-backend',
+        amd: 'react-dnd5-html-backend'
+      },
+      'react-dom': {
+        root: 'ReactDOM',
+        commonjs2: 'react-dom',
+        commonjs: 'react-dom',
+        amd: 'react-dom'
+      },
+      'react-redux': {
+        root: 'ReactRedux',
+        commonjs2: 'react-redux',
+        commonjs: 'react-redux',
+        amd: 'react-redux'
+      },
+      'redux': {
+        root: 'Redux',
+        commonjs2: 'redux',
+        commonjs: 'redux',
+        amd: 'redux'
+      },
+      'inspire-tree': {
+        root: 'InspireTree',
+        commonjs2: 'inspire-tree',
+        commonjs: 'inspire-tree',
+        amd: 'inspire-tree'
+      },
+      'lodash': {
+        root: '_',
+        commonjs2: 'lodash',
+        commonjs: 'lodash',
+        amd: 'lodash'
+      },
       'electron': 'commonjs electron',
     },
     optimization: {
@@ -197,9 +243,12 @@ function getConfig(env) {
   }
 
   // Set up for the DefinePlugin. We always want the BUILD_SEMVER to be available in the webpacked module, will add more definitions as needed.
-  definePluginDefinitions = { "BUILD_SEMVER": JSON.stringify(packageContents.version) };
+  const definePluginDefinitions = {
+    "BUILD_SEMVER": JSON.stringify(packageContents.version),
+    "BUILD_TYPE": JSON.stringify(devMode ? "dev" : "prod"),
+  };
 
-  webpackLib.entry = {}
+  webpackLib.entry = {};
   webpackLib.entry[bundleName] = bundleEntry;
   webpackLib.mode = devMode ? "development" : "production";
   webpackLib.devtool = devMode ? "cheap-module-source-map" : "source-map";
@@ -258,55 +307,38 @@ function getConfig(env) {
   // env.htmltemplate is passed to webpackModule.config.js only for applications that are creating an HtmlTemplate.
   // The reason for it is to set the version of the iModelJs modules that the application requires into index.html.
   // It gets that by reading the version of imodeljs-frontend listed in package.json.
-  if (env.htmltemplate || env.plugin) {
+  if (env.htmltemplate) {
     const externalModuleVersions = getExternalModuleVersions(sourceDir, packageContents, webpackLib.externals, env.plugin);
+    const externalModulesWithCssFiles = Object.assign(externalModuleVersions);
 
-    if (env.htmltemplate) {
-      const externalModulesWithCssFiles = Object.assign(externalModuleVersions);
+    if (env.prod)
+      addExternalCssFiles(externalModulesWithCssFiles, env.stylesheets);
 
-      if (env.prod)
-        addExternalCssFiles(externalModulesWithCssFiles, env.stylesheets);
+    const HtmlWebpackPlugin = require("html-webpack-plugin");
+    const versionString = JSON.stringify(externalModulesWithCssFiles);
+    const imjsLoaderVersion = externalModuleVersions["imodeljs-frontend"];
+    const runtimeVersion = packageContents.version;
+    webpackLib.plugins.push(new HtmlWebpackPlugin({
+      imjsVersions: versionString,
+      loaderVersion: imjsLoaderVersion,
+      runtimeVersion: runtimeVersion,
+      template: env.htmltemplate,
+      filename: "./index.html",
+      minify: "false",
+      chunks: [], // we don't want it to add any .js to the template, those are already in there.
+    }));
+  }
 
-      const HtmlWebpackPlugin = require("html-webpack-plugin");
-      const versionString = JSON.stringify(externalModulesWithCssFiles);
-      const imjsLoaderVersion = externalModuleVersions["imodeljs-frontend"];
-      const runtimeVersion = packageContents.version;
-      webpackLib.plugins.push(new HtmlWebpackPlugin({
-        imjsVersions: versionString,
-        loaderVersion: imjsLoaderVersion,
-        runtimeVersion: runtimeVersion,
-        template: env.htmltemplate,
-        filename: "./index.html",
-        minify: "false",
-        chunks: [],     // we don't want it to add any .js to the template, those are already in there.
-      }));
-    }
-
-    if (env.plugin) {
-      // correct the keys with something like 0.190.0-dev.8 to something like ">=0.190.0.dev-0" otherwise the semver matching is too strict.
-      for (const key in externalModuleVersions) {
-        if (externalModuleVersions.hasOwnProperty(key)) {
-          const moduleVersion = externalModuleVersions[key];
-          const dashPosition = moduleVersion.indexOf("-");
-          if (-1 !== dashPosition) {
-            const lastNumPosition = moduleVersion.lastIndexOf('.');
-            if ((-1 !== lastNumPosition) && (lastNumPosition > dashPosition)) {
-              externalModuleVersions[key] = ">=" + moduleVersion.slice(0, lastNumPosition + 1) + "0";
-            }
-          }
-        }
-      }
-
-      const versionString = JSON.stringify(externalModuleVersions);
-      definePluginDefinitions.IMODELJS_VERSIONS_REQUIRED = JSON.stringify(versionString);
-      definePluginDefinitions.PLUGIN_NAME = JSON.stringify(bundleName);
-    }
+  if (env.plugin) {
+    definePluginDefinitions.PLUGIN_NAME = JSON.stringify(bundleName);
   }
 
   // add the DefinePlugin.
   webpackLib.plugins.push(new webpack.DefinePlugin(definePluginDefinitions));
   let finalCssLoader;
-  if (!devMode) {
+  // note: plugins must still package the css into the .js file, because we don't know how to incorporate those css files into index.html to load them.
+  // TBD: We could potentially list the .css files in the plugin's manifest and then load those in the plugin loader.
+  if (!devMode && !env.plugin) {
     webpackLib.plugins.push(new MiniCssExtractPlugin({
       filename: "[name].css",
       chunkFileName: "[name].css",
@@ -324,13 +356,13 @@ function getConfig(env) {
           return (resourcePath.startsWith(context)) ? undefined : "../";
         }
       },
-    }
+    };
   } else {
     finalCssLoader = require.resolve("style-loader");
   }
   // if using style sheets (import "xxx.scss" lines in .ts or .tsx files), then we need the sass-loader
   if (env.stylesheets) {
-    cssRules = [{
+    const cssRules = [{
       test: /\.scss$/,
       use: {
         loader: require.resolve("fast-sass-loader"),
@@ -393,11 +425,28 @@ function getConfig(env) {
           }
         },
         {
+          test: [/\.svg$/],
+          issuer: {
+            include: /\.css$/
+          },
+          use: {
+            loader: require.resolve("url-loader"),
+            options: {
+              limit: 10000,
+              name: "static/media/[name].[hash:8].[ext]",
+            },
+          }
+        },
+        {
           test: /\.svg$/,
-          issuer: { exclude: /\.css$/ },
+          issuer: {
+            exclude: /\.css$/
+          },
           use: {
             loader: require.resolve("svg-sprite-loader"),
             options: {
+              // include file hash to ensure uniqueness even if same svg name
+              symbolId: "[name]-[hash:6]",
               runtimeCompat: true,
               spriteFilename: "sprite-[hash:6].svg"
             },
@@ -417,6 +466,10 @@ function getConfig(env) {
             loader: require.resolve("file-loader"),
             options: {
               name: "static/media/[name].[hash:8].[ext]",
+              // If the output is going into a version-based subFolder, then the url must have "../" prepended to it.
+              publicPath: (env.subFolder) ? (url, resourcePath, context) => {
+                return `../${url}`;
+              } : undefined,
             },
           }
         },

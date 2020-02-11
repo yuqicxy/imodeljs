@@ -1,13 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import "@bentley/icons-generic-webfont/dist/bentley-icons-generic-webfont.css";
 
 import {
   ConfigurableUiManager, FrontstageManager, WidgetState, ContentGroupProps,
-  TaskPropsList, WorkflowPropsList, ContentLayoutProps, UiFramework,
-  KeyboardShortcutProps, FunctionKey, CommandItemDef, KeyboardShortcutManager, WorkflowProps,
+  TaskPropsList, WorkflowPropsList, ContentLayoutProps, UiFramework, CoreTools,
+  KeyboardShortcutProps, FunctionKey, CommandItemDef, KeyboardShortcutManager, WorkflowProps, StatusBarItemsManager,
 } from "@bentley/ui-framework";
 
 /** Include application registered Controls in Webpack
@@ -38,6 +38,9 @@ import { SignInFrontstage } from "./frontstages/SignInFrontstage";
 import { IModelViewportControl } from "./contentviews/IModelViewport";
 import { ScheduleAnimationFrontstage } from "./frontstages/ScheduleAnimationFrontstage";
 import { AppTools } from "../tools/ToolSpecifications";
+import { AccuDrawPopupTools } from "../tools/AccuDrawPopupTools";
+import { AppStatusBarItemProvider } from "./statusbars/AppStatusBarItemProvider";
+import { SmallStatusBarItemProvider } from "./statusbars/SmallStatusBarItemProvider";
 
 /** Example Ui Configuration for an iModelJS App
  */
@@ -45,12 +48,23 @@ export class AppUi {
 
   public static initialize() {
     ConfigurableUiManager.initialize();
+    UiFramework.setDefaultRulesetId("Items");
 
     AppUi.defineFrontstages();
     AppUi.defineContentGroups();
     AppUi.defineContentLayouts();
     AppUi.defineTasksAndWorkflows();
     AppUi.defineKeyboardShortcuts();
+
+    const mainItemsManager = new StatusBarItemsManager();
+    const appStatusBarItemProvider = new AppStatusBarItemProvider();
+    mainItemsManager.add(appStatusBarItemProvider.statusBarItems);
+    UiFramework.statusBarManager.addItemsManager("main", mainItemsManager);
+
+    const smallItemsManager = new StatusBarItemsManager();
+    const smallStatusBarItemProvider = new SmallStatusBarItemProvider();
+    smallItemsManager.add(smallStatusBarItemProvider.statusBarItems);
+    UiFramework.statusBarManager.addItemsManager("small", smallItemsManager);
   }
 
   /** Define Frontstages
@@ -234,19 +248,20 @@ export class AppUi {
       id: "FourQuadrants",
       horizontalSplit: {
         percentage: 0.50,
-        top: { verticalSplit: { percentage: 0.50, left: 0, right: 1 } },
-        bottom: { verticalSplit: { percentage: 0.50, left: 2, right: 3 } },
+        minSizeTop: 100, minSizeBottom: 100,
+        top: { verticalSplit: { percentage: 0.50, left: 0, right: 1, minSizeLeft: 100, minSizeRight: 100 } },
+        bottom: { verticalSplit: { percentage: 0.50, left: 2, right: 3, minSizeLeft: 100, minSizeRight: 100 } },
       },
     };
 
     const twoHalvesVertical: ContentLayoutProps = {
       id: "TwoHalvesVertical",
-      verticalSplit: { percentage: 0.50, left: 0, right: 1 },
+      verticalSplit: { percentage: 0.50, left: 0, right: 1, minSizeLeft: 100, minSizeRight: 100 },
     };
 
     const twoHalvesHorizontal: ContentLayoutProps = {
       id: "TwoHalvesHorizontal",
-      horizontalSplit: { percentage: 0.50, top: 0, bottom: 1 },
+      horizontalSplit: { percentage: 0.50, top: 0, bottom: 1, minSizeTop: 100, minSizeBottom: 100 },
     };
 
     const singleContent: ContentLayoutProps = {
@@ -258,8 +273,9 @@ export class AppUi {
       verticalSplit: {
         id: "ThreeRightStacked.MainVertical",
         percentage: 0.50,
+        minSizeLeft: 100, minSizeRight: 100,
         left: 0,
-        right: { horizontalSplit: { percentage: 0.50, top: 1, bottom: 2 } },
+        right: { horizontalSplit: { percentage: 0.50, top: 1, bottom: 2, minSizeTop: 100, minSizeBottom: 100 } },
       },
     };
 
@@ -356,7 +372,37 @@ export class AppUi {
           },
           {
             key: "s",
-            item: AppTools.appSelectElementCommand,
+            item: CoreTools.selectElementCommand,
+          },
+        ],
+      },
+      {
+        key: "f",
+        item: AppTools.setLengthFormatImperialCommand,
+      },
+      {
+        key: "m",
+        labelKey: "SampleApp:buttons.accudrawSubMenu",
+        shortcuts: [
+          {
+            key: "a",
+            item: AccuDrawPopupTools.addMenuButton,
+          },
+          {
+            key: "h",
+            item: AccuDrawPopupTools.hideMenuButton,
+          },
+          {
+            key: "c",
+            item: AccuDrawPopupTools.showCalculator,
+          },
+          {
+            key: "m",
+            item: AccuDrawPopupTools.showContextMenu,
+          },
+          {
+            key: "t",
+            item: AccuDrawPopupTools.showToolbar,
           },
         ],
       },

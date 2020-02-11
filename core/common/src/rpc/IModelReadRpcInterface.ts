@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module RpcInterface */
+/** @packageDocumentation
+ * @module RpcInterface
+ */
 
 import { Id64String } from "@bentley/bentleyjs-core";
 import { Range3dProps } from "@bentley/geometry-core";
@@ -14,6 +16,8 @@ import { IModelTokenProps, IModelProps } from "../IModel";
 import { ModelProps } from "../ModelProps";
 import { ElementProps } from "../ElementProps";
 import { SnapRequestProps, SnapResponseProps } from "../Snapping";
+import { MassPropertiesRequestProps, MassPropertiesResponseProps } from "../MassProperties";
+import { GeometrySummaryRequestProps } from "../GeometrySummary";
 import { IModelCoordinatesResponseProps, GeoCoordinatesResponseProps } from "../GeoCoordinateServices";
 import { ViewStateProps } from "../ViewProps";
 import { QueryPriority, QueryResponse, QueryLimit, QueryQuota } from "../Paging";
@@ -38,7 +42,7 @@ export abstract class IModelReadRpcInterface extends RpcInterface {
   public static readonly interfaceName = "IModelReadRpcInterface";
 
   /** The semantic version of the interface. */
-  public static interfaceVersion = "1.0.0";
+  public static interfaceVersion = "1.1.0";
 
   /*===========================================================================================
     NOTE: Any add/remove/change to the methods below requires an update of the interface version.
@@ -65,7 +69,11 @@ export abstract class IModelReadRpcInterface extends RpcInterface {
   /** @beta */
   public async cancelSnap(_iModelToken: IModelTokenProps, _sessionId: string): Promise<void> { return this.forward(arguments); }
   /** @beta */
+  public async getMassProperties(_iModelToken: IModelTokenProps, _props: MassPropertiesRequestProps): Promise<MassPropertiesResponseProps> { return this.forward(arguments); }
+  /** @beta */
   public async getIModelCoordinatesFromGeoCoordinates(_iModelToken: IModelTokenProps, _props: string): Promise<IModelCoordinatesResponseProps> { return this.forward(arguments); }
   /** @beta */
   public async getGeoCoordinatesFromIModelCoordinates(_iModelToken: IModelTokenProps, _props: string): Promise<GeoCoordinatesResponseProps> { return this.forward(arguments); }
+  /** @alpha */
+  public async getGeometrySummary(_iModelToken: IModelTokenProps, _props: GeometrySummaryRequestProps): Promise<string> { return this.forward(arguments); }
 }

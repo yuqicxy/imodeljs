@@ -1,12 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module CartesianGeometry */
+/** @packageDocumentation
+ * @module CartesianGeometry
+ */
 import { Point3d, Vector3d } from "./Point3dVector3d";
-import { BeJSONFunctions, Geometry } from "../Geometry";
+import { BeJSONFunctions, Geometry, AxisOrder } from "../Geometry";
 import { Transform } from "./Transform";
+import { Ray3d } from "./Ray3d";
 /**
  * A Point3dVector3dVector3d is an origin and a pair of vectors.
  * This defines a plane with a (possibly skewed) uv coordinate grid
@@ -37,6 +40,11 @@ export class Plane3dByOriginAndVectors implements BeJSONFunctions {
     }
     return new Plane3dByOriginAndVectors(origin.clone(), vectorU.clone(), vectorV.clone());
   }
+  /** clone to a new plane. */
+  public clone(): Plane3dByOriginAndVectors {
+    return new Plane3dByOriginAndVectors(this.origin.clone(), this.vectorU.clone(), this.vectorV.clone());
+  }
+
   /**
    * Return a Plane3dByOriginAndVectors, with
    * * origin is the translation (aka origin) from the Transform
@@ -66,7 +74,7 @@ export class Plane3dByOriginAndVectors implements BeJSONFunctions {
       result.vectorV.scaleToLength(yLength, result.vectorV);
     return result;
   }
-  /** Capture origin and directions in a new planed. */
+  /** Capture origin and directions in a new plane. */
   public static createCapture(origin: Point3d, vectorU: Vector3d, vectorV: Vector3d, result?: Plane3dByOriginAndVectors): Plane3dByOriginAndVectors {
     if (!result)
       return new Plane3dByOriginAndVectors(origin, vectorU, vectorV);
@@ -75,6 +83,7 @@ export class Plane3dByOriginAndVectors implements BeJSONFunctions {
     result.vectorV = vectorV;
     return result;
   }
+
   /** Set all origin and both vectors from direct numeric parameters */
   public setOriginAndVectorsXYZ(x0: number, y0: number, z0: number, ux: number, uy: number, uz: number, vx: number, vy: number, vz: number): Plane3dByOriginAndVectors {
     this.origin.set(x0, y0, z0);
@@ -123,8 +132,8 @@ export class Plane3dByOriginAndVectors implements BeJSONFunctions {
    * @param vectorU x,y,z,w of vectorU
    * @param vectorV x,y,z,w of vectorV
    */
-  public static createOriginAndVectorsWeightedArrays(originw: Float64Array, vectorUw: Float64Array, vectorVw: Float64Array, result?: Plane3dByOriginAndVectors): Plane3dByOriginAndVectors {
-    const w = originw[3];
+  public static createOriginAndVectorsWeightedArrays(originW: Float64Array, vectorUw: Float64Array, vectorVw: Float64Array, result?: Plane3dByOriginAndVectors): Plane3dByOriginAndVectors {
+    const w = originW[3];
     result = Plane3dByOriginAndVectors.createXYPlane(result);
     if (Geometry.isSmallMetricDistance(w))
       return result;
@@ -138,9 +147,9 @@ export class Plane3dByOriginAndVectors implements BeJSONFunctions {
     //        = X'/w  - X w'/w^2)
     // The w parts of the formal xyzw sums are identically 0.
     // Here the X' and its w' are taken from each vectorUw and vectorVw
-    result.origin.set(originw[0] * dw, originw[1] * dw, originw[2] * dw);
-    Vector3d.createAdd2ScaledXYZ(vectorUw[0], vectorUw[1], vectorUw[2], dw, originw[0], originw[1], originw[2], -au, result.vectorU);
-    Vector3d.createAdd2ScaledXYZ(vectorVw[0], vectorVw[1], vectorVw[2], dw, originw[0], originw[1], originw[2], -av, result.vectorV);
+    result.origin.set(originW[0] * dw, originW[1] * dw, originW[2] * dw);
+    Vector3d.createAdd2ScaledXYZ(vectorUw[0], vectorUw[1], vectorUw[2], dw, originW[0], originW[1], originW[2], -au, result.vectorU);
+    Vector3d.createAdd2ScaledXYZ(vectorVw[0], vectorVw[1], vectorVw[2], dw, originW[0], originW[1], originW[2], -av, result.vectorV);
     return result;
   }
   /**
@@ -192,5 +201,43 @@ export class Plane3dByOriginAndVectors implements BeJSONFunctions {
     return this.origin.isAlmostEqual(other.origin)
       && this.vectorU.isAlmostEqual(other.vectorU)
       && this.vectorV.isAlmostEqual(other.vectorV);
+  }
+  /** Normalize both `vectorU` and `vectorV` in place.
+   * * Return true if both succeeded.
+   */
+  public normalizeInPlace(): boolean {
+    const okU = this.vectorU.normalizeInPlace();
+    const okV = this.vectorV.normalizeInPlace();
+    return okU && okV;
+  }
+  /**
+   * Return (if possible) a unit normal to the plane.
+   */
+  public unitNormal(result?: Vector3d): Vector3d | undefined {
+    return this.vectorU.unitCrossProduct(this.vectorV, result);
+  }
+  private static _workVector: Vector3d;
+  /**
+   * Return (if possible) a ray with origin at plane origin, direction as unit normal to the plane.
+   */
+  public unitNormalRay(result?: Ray3d): Ray3d | undefined {
+    if (!Plane3dByOriginAndVectors._workVector)
+      Plane3dByOriginAndVectors._workVector = Vector3d.create();
+    const unitNormal = this.vectorU.unitCrossProduct(this.vectorV, Plane3dByOriginAndVectors._workVector);
+    if (unitNormal === undefined)
+      return undefined;
+    return Ray3d.create(this.origin, unitNormal, result);
+  }
+
+  /**
+   * Create a rigid frame (i.e. frenet frame) with
+   * * origin at the plane origin
+   * * x axis along the (normalized) vectorU
+   * * y axis normalized vectorU to vectorV plane, and perpendicular to x axis
+   * * z axis perpendicular to both.
+   * @param result optional result
+   */
+  public toRigidFrame(result?: Transform): Transform | undefined {
+    return Transform.createRigidFromOriginAndColumns(this.origin, this.vectorU, this.vectorV, AxisOrder.XYZ, result);
   }
 }

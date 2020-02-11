@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 const spawn = require("react-dev-utils/crossSpawn");
 const chalk = require("chalk");
@@ -46,12 +46,6 @@ function handleInterrupts(callback) {
       .createInterface({
         input: process.stdin,
         output: process.stdout
-      })
-      .on("SIGINT", function () {
-        process.emit("SIGINT");
-      })
-      .addListener("close", function () {
-        process.emit("SIGINT");
       });
   }
 

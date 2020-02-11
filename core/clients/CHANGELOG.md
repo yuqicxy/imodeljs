@@ -1,6 +1,94 @@
 # Change Log - @bentley/imodeljs-clients
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Move the iModelHub Global Event APIs to internal.  Only Bentley can use them since they require a service account.
+- Upgrade to TypeScript 3.7.2.
+- Added TypeScript wrapper over the native SaaSClient.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- I removed the hardCoded RealityData 3DTiles on the getRealityData method. I added a method who accept RealityDataServicesRequestQueryOptions
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Setup OidcDesktopClient for Electron use cases. 
+- Fix issue with Code InstanceId encoding
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Added properties related to acquisitions in RealityDataServicesClient
+- Added missing topic descriptions
+- Update to allow Node 12
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Fixing fourth digit elimination if third one is zero while parsing version in ulas LogEntryConverter
+- Fixed issues with use of OIDC AuthCode workflow in Electron and Single Page Applications.
+- Fixed a typo in the RealityDataServices client for accessing the lastAccessedTimestamp
+- Fix thumbnail download issue in ElectronJs
+- Enhancements to the ProjectShare plugin. 
+- Added Basic authentication for iModelBank
+- fixed ios client issues
+- Fix for Bug#192178 - Settings service returns only 20 at a time from namespace query. Also, use query rather than /Namespace/Settingname url to avoid 404 return code.
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+### Updates
+
+- Setup imodeljs-clients tests to be run in chrome (and not node.js).
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Added iModel extent property
+- Added ProjectShareClient
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Allow to create baseline Named Version
+- Moved optional iModel creation arguments into single options interface. Added support for iModel cloning.
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Added application data querying for iModelHub Briefcases and ChangeSets
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Product Backlog Items 148512: OidcBrowserClient can be used for authorization code workflows; Product Backlog Item 148571: Generalized OidcBrowserClient to work with Cesium and SharePoint.
+- Fix broken links in docs
+- Various OIDC related fixes - Bugs: 148507, 148508, Product Backlog Items: 148510, 148517, 148522.
+- SAS token leaked in log
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

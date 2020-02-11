@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 // third-party imports
 import _ from "lodash";
@@ -26,7 +28,7 @@ import {
 import {
   TreeDataProvider, TreeNodeItem,
   DelayLoadedTreeNodeItem, ImmediatelyLoadedTreeNodeItem,
-  isTreeDataProviderInterface,
+  isTreeDataProviderInterface, getLabelString,
 } from "../TreeDataProvider";
 import { NodeEventManager } from "../NodeEventManager";
 import { NodeLoadingOrchestrator } from "../NodeLoadingOrchestrator";
@@ -62,7 +64,7 @@ export type NodesDeselectedCallback = OnItemsDeselectedCallback<TreeNodeItem>;
 export type NodeRenderer = (item: BeInspireTreeNode<TreeNodeItem>, props: TreeNodeProps) => React.ReactNode;
 
 /** Properties for the [[Tree]] component
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface TreeProps extends CommonProps {
   /** Nodes provider */
@@ -177,6 +179,14 @@ export interface TreeProps extends CommonProps {
    */
   checkboxInfo?: (node: TreeNodeItem) => CheckBoxInfo | Promise<CheckBoxInfo>;
 
+  /**
+   * Set to `true` to remove the ability to control multiple checkboxes using a single click.
+   *
+   * By default, this is set to `false` and checking a selected node's checkbox results in all selected nodes'
+   * checkboxes being checked.
+   */
+  bulkCheckboxActionsDisabled?: boolean;
+
   /** Called when nodes change their checkbox state. */
   onCheckboxClick?: (stateChanges: Array<{ node: TreeNodeItem, newState: CheckBoxState }>) => void;
 
@@ -197,7 +207,7 @@ export interface TreeProps extends CommonProps {
 }
 
 /** State for the Tree component
- * @internal
+ * @internal @deprecated
  */
 interface TreeState {
   prev: {
@@ -205,6 +215,7 @@ interface TreeState {
     modelReady: boolean;
     selectedNodes?: string[] | ((node: TreeNodeItem) => boolean);
     checkboxInfo?: (node: TreeNodeItem) => CheckBoxInfo | Promise<CheckBoxInfo>;
+    bulkCheckboxActionsDisabled?: boolean;
     nodeHighlightingProps?: HighlightableTreeProps;
     cellEditing?: EditableTreeProps;
   };
@@ -227,7 +238,7 @@ interface TreeState {
 /**
  * A Tree React component that uses the core of BeInspireTree
  * but renders with TreeBase and TreeNodeBase from ui-core.
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export class Tree extends React.Component<TreeProps, TreeState> {
 
@@ -264,6 +275,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
         dataProvider: props.dataProvider,
         selectedNodes: props.selectedNodes,
         checkboxInfo: props.checkboxInfo,
+        bulkCheckboxActionsDisabled: props.bulkCheckboxActionsDisabled,
         modelReady: false,
       },
       model,
@@ -320,6 +332,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
 
     return new NodeEventManager(
       nodeManager,
+      !props.bulkCheckboxActionsDisabled,
       {
         onSelectionModified: (selectedNodes: Array<BeInspireTreeNode<TreeNodeItem>>, deselectedNodes: Array<BeInspireTreeNode<TreeNodeItem>>) => {
           selectNodes(selectedNodes);
@@ -345,6 +358,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
             }
           }
 
+          // istanbul ignore else
           if (props.onCheckboxClick) {
             props.onCheckboxClick(stateChanges.map(({ node, newState }) => ({ node: node.payload!, newState })));
           }
@@ -368,6 +382,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
         modelReady: state.modelReady,
         selectedNodes: props.selectedNodes,
         checkboxInfo: props.checkboxInfo,
+        bulkCheckboxActionsDisabled: props.bulkCheckboxActionsDisabled,
         nodeHighlightingProps: props.nodeHighlightingProps,
         cellEditing: props.cellEditing,
       },
@@ -403,6 +418,10 @@ export class Tree extends React.Component<TreeProps, TreeState> {
           // note: calling this may mutate `model` in state
           state.model.updateTreeSelection(props.selectedNodes);
         });
+      }
+
+      if (props.bulkCheckboxActionsDisabled !== state.prev.bulkCheckboxActionsDisabled) {
+        derivedState.nodeEventManager = Tree.createNodeEventManager(derivedState.nodeLoadingOrchestrator, derivedState.model, props);
       }
     }
 
@@ -596,10 +615,13 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     // children immediately, then node has children here. if data provider
     // delay loads children, then `node.getChildren()` returns empty array and
     // the `_onChildrenLoaded` callback is called where we do the same thing as here
-    this.state.model.updateNodesSelection(toNodes(node.getChildren()), this.props.selectedNodes);
-    if (this.props.checkboxInfo) {
-      // tslint:disable-next-line: no-floating-promises
-      this.state.model.updateNodesCheckboxes(toNodes(node.getChildren()), this.props.checkboxInfo);
+    const children = node.getChildren();
+    if (children.length > 0) {
+      this.state.model.updateNodesSelection(toNodes(children), this.props.selectedNodes);
+      if (this.props.checkboxInfo) {
+        // tslint:disable-next-line: no-floating-promises
+        this.state.model.updateNodesCheckboxes(toNodes(children), this.props.checkboxInfo);
+      }
     }
 
     this._nodesSelectionHandlers = undefined;
@@ -652,7 +674,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
   }
 
   private _onTreeNodeChanged = (items: Array<TreeNodeItem | undefined>) => {
-    using((this.state.model.pauseRendering() as any), async () => { // tslint:disable-line:no-floating-promises
+    using((this.state.model.pauseRendering() as any), async () => {
       for (const item of items) {
         if (item) {
           // specific node needs to be reloaded
@@ -692,10 +714,10 @@ export class Tree extends React.Component<TreeProps, TreeState> {
   }
 
   private _getNodeHeight = (node?: TreeNodeItem) => {
-    if (this.props.showDescriptions && node && node.description)
-      return 44;
-
-    return 24;
+    const contentHeight = (this.props.showDescriptions && node && node.description) ? 43 : 24;
+    const borderSize = 1;
+    // Not counting node's border size twice because we want neighboring borders to overlap
+    return contentHeight + borderSize;
   }
 
   /** map TreeNodeItem into an InspireNode
@@ -706,7 +728,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     const node: BeInspireTreeNodeConfig = {
       ...base,
       id: item.id,
-      text: item.label,
+      text: getLabelString(item.label),
       itree: {
         ...base.itree,
         state: {
@@ -889,13 +911,17 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     const renderNode = ({ index, style, isScrolling }: VirtualizedListRowProps) => {
       const node = nodes[index];
       const key = node.id ? node.id : node.text;
+
+      // Mark selected node's wrapper to make detecting consecutively selected nodes with css selectors possible
+      const className = classnames("node-wrapper", { "is-selected": node.selected() });
+
       if (!node.payload) {
         if (!isScrolling) {
           // tslint:disable-next-line:no-floating-promises
           this.state.model.requestNodeLoad(toNode(node.getParent()), node.placeholderIndex!);
         }
         return (
-          <div key={key} className="node-wrapper" style={style}>
+          <div key={key} className={className} style={style}>
             <PlaceholderNode key={node.id} node={node} />
           </div>
         );
@@ -905,7 +931,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
 
       const props = this.createTreeNodeProps(node);
       return (
-        <div key={key} className="node-wrapper" style={style}>
+        <div key={key} className={className} style={style}>
           {baseRenderNode(node, props)}
         </div>
       );

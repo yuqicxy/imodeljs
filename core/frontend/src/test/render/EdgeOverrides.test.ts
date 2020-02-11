@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { expect } from "chai";
 import { LinePixels, HiddenLine } from "@bentley/imodeljs-common";
 import { LineCode, EdgeOverrides } from "../../render/webgl/EdgeOverrides";
-import { FloatPreMulRgba } from "../../render/webgl/FloatRGBA";
+import { FloatRgba } from "../../render/webgl/FloatRGBA";
 import { OvrFlags } from "../../render/webgl/RenderFlags";
 
 describe("LineCode", () => {
@@ -40,11 +40,11 @@ describe("EdgeOverrides", () => {
   it("init properly sets member values", () => {
     const override = new EdgeOverrides();
     let style = HiddenLine.Style.fromJSON({ ovrColor: true, color: 0xf00d, width: 0, pattern: 0 });
-    const color = FloatPreMulRgba.fromColorDef(style.color!);
+    const color = FloatRgba.fromColorDef(style.color!);
     override.init(true, style);
     expect(override.overridesColor).to.equal(true);
     expect(override.overridesWeight).to.equal(false);
-    expect(override.color!.equals(color)).to.equal(true);
+    expect(override.color!.tbgr).to.equal(color.tbgr);
     expect(override.overridesAlpha).to.equal(true);
     expect(override.overridesLineCode).to.equal(true);
     expect(override.lineCode!).to.equal(LineCode.valueFromLinePixels(style.pattern!));

@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Core */
+/** @packageDocumentation
+ * @module Core
+ */
 
 import * as _ from "lodash";
 import { IDisposable, Logger } from "@bentley/bentleyjs-core";
-import { IModelConnection } from "@bentley/imodeljs-frontend";
+import { IModelConnection, PropertyRecord } from "@bentley/imodeljs-frontend";
 import {
   KeySet, DEFAULT_KEYS_BATCH_SIZE, PageOptions, SelectionInfo,
   ContentRequestOptions, Content, Descriptor, Field,
@@ -14,6 +16,7 @@ import {
 } from "@bentley/presentation-common";
 import { Presentation } from "@bentley/presentation-frontend";
 import { IPresentationDataProvider } from "./IPresentationDataProvider";
+import { findField } from "./Utils";
 
 /**
  * Properties for invalidating content cache.
@@ -336,6 +339,14 @@ export class ContentDataProvider implements IContentDataProvider {
     if (undefined !== contentAndSize)
       return contentAndSize.content;
     return undefined;
+  }
+
+  /**
+   * Get field using PropertyRecord.
+   */
+  public async getFieldByPropertyRecord(propertyRecord: PropertyRecord): Promise<Field | undefined> {
+    const descriptor = await this.getContentDescriptor();
+    return descriptor ? findField(descriptor, propertyRecord.property.name) : undefined;
   }
 
   private _getContentAndSize = _.memoize(async (pageOptions?: PageOptions) => {

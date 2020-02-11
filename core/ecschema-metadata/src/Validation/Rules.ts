@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { AnyClass, AnyECType } from "../Interfaces";
@@ -40,6 +40,9 @@ export type BaseRule<T extends AnyECType, U extends AnyECType> = IRule<T, U>;
 export interface IRuleSet {
   /** The name of the rule set. */
   name: string;
+
+  /** A collection of schema names that should be excluded from adhering to the rules defined in this rule set. */
+  schemaExclusionSet?: string[];
 
   /** The rules that apply to [[Schema]] objects. */
   schemaRules?: Array<IRule<Schema>>;

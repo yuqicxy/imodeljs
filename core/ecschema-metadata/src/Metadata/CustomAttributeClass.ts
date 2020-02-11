@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { ECClass } from "./Class";
@@ -32,6 +32,13 @@ export class CustomAttributeClass extends ECClass {
     const schemaJson = super.toJson(standalone, includeSchemaVersion);
     schemaJson.appliesTo = containerTypeToString(this.containerType);
     return schemaJson;
+  }
+
+  /** @internal */
+  public async toXml(schemaXml: Document): Promise<Element> {
+    const itemElement = await super.toXml(schemaXml);
+    itemElement.setAttribute("appliesTo", containerTypeToString(this.containerType));
+    return itemElement;
   }
 
   public deserializeSync(customAttributeProps: CustomAttributeClassProps) {

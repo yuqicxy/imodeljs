@@ -1,15 +1,39 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Rendering */
+/** @packageDocumentation
+ * @module Rendering
+ */
 
-import { assert, base64StringToUint8Array, dispose, disposeArray, Id64, Id64String, IDisposable } from "@bentley/bentleyjs-core";
-import { ClipVector, IndexedPolyface, Plane3dByOriginAndUnitNormal, Point2d, Point3d, Range3d, Transform, XAndY, Vector3d } from "@bentley/geometry-core";
+import { base64StringToUint8Array, dispose, disposeArray, Id64String, IDisposable } from "@bentley/bentleyjs-core";
+import { ClipVector, IndexedPolyface, Point2d, Point3d, Range3d, Transform, XAndY } from "@bentley/geometry-core";
 import {
-  AntiAliasPref, BatchType, ColorDef, ElementAlignedBox3d, Feature, FeatureTable, Frustum, Gradient,
-  HiddenLine, Hilite, ImageBuffer, ImageSource, ImageSourceFormat, isValidImageSourceFormat, QParams3d, SolarShadows,
-  QPoint3dList, RenderMaterial, RenderTexture, SceneLights, ViewFlag, ViewFlags, AnalysisStyle, GeometryClass, AmbientOcclusion, SpatialClassificationProps,
+  AmbientOcclusion,
+  AnalysisStyle,
+  BatchType,
+  ColorDef,
+  ElementAlignedBox3d,
+  Feature,
+  FeatureIndexType,
+  Frustum,
+  GeometryClass,
+  Gradient,
+  HiddenLine,
+  Hilite,
+  ImageBuffer,
+  ImageSource,
+  ImageSourceFormat,
+  isValidImageSourceFormat,
+  PackedFeatureTable,
+  QParams3d,
+  QPoint3dList,
+  RenderMaterial,
+  RenderTexture,
+  SpatialClassificationProps,
+  TextureProps,
+  ViewFlag,
+  ViewFlags,
 } from "@bentley/imodeljs-common";
 import { SkyBox } from "../DisplayStyleState";
 import { imageElementFromImageSource } from "../ImageUtil";
@@ -17,7 +41,8 @@ import { IModelApp } from "../IModelApp";
 import { IModelConnection } from "../IModelConnection";
 import { HiliteSet } from "../SelectionSet";
 import { BeButtonEvent, BeWheelEvent } from "../tools/Tool";
-import { ViewFrustum, Viewport, ViewRect } from "../Viewport";
+import { Viewport } from "../Viewport";
+import { ViewRect } from "../ViewRect";
 import { FeatureSymbology } from "./FeatureSymbology";
 import { GraphicBuilder, GraphicType } from "./GraphicBuilder";
 import { MeshArgs, PolylineArgs } from "./primitives/mesh/MeshPrimitives";
@@ -25,10 +50,10 @@ import { PointCloudArgs } from "./primitives/PointCloudPrimitive";
 import { MeshParams, PointStringParams, PolylineParams } from "./primitives/VertexTable";
 import { TileTree } from "../tile/TileTree";
 import { SceneContext } from "../ViewContext";
-import { SpatialViewState } from "../ViewState";
 import { BackgroundMapTileTreeReference } from "../tile/WebMapTileTree";
 
 // tslint:disable:no-const-enum
+// cSpell:ignore deserializing subcat uninstanced wiremesh qorigin trimesh
 
 /** Contains metadata about memory consumed by the render system or aspect thereof.
  * @internal
@@ -111,6 +136,7 @@ export namespace RenderMemory {
     ClipVolumes,
     PlanarClassifiers,
     ShadowMaps,
+    TextureAttachments,
     COUNT,
   }
 
@@ -134,6 +160,7 @@ export namespace RenderMemory {
     public get clipVolumes() { return this.consumers[ConsumerType.ClipVolumes]; }
     public get planarClassifiers() { return this.consumers[ConsumerType.PlanarClassifiers]; }
     public get shadowMaps() { return this.consumers[ConsumerType.ShadowMaps]; }
+    public get textureAttachments() { return this.consumers[ConsumerType.TextureAttachments]; }
 
     public addBuffer(type: BufferType, numBytes: number): void {
       this._totalBytes += numBytes;
@@ -159,6 +186,7 @@ export namespace RenderMemory {
     public addClipVolume(numBytes: number) { this.addConsumer(ConsumerType.ClipVolumes, numBytes); }
     public addPlanarClassifier(numBytes: number) { this.addConsumer(ConsumerType.PlanarClassifiers, numBytes); }
     public addShadowMap(numBytes: number) { this.addConsumer(ConsumerType.ShadowMaps, numBytes); }
+    public addTextureAttachment(numBytes: number) { this.addConsumer(ConsumerType.TextureAttachments, numBytes); }
 
     public addSurface(numBytes: number) { this.addBuffer(BufferType.Surfaces, numBytes); }
     public addVisibleEdges(numBytes: number) { this.addBuffer(BufferType.VisibleEdges, numBytes); }
@@ -182,61 +210,60 @@ export namespace RenderMemory {
 export class RenderPlan {
   public readonly is3d: boolean;
   public readonly viewFlags: ViewFlags;
-  public readonly viewFrustum: ViewFrustum;
-  public readonly expandedFrustum: ViewFrustum | undefined;
   public readonly bgColor: ColorDef;
   public readonly monoColor: ColorDef;
   public readonly hiliteSettings: Hilite.Settings;
-  public readonly aaLines: AntiAliasPref;
-  public readonly aaText: AntiAliasPref;
+  public readonly emphasisSettings: Hilite.Settings;
   public readonly activeVolume?: ClipVector;
   public readonly hline?: HiddenLine.Settings;
-  public readonly lights?: SceneLights;
   public readonly analysisStyle?: AnalysisStyle;
   public readonly ao?: AmbientOcclusion.Settings;
   public readonly isFadeOutActive: boolean;
-  public analysisTexture?: RenderTexture;
-  public classificationTextures?: Map<Id64String, RenderTexture>;
-  private _curFrustum: ViewFrustum;
-
-  public get frustum(): Frustum { return this._curFrustum.getFrustum(); }
-  public get fraction(): number { return this._curFrustum.frustFraction; }
-
-  public selectExpandedFrustum() { if (undefined !== this.expandedFrustum) this._curFrustum = this.expandedFrustum; }
-  public selectViewFrustum() { this._curFrustum = this.viewFrustum; }
-
-  private constructor(is3d: boolean, viewFlags: ViewFlags, bgColor: ColorDef, monoColor: ColorDef, hiliteSettings: Hilite.Settings, aaLines: AntiAliasPref, aaText: AntiAliasPref, viewFrustum: ViewFrustum, isFadeOutActive: boolean, expandedFrustum: ViewFrustum | undefined, activeVolume?: ClipVector, hline?: HiddenLine.Settings, lights?: SceneLights, analysisStyle?: AnalysisStyle, ao?: AmbientOcclusion.Settings) {
-    this.is3d = is3d;
-    this.viewFlags = viewFlags;
-    this.bgColor = bgColor;
-    this.monoColor = monoColor;
-    this.hiliteSettings = hiliteSettings;
-    this.aaLines = aaLines;
-    this.aaText = aaText;
-    this.activeVolume = activeVolume;
-    this.hline = hline;
-    this.lights = lights;
-    this._curFrustum = this.viewFrustum = viewFrustum;
-    this.expandedFrustum = expandedFrustum;
-    this.analysisStyle = analysisStyle;
-    this.ao = ao;
-    this.isFadeOutActive = isFadeOutActive;
-  }
+  public readonly analysisTexture?: RenderTexture;
+  public readonly classificationTextures?: Map<Id64String, RenderTexture>;
+  public readonly frustum: Frustum;
+  public readonly fraction: number;
 
   public static createFromViewport(vp: Viewport): RenderPlan {
-    const view = vp.view;
-    const style = view.displayStyle;
+    return new RenderPlan(vp);
+  }
 
-    const hline = style.is3d() ? style.settings.hiddenLineSettings : undefined;
-    const ao = style.is3d() ? style.settings.ambientOcclusionSettings : undefined;
-    const lights = undefined; // view.is3d() ? view.getLights() : undefined
-    const clipVec = view.getViewClip();
-    const expandedFrustum = (undefined === vp.backgroundMapPlane) ? undefined : ViewFrustum.createFromViewportAndPlane(vp, vp.backgroundMapPlane as Plane3dByOriginAndUnitNormal);
-    const rp = new RenderPlan(view.is3d(), style.viewFlags, view.backgroundColor, style.monochromeColor, vp.hilite, vp.wantAntiAliasLines, vp.wantAntiAliasText, vp.viewFrustum, vp.isFadeOutActive, expandedFrustum!, clipVec, hline, lights, style.analysisStyle, ao);
-    if (rp.analysisStyle !== undefined && rp.analysisStyle.scalarThematicSettings !== undefined)
-      rp.analysisTexture = vp.target.renderSystem.getGradientTexture(Gradient.Symb.createThematic(rp.analysisStyle.scalarThematicSettings), vp.iModel);
+  public static createEmpty(): RenderPlan {
+    return new RenderPlan();
+  }
 
-    return rp;
+  private constructor(vp?: Viewport) {
+    if (undefined !== vp) {
+      const view = vp.view;
+      const style = view.displayStyle;
+
+      this.is3d = view.is3d();
+      this.frustum = vp.viewingSpace.getFrustum();
+      this.fraction = vp.viewingSpace.frustFraction;
+      this.viewFlags = style.viewFlags;
+      this.bgColor = view.backgroundColor;
+      this.monoColor = style.monochromeColor;
+      this.hiliteSettings = vp.hilite;
+      this.emphasisSettings = vp.emphasisSettings;
+      this.isFadeOutActive = vp.isFadeOutActive;
+      this.activeVolume = view.getViewClip();
+      this.hline = style.is3d() ? style.settings.hiddenLineSettings : undefined;
+      this.ao = style.is3d() ? style.settings.ambientOcclusionSettings : undefined;
+      this.analysisStyle = style.analysisStyle;
+
+      if (undefined !== this.analysisStyle && undefined !== this.analysisStyle.scalarThematicSettings)
+        this.analysisTexture = vp.target.renderSystem.getGradientTexture(Gradient.Symb.createThematic(this.analysisStyle.scalarThematicSettings), vp.iModel);
+    } else {
+      this.is3d = true;
+      this.viewFlags = new ViewFlags();
+      this.bgColor = ColorDef.white.clone();
+      this.monoColor = ColorDef.white.clone();
+      this.hiliteSettings = new Hilite.Settings();
+      this.emphasisSettings = new Hilite.Settings();
+      this.frustum = new Frustum();
+      this.fraction = 0;
+      this.isFadeOutActive = false;
+    }
   }
 }
 
@@ -252,6 +279,29 @@ export abstract class RenderGraphic implements IDisposable /* , RenderMemory.Con
 
   /** @internal */
   public abstract collectStatistics(stats: RenderMemory.Statistics): void;
+}
+
+/** A graphic that owns another graphic. By default, every time a [[Viewport]]'s decorations or dynamics graphics change, the previous graphics are disposed of.
+ * Use a GraphicOwner to prevent disposal of a graphic that you want to reuse. The graphic owner can be added to decorations and list of dynamics just like any other graphic, but the graphic it owns
+ * will never be automatically disposed of. Instead, you assume responsibility for disposing of the owned graphic by calling [[disposeGraphic]] when the owned graphic is no longer in use. Failure
+ * to do so will result in leaks of graphics memory or other webgl resources.
+ * @public
+ */
+export abstract class RenderGraphicOwner extends RenderGraphic {
+  /** The owned graphic. */
+  public abstract get graphic(): RenderGraphic;
+  /** Does nothing. To dispose of the owned graphic, use [[disposeGraphic]]. */
+  public dispose(): void { }
+  /** Disposes of the owned graphic. */
+  public disposeGraphic(): void { this.graphic.dispose(); }
+  /** @internal */
+  public collectStatistics(stats: RenderMemory.Statistics): void { this.graphic.collectStatistics(stats); }
+}
+
+/** Default implementation of RenderGraphicOwner. */
+class GraphicOwner extends RenderGraphicOwner {
+  public constructor(private readonly _graphic: RenderGraphic) { super(); }
+  public get graphic(): RenderGraphic { return this._graphic; }
 }
 
 /** Describes the type of a RenderClipVolume.
@@ -288,18 +338,6 @@ export abstract class RenderClipVolume implements IDisposable /* , RenderMemory.
   /** @internal */
   public abstract collectStatistics(stats: RenderMemory.Statistics): void;
 }
-/** An opaque representation of a shadow map.
- * @internal
- */
-export abstract class RenderSolarShadowMap implements IDisposable {
-  public abstract dispose(): void;
-
-  /** @internal */
-  public abstract collectStatistics(stats: RenderMemory.Statistics): void;
-
-  /** @internal */
-  public abstract collectGraphics(sceneContext: SceneContext): void;
-}
 
 /** An opaque representation of a texture draped on geometry within a [[Viewport]].
  * @internal
@@ -315,13 +353,14 @@ export abstract class RenderTextureDrape implements IDisposable {
 export type TextureDrapeMap = Map<Id64String, RenderTextureDrape>;
 
 /** An opaque representation of a planar classifier applied to geometry within a [[Viewport]].
- * @beta
+ * @internal
  */
 export abstract class RenderPlanarClassifier implements IDisposable {
   public abstract dispose(): void;
+  public abstract collectGraphics(context: SceneContext, classifiedTree: TileTree, tileTree: TileTree): void;
 }
 
-/** @beta */
+/** @internal */
 export type PlanarClassifierMap = Map<Id64String, RenderPlanarClassifier>;
 
 /** An array of [[RenderGraphic]]s.
@@ -488,14 +527,22 @@ export namespace Pixel {
     public readonly planarity: Planarity;
     /** @internal */
     public readonly featureTable?: PackedFeatureTable;
+    /** @internal */
+    public readonly iModel?: IModelConnection;
+    /** @internal */
+    public readonly tileId?: string;
+    /** @internal */
+    public get isClassifier(): boolean { return undefined !== this.featureTable && BatchType.Primary !== this.featureTable.type; }
 
     /** @internal */
-    public constructor(feature?: Feature, distanceFraction = -1.0, type = GeometryType.Unknown, planarity = Planarity.Unknown, featureTable?: PackedFeatureTable) {
+    public constructor(feature?: Feature, distanceFraction = -1.0, type = GeometryType.Unknown, planarity = Planarity.Unknown, featureTable?: PackedFeatureTable, iModel?: IModelConnection, tileId?: string) {
       this.feature = feature;
       this.distanceFraction = distanceFraction;
       this.type = type;
       this.planarity = planarity;
       this.featureTable = featureTable;
+      this.iModel = iModel;
+      this.tileId = tileId;
     }
 
     public get elementId(): Id64String | undefined { return undefined !== this.feature ? this.feature.elementId : undefined; }
@@ -546,6 +593,7 @@ export namespace Pixel {
   }
 
   /** A rectangular array of pixels as read from a [[Viewport]]'s frame buffer. Each pixel is represented as a [[Pixel.Data]] object.
+   * The contents of the pixel buffer will be specified using device pixels, not CSS pixels. See [[Viewport.devicePixelRatio]] and [[Viewport.cssPixelsToDevicePixels]].
    * @see [[Viewport.readPixels]].
    */
   export interface Buffer {
@@ -559,188 +607,39 @@ export namespace Pixel {
   export type Receiver = (pixels: Buffer | undefined) => void;
 }
 
-/** @internal */
-export interface PackedFeature {
-  elementId: Id64.Uint32Pair;
-  subCategoryId: Id64.Uint32Pair;
-  geometryClass: GeometryClass;
-  animationNodeId: number;
+/** Used for debugging purposes, to toggle display of instanced or batched primitives.
+ * @see [[RenderTargetDebugControl]].
+ * @alpha
+ */
+export const enum PrimitiveVisibility {
+  /** Draw all primitives. */
+  All,
+  /** Only draw instanced primitives. */
+  Instanced,
+  /** Only draw un-instanced primitives. */
+  Uninstanced,
 }
 
-/**
- * An immutable, packed representation of a [[FeatureTable]]. The features are packed into a single array of 32-bit integer values,
- * wherein each feature occupies 3 32-bit integers.
- * @internal
+/** An interface optionally exposed by a RenderTarget that allows control of various debugging features.
+ * @beta
  */
-export class PackedFeatureTable {
-  private readonly _data: Uint32Array;
-  public readonly modelId: Id64String;
-  public readonly maxFeatures: number;
-  public readonly numFeatures: number;
-  public readonly anyDefined: boolean;
-  public readonly type: BatchType;
-  private readonly _animationNodeIds?: Uint8Array | Uint16Array | Uint32Array;
-
-  public get byteLength(): number { return this._data.byteLength; }
-
-  /** Construct a PackedFeatureTable from the packed binary data.
-   * This is used internally when deserializing Tiles in iMdl format.
+export interface RenderTargetDebugControl {
+  /** If true, render to the screen as if rendering off-screen for readPixels(). */
+  drawForReadPixels: boolean;
+  /** If true, use log-z depth buffer (assuming supported by client). */
+  useLogZ: boolean;
+  /** @alpha */
+  primitiveVisibility: PrimitiveVisibility;
+  /** @internal */
+  vcSupportIntersectingVolumes: boolean;
+  /** @internal */
+  readonly shadowFrustum: Frustum | undefined;
+  /** @internal */
+  displayDrapeFrustum: boolean;
+  /** Override device pixel ratio for on-screen targets only. This supersedes window.devicePixelRatio. Undefined clears the override. Chiefly useful for tests.
    * @internal
    */
-  public constructor(data: Uint32Array, modelId: Id64String, numFeatures: number, maxFeatures: number, type: BatchType, animationNodeIds?: Uint8Array | Uint16Array | Uint32Array) {
-    this._data = data;
-    this.modelId = modelId;
-    this.maxFeatures = maxFeatures;
-    this.numFeatures = numFeatures;
-    this.type = type;
-    this._animationNodeIds = animationNodeIds;
-
-    switch (this.numFeatures) {
-      case 0:
-        this.anyDefined = false;
-        break;
-      case 1:
-        this.anyDefined = this.getFeature(0).isDefined;
-        break;
-      default:
-        this.anyDefined = true;
-        break;
-    }
-
-    assert(this._data.length >= this._subCategoriesOffset);
-    assert(this.maxFeatures >= this.numFeatures);
-    assert(undefined === this._animationNodeIds || this._animationNodeIds.length === this.numFeatures);
-  }
-
-  /** Create a packed feature table from a [[FeatureTable]]. */
-  public static pack(featureTable: FeatureTable): PackedFeatureTable {
-    // We must determine how many subcategories we have ahead of time to compute the size of the Uint32Array, as
-    // the array cannot be resized after it is created.
-    // We are not too worried about this as FeatureTables created on the front-end will contain few if any features; those obtained from the
-    // back-end arrive within tiles already in the packed format.
-    const subcategories = new Map<string, number>();
-    for (const iv of featureTable.getArray()) {
-      const found = subcategories.get(iv.value.subCategoryId.toString());
-      if (undefined === found)
-        subcategories.set(iv.value.subCategoryId, subcategories.size);
-    }
-
-    // We need 3 32-bit integers per feature, plus 2 32-bit integers per subcategory.
-    const subCategoriesOffset = 3 * featureTable.length;
-    const nUint32s = subCategoriesOffset + 2 * subcategories.size;
-    const uint32s = new Uint32Array(nUint32s);
-
-    for (const iv of featureTable.getArray()) {
-      const feature = iv.value;
-      const index = iv.index * 3;
-
-      let subCategoryIndex = subcategories.get(feature.subCategoryId)!;
-      assert(undefined !== subCategoryIndex); // we inserted it above...
-      subCategoryIndex |= (feature.geometryClass << 24);
-
-      uint32s[index + 0] = Id64.getLowerUint32(feature.elementId);
-      uint32s[index + 1] = Id64.getUpperUint32(feature.elementId);
-      uint32s[index + 2] = subCategoryIndex;
-    }
-
-    subcategories.forEach((index: number, id: string, _map) => {
-      const index32 = subCategoriesOffset + 2 * index;
-      uint32s[index32 + 0] = Id64.getLowerUint32(id);
-      uint32s[index32 + 1] = Id64.getUpperUint32(id);
-    });
-
-    return new PackedFeatureTable(uint32s, featureTable.modelId, featureTable.length, featureTable.maxFeatures, featureTable.type);
-  }
-
-  /** Retrieve the Feature associated with the specified index. */
-  public getFeature(featureIndex: number): Feature {
-    const packed = this.getPackedFeature(featureIndex);
-    const elemId = Id64.fromUint32Pair(packed.elementId.lower, packed.elementId.upper);
-    const subcatId = Id64.fromUint32Pair(packed.subCategoryId.lower, packed.subCategoryId.upper);
-    return new Feature(elemId, subcatId, packed.geometryClass);
-  }
-
-  /** Returns the Feature associated with the specified index, or undefined if the index is out of range. */
-  public findFeature(featureIndex: number): Feature | undefined {
-    return featureIndex < this.numFeatures ? this.getFeature(featureIndex) : undefined;
-  }
-
-  /** @internal */
-  public getElementIdPair(featureIndex: number): Id64.Uint32Pair {
-    assert(featureIndex < this.numFeatures);
-    const offset = 3 * featureIndex;
-    return {
-      lower: this._data[offset],
-      upper: this._data[offset + 1],
-    };
-  }
-
-  /** @internal */
-  public getSubCategoryIdPair(featureIndex: number): Id64.Uint32Pair {
-    const index = 3 * featureIndex;
-    let subCatIndex = this._data[index + 2];
-    subCatIndex = (subCatIndex & 0x00ffffff) >>> 0;
-    subCatIndex = subCatIndex * 2 + this._subCategoriesOffset;
-    return { lower: this._data[subCatIndex], upper: this._data[subCatIndex + 1] };
-  }
-
-  /** @internal */
-  public getAnimationNodeId(featureIndex: number): number {
-    return undefined !== this._animationNodeIds ? this._animationNodeIds[featureIndex] : 0;
-  }
-
-  /** @internal */
-  public getPackedFeature(featureIndex: number): PackedFeature {
-    assert(featureIndex < this.numFeatures);
-
-    const index32 = 3 * featureIndex;
-    const elementId = { lower: this._data[index32], upper: this._data[index32 + 1] };
-
-    const subCatIndexAndClass = this._data[index32 + 2];
-    const geometryClass = (subCatIndexAndClass >>> 24) & 0xff;
-
-    let subCatIndex = (subCatIndexAndClass & 0x00ffffff) >>> 0;
-    subCatIndex = subCatIndex * 2 + this._subCategoriesOffset;
-    const subCategoryId = { lower: this._data[subCatIndex], upper: this._data[subCatIndex + 1] };
-
-    const animationNodeId = this.getAnimationNodeId(featureIndex);
-    return { elementId, subCategoryId, geometryClass, animationNodeId };
-  }
-
-  /** Returns the element ID of the Feature associated with the specified index, or undefined if the index is out of range. */
-  public findElementId(featureIndex: number): Id64String | undefined {
-    if (featureIndex >= this.numFeatures)
-      return undefined;
-    else
-      return this.readId(3 * featureIndex);
-  }
-
-  /** Return true if this table contains exactly 1 feature. */
-  public get isUniform(): boolean { return 1 === this.numFeatures; }
-
-  /** If this table contains exactly 1 feature, return it. */
-  public get uniform(): Feature | undefined { return this.isUniform ? this.getFeature(0) : undefined; }
-
-  public get isVolumeClassifier(): boolean { return BatchType.VolumeClassifier === this.type; }
-  public get isPlanarClassifier(): boolean { return BatchType.VolumeClassifier === this.type; }
-  public get isClassifier(): boolean { return this.isVolumeClassifier || this.isPlanarClassifier; }
-
-  /** Unpack the features into a [[FeatureTable]]. */
-  public unpack(): FeatureTable {
-    const table = new FeatureTable(this.maxFeatures, this.modelId);
-    for (let i = 0; i < this.numFeatures; i++) {
-      const feature = this.getFeature(i);
-      table.insertWithIndex(feature, i);
-    }
-
-    return table;
-  }
-
-  private get _subCategoriesOffset(): number { return this.numFeatures * 3; }
-
-  private readId(offset32: number): Id64String {
-    return Id64.fromUint32Pair(this._data[offset32], this._data[offset32 + 1]);
-  }
+  devicePixelRatioOverride?: number;
 }
 
 /** A RenderTarget connects a [[Viewport]] to a WebGLRenderingContext to enable the viewport's contents to be displayed on the screen.
@@ -748,7 +647,7 @@ export class PackedFeatureTable {
  * of the RenderTarget.
  * @internal
  */
-export abstract class RenderTarget implements IDisposable {
+export abstract class RenderTarget implements IDisposable, RenderMemory.Consumer {
   public pickOverlayDecoration(_pt: XAndY): CanvasDecoration | undefined { return undefined; }
 
   public static get frustumDepth2d(): number { return 1.0; } // one meter
@@ -761,8 +660,15 @@ export abstract class RenderTarget implements IDisposable {
   }
 
   public abstract get renderSystem(): RenderSystem;
-  public abstract get cameraFrustumNearScaleLimit(): number;
+
+  /** NB: *Device pixels*, not CSS pixels! */
   public abstract get viewRect(): ViewRect;
+
+  public get devicePixelRatio(): number { return 1; }
+  public cssPixelsToDevicePixels(cssPixels: number): number {
+    return Math.floor(cssPixels * this.devicePixelRatio);
+  }
+
   public abstract get wantInvertBlackBackground(): boolean;
 
   public abstract get animationFraction(): number;
@@ -770,17 +676,23 @@ export abstract class RenderTarget implements IDisposable {
 
   public get animationBranches(): AnimationBranchStates | undefined { return undefined; }
   public set animationBranches(_transforms: AnimationBranchStates | undefined) { }
-  public get solarShadowMap(): RenderSolarShadowMap | undefined { return undefined; }
+
+  /** Update the solar shadow map. If a SceneContext is supplied, shadows are enabled; otherwise, shadows are disabled. */
+  public updateSolarShadows(_context: SceneContext | undefined): void { }
+  public getPlanarClassifier(_id: Id64String): RenderPlanarClassifier | undefined { return undefined; }
+  public createPlanarClassifier(_properties: SpatialClassificationProps.Classifier): RenderPlanarClassifier | undefined { return undefined; }
+  public getTextureDrape(_id: Id64String): RenderTextureDrape | undefined { return undefined; }
 
   public createGraphicBuilder(type: GraphicType, viewport: Viewport, placement: Transform = Transform.identity, pickableId?: Id64String) { return this.renderSystem.createGraphicBuilder(placement, type, viewport, pickableId); }
 
   public dispose(): void { }
   public reset(): void { }
   public abstract changeScene(scene: GraphicList): void;
-  public changeBackgroundMap(_scene: GraphicList): void { }
-  public changeTextureDrapes(_drapes: TextureDrapeMap): void { }
+  public abstract changeBackgroundMap(_graphics: GraphicList): void;
+  public abstract changeOverlayGraphics(_scene: GraphicList): void;
+  public changeTextureDrapes(_drapes: TextureDrapeMap | undefined): void { }
   public changePlanarClassifiers(_classifiers?: PlanarClassifierMap): void { }
-  public changeSolarShadowMap(_solarShadowMap?: RenderSolarShadowMap): void { }
+  public changeActiveVolumeClassifierProps(_props?: SpatialClassificationProps.Classifier, _modelId?: Id64String): void { }
   public abstract changeDynamics(dynamics?: GraphicList): void;
   public abstract changeDecorations(decorations: Decorations): void;
   public abstract changeRenderPlan(plan: RenderPlan): void;
@@ -791,8 +703,20 @@ export abstract class RenderTarget implements IDisposable {
   public abstract setViewRect(_rect: ViewRect, _temporary: boolean): void;
   public onResized(): void { }
   public abstract updateViewRect(): boolean; // force a RenderTarget viewRect to resize if necessary since last draw
+  /** `rect` is specified in *CSS* pixels. */
   public abstract readPixels(rect: ViewRect, selector: Pixel.Selector, receiver: Pixel.Receiver, excludeNonLocatable: boolean): void;
+  /** `_rect` is specified in *CSS* pixels. */
   public readImage(_rect: ViewRect, _targetSize: Point2d, _flipVertically: boolean): ImageBuffer | undefined { return undefined; }
+  public readImageToCanvas(): HTMLCanvasElement { return document.createElement("canvas"); }
+  public collectStatistics(_stats: RenderMemory.Statistics): void { }
+
+  /** Specify whether webgl content should be rendered directly to the screen.
+   * If rendering to screen becomes enabled, returns the canvas to which to render the webgl content.
+   * Returns undefined if rendering to screen becomes disabled, or is not supported by this RenderTarget.
+   */
+  public setRenderToScreen(_toScreen: boolean): HTMLCanvasElement | undefined { return undefined; }
+
+  public get debugControl(): RenderTargetDebugControl | undefined { return undefined; }
 }
 
 /** Describes a texture loaded from an HTMLImageElement
@@ -849,6 +773,55 @@ export interface InstancedGraphicParams {
    * @internal
    */
   readonly symbologyOverrides?: Uint8Array;
+}
+
+/** Options passed to [[RenderSystem.createGraphicBranch]].
+ * @internal
+ */
+export interface GraphicBranchOptions {
+  clipVolume?: RenderClipVolume;
+  classifierOrDrape?: RenderPlanarClassifier | RenderTextureDrape;
+  iModel?: IModelConnection;
+}
+
+/** @internal */
+export interface GLTimerResult {
+  /** Label from GLTimer.beginOperation */
+  label: string;
+  /** Time elapsed in nanoseconds, inclusive of child result times.
+   *  @note no-op queries seem to have 32ns of noise.
+   */
+  nanoseconds: number;
+  /** Child results if GLTimer.beginOperation calls were nested */
+  children?: GLTimerResult[];
+}
+
+/** @internal */
+export type GLTimerResultCallback = (result: GLTimerResult) => void;
+
+/** An interface optionally exposed by a RenderSystem that allows control of various debugging features.
+ * @beta
+ */
+export interface RenderSystemDebugControl {
+  /** Destroy this system's webgl context. Returns false if this behavior is not supported. */
+  loseContext(): boolean;
+  /** Draw surfaces as "pseudo-wiremesh", using GL_LINES instead of GL_TRIANGLES. Useful for visualizing faces of a mesh. Not suitable for real wiremesh display. */
+  drawSurfacesAsWiremesh: boolean;
+  /** Record GPU profiling information for each frame drawn. Check isGLTimerSupported before using.
+   * @internal
+   */
+  resultsCallback?: GLTimerResultCallback;
+  /** Returns true if the browser supports GPU profiling queries.
+   * @internal
+   */
+  readonly isGLTimerSupported: boolean;
+  /** Attempts to compile all shader programs and returns true if all were successful. May throw exceptions on errors.
+   * This is useful for debugging shader compilation on specific platforms - especially those which use neither ANGLE nor SwiftShader (e.g., linux, mac, iOS)
+   * because our unit tests which also compile all shaders run in software mode and therefore may not catch some "errors" (especially uniforms that have no effect on
+   * program output).
+   * @internal
+   */
+  compileAllShaders(): boolean;
 }
 
 /** A RenderSystem provides access to resources used by the internal WebGL-based rendering system.
@@ -921,13 +894,13 @@ export abstract class RenderSystem implements IDisposable {
   public abstract createGraphicBuilder(placement: Transform, type: GraphicType, viewport: Viewport, pickableId?: Id64String): GraphicBuilder;
 
   /** @internal */
-  public createTriMesh(args: MeshArgs, instances?: InstancedGraphicParams): RenderGraphic | undefined {
+  public createTriMesh(args: MeshArgs, instances?: InstancedGraphicParams | Point3d): RenderGraphic | undefined {
     const params = MeshParams.create(args);
     return this.createMesh(params, instances);
   }
 
   /** @internal */
-  public createIndexedPolylines(args: PolylineArgs, instances?: InstancedGraphicParams): RenderGraphic | undefined {
+  public createIndexedPolylines(args: PolylineArgs, instances?: InstancedGraphicParams | Point3d): RenderGraphic | undefined {
     if (args.flags.isDisjoint) {
       const pointStringParams = PointStringParams.create(args);
       return undefined !== pointStringParams ? this.createPointString(pointStringParams, instances) : undefined;
@@ -938,11 +911,11 @@ export abstract class RenderSystem implements IDisposable {
   }
 
   /** @internal */
-  public createMesh(_params: MeshParams, _instances?: InstancedGraphicParams): RenderGraphic | undefined { return undefined; }
+  public createMesh(_params: MeshParams, _instances?: InstancedGraphicParams | Point3d): RenderGraphic | undefined { return undefined; }
   /** @internal */
-  public createPolyline(_params: PolylineParams, _instances?: InstancedGraphicParams): RenderGraphic | undefined { return undefined; }
+  public createPolyline(_params: PolylineParams, _instances?: InstancedGraphicParams | Point3d): RenderGraphic | undefined { return undefined; }
   /** @internal */
-  public createPointString(_params: PointStringParams, _instances?: InstancedGraphicParams): RenderGraphic | undefined { return undefined; }
+  public createPointString(_params: PointStringParams, _instances?: InstancedGraphicParams | Point3d): RenderGraphic | undefined { return undefined; }
   /** @internal */
   public createPointCloud(_args: PointCloudArgs, _imodel: IModelConnection): RenderGraphic | undefined { return undefined; }
   /** @internal */
@@ -952,13 +925,9 @@ export abstract class RenderSystem implements IDisposable {
   /** @internal */
   public createClipVolume(_clipVector: ClipVector): RenderClipVolume | undefined { return undefined; }
   /** @internal */
-  public createPlanarClassifier(_properties: SpatialClassificationProps.Classifier, _tileTree: TileTree, _classifiedTileTree: TileTree, _sceneContext: SceneContext): RenderPlanarClassifier | undefined { return undefined; }
-  /** @internal */
   public createBackgroundMapDrape(_drapedTree: TileTree, _mapTree: BackgroundMapTileTreeReference): RenderTextureDrape | undefined { return undefined; }
   /** @internal */
-  public getSolarShadowMap(_frustum: Frustum, _direction: Vector3d, _settings: SolarShadows.Settings, _view: SpatialViewState): RenderSolarShadowMap | undefined { return undefined; }
-  /** @internal */
-  public createTile(tileTexture: RenderTexture, corners: Point3d[]): RenderGraphic | undefined {
+  public createTile(tileTexture: RenderTexture, corners: Point3d[], featureIndex?: number): RenderGraphic | undefined {
     const rasterTile = new MeshArgs();
 
     // corners
@@ -987,6 +956,11 @@ export abstract class RenderSystem implements IDisposable {
     rasterTile.texture = tileTexture;
     rasterTile.isPlanar = true;
 
+    if (undefined !== featureIndex) {
+      rasterTile.features.featureID = featureIndex;
+      rasterTile.features.type = FeatureIndexType.Uniform;
+    }
+
     const trimesh = this.createTriMesh(rasterTile);
     if (undefined === trimesh)
       return undefined;
@@ -1008,12 +982,20 @@ export abstract class RenderSystem implements IDisposable {
   }
 
   /** @internal */
-  public abstract createGraphicBranch(branch: GraphicBranch, transform: Transform, clips?: RenderClipVolume, classifierOrDrape?: RenderPlanarClassifier | RenderTextureDrape): RenderGraphic;
+  public abstract createGraphicBranch(branch: GraphicBranch, transform: Transform, options?: GraphicBranchOptions): RenderGraphic;
 
   /** Create a RenderGraphic consisting of batched [[Feature]]s.
    * @internal
    */
-  public abstract createBatch(graphic: RenderGraphic, features: PackedFeatureTable, range: ElementAlignedBox3d): RenderGraphic;
+  public abstract createBatch(graphic: RenderGraphic, features: PackedFeatureTable, range: ElementAlignedBox3d, tileId?: string): RenderGraphic;
+
+  /** Create a graphic that assumes ownership of another graphic.
+   * @param ownedGraphic The RenderGraphic to be owned.
+   * @returns The owning graphic that exposes a `disposeGraphic` method for explicitly disposing of the owned graphic.
+   * @see [[RenderGraphicOwner]] for details regarding ownership semantics.
+   * @public
+   */
+  public createGraphicOwner(ownedGraphic: RenderGraphic): RenderGraphicOwner { return new GraphicOwner(ownedGraphic); }
 
   /** Find a previously-created [[RenderTexture]] by its ID.
    * @param _key The unique ID of the texture within the context of the IModelConnection. Typically an element ID.
@@ -1056,7 +1038,7 @@ export abstract class RenderSystem implements IDisposable {
     if (1 !== elemProps.length)
       return undefined;
 
-    const textureProps = elemProps[0];
+    const textureProps = elemProps[0] as TextureProps;
     if (undefined === textureProps.data || "string" !== typeof (textureProps.data) || undefined === textureProps.format || "number" !== typeof (textureProps.format))
       return undefined;
 
@@ -1101,11 +1083,24 @@ export abstract class RenderSystem implements IDisposable {
 
   /** @internal */
   public enableDiagnostics(_enable: RenderDiagnostics): void { }
+
+  /** @internal */
+  public get supportsLogZBuffer(): boolean { return true === this.options.logarithmicDepthBuffer; }
+
+  /** Obtain an object that can be used to control various debugging features. Returns `undefined` if debugging features are unavailable for this `RenderSystem`.
+   * @beta
+   */
+  public get debugControl(): RenderSystemDebugControl | undefined { return undefined; }
+
+  /** @internal */
+  public collectStatistics(_stats: RenderMemory.Statistics): void { }
 }
 
 /** @internal */
-export type WebGLExtensionName = "WEBGL_draw_buffers" | "OES_element_index_uint" | "OES_texture_float" | "OES_texture_half_float" |
-  "WEBGL_depth_texture" | "EXT_color_buffer_float" | "EXT_shader_texture_lod" | "ANGLE_instanced_arrays";
+export type WebGLExtensionName = "WEBGL_draw_buffers" | "OES_element_index_uint" | "OES_texture_float" | "OES_texture_float_linear" |
+  "OES_texture_half_float" | "OES_texture_half_float_linear" | "EXT_texture_filter_anisotropic" | "WEBGL_depth_texture" |
+  "EXT_color_buffer_float" | "EXT_shader_texture_lod" | "ANGLE_instanced_arrays" | "OES_vertex_array_object" | "WEBGL_lose_context" |
+  "EXT_frag_depth" | "EXT_disjoint_timer_query";
 
 /** A RenderSystem provides access to resources used by the internal WebGL-based rendering system.
  * An application rarely interacts directly with the RenderSystem; instead it interacts with types like [[Viewport]] which
@@ -1114,34 +1109,72 @@ export type WebGLExtensionName = "WEBGL_draw_buffers" | "OES_element_index_uint"
  * @public
  */
 export namespace RenderSystem {
-  /** Options passed to [[IModelApp.supplyRenderSystem]] to configure the [[RenderSystem]] on startup.
+  /** Options passed to [[IModelApp.supplyRenderSystem]] to configure the [[RenderSystem]] on startup. Many of these options serve as "feature flags" used to enable newer, experimental features. As such they typically begin life tagged as "alpha" or "beta" and are subsequently deprecated when the feature is declared stable.
+   *
    * @beta
    */
   export interface Options {
     /** WebGL extensions to be explicitly disabled, regardless of whether or not the WebGL implementation supports them.
      * This is chiefly useful for testing code which only executes in the absence of particular extensions.
+     *
+     * Default value: undefined
+     *
      * @internal
      */
     disabledExtensions?: WebGLExtensionName[];
-    /** Specifies whether to use optimized surface shaders when edge display is not important. If set to true, then in 3d views the optimized shaders will be used if:
-     *  - Render mode is wireframe; or
-     *  - Render mode is smooth shade and visible edges are turned off.
-     * @internal
-     */
-    enableOptimizedSurfaceShaders?: boolean;
-    /** If true, when a clip volume is applied to the view, geometry will be tested against the clip volume on the CPU and not drawn if it is entirely clipped, improving performance.
-     * @internal
-     */
-    cullAgainstActiveVolume?: boolean;
+
     /** If true, preserve the shader source code as internal strings, useful for debugging purposes.
+     *
+     * Default value: false
+     *
      * @internal
      */
     preserveShaderSourceCode?: boolean;
-    /** If true display solar shadows.
-     *      * @internal
+
+    /** If true, display solar shadows when enabled by [ViewFlags.shadows]($common).
+     *
+     * Default value: true
+     *
+     * @beta
      */
     displaySolarShadows?: boolean;
 
+    /** If the view frustum is sufficiently large, and the EXT_frag_depth WebGL extension is available, use a logarithmic depth buffer to improve depth buffer resolution. Framerate may degrade to an extent while the logarithmic depth buffer is in use. If this option is disabled, or the extension is not supported, the near and far planes of very large view frustums will instead be moved to reduce the draw distance.
+     *
+     * Default value: false
+     *
+     * @beta
+     */
+    logarithmicDepthBuffer?: boolean;
+
+    /** If true anisotropic filtering is applied to map tile textures.
+     *
+     * Default value: false
+     *
+     * @internal
+     */
+    filterMapTextures?: boolean;
+
+    /** If true anisotropic filtering is not applied to draped map tile textures.
+     *
+     * Default value: true
+     *
+     * @internal
+     */
+    filterMapDrapeTextures?: boolean;
+
+    /** If true, [[ScreenViewport]]s will respect the DPI of the display.  See [[Viewport.devicePixelRatio]] and [[Viewport.cssPixelsToDevicePixels]].
+     *
+     * Default value: true
+     *
+     * @beta
+     */
+    dpiAwareViewports?: boolean;
+
+    /** @internal
+     * @deprecated This setting no longer has any effect.
+     */
+    directScreenRendering?: boolean;
   }
 }
 

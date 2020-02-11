@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as chai from "chai";
 import { ClientRequestContext, GuidString } from "@bentley/bentleyjs-core";
@@ -33,7 +33,7 @@ describe("ConnectSettingsClient-User (#integration)", () => {
   const settingsClient = new ConnectSettingsClient("1001");
   let requestContext: AuthorizedClientRequestContext;
 
-  before(async function (this: Mocha.IHookCallbackContext) {
+  before(async () => {
     const authToken: AuthorizationToken = await TestConfig.login();
     const accessToken = await settingsClient.getAccessToken(new ClientRequestContext(), authToken);
     requestContext = new AuthorizedClientRequestContext(accessToken);
@@ -51,10 +51,7 @@ describe("ConnectSettingsClient-User (#integration)", () => {
   }
 
   // Application User Setting
-  it("should save and retrieve a User setting for this Application (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve a User setting for this Application (#integration)", async () => {
     const appUserSettings: AppSetting[] = [];
 
     // create an array of settings.
@@ -111,10 +108,7 @@ describe("ConnectSettingsClient-User (#integration)", () => {
   });
 
   // Project/Application/User -specific  Setting
-  it("should save and retrieve a Project User setting for this Application (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve a Project User setting for this Application (#integration)", async () => {
     const appProjectUserSetting = { appString: "application/Project User String", appNumber: 213, appArray: [10, 20, 30, 40, 50] };
 
     // start by deleting the setting we're going to create.
@@ -149,10 +143,7 @@ describe("ConnectSettingsClient-User (#integration)", () => {
   });
 
   // iModel/Application/User -specific  Setting
-  it("should save and retrieve an iModel User setting for this Application (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve an iModel User setting for this Application (#integration)", async () => {
     const appIModelUserSetting = { appString: "application/iModel User String", appNumber: 41556, appArray: [1, 2, 3, 5, 8, 13, 21, 34] };
 
     // start by deleting the setting we're going to create.
@@ -186,10 +177,7 @@ describe("ConnectSettingsClient-User (#integration)", () => {
   });
 
   // Project/User -specific  Setting
-  it("should save and retrieve a Project User setting (Application independent) (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve a Project User setting (Application independent) (#integration)", async () => {
     const projectUserSetting = { projString: "Project User String", projNumber: 213, projArray: [1, 3, 5, 7, 11, 13, 17] };
 
     // start by deleting the setting we're going to create.
@@ -224,10 +212,7 @@ describe("ConnectSettingsClient-User (#integration)", () => {
   });
 
   // IModel/User -specific  Setting
-  it("should save and retrieve an IModel User setting (Application independent) (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve an IModel User setting (Application independent) (#integration)", async () => {
     const iModelUserSetting = { iModelString: "iModel User String", iModelNumber: 723, iModelArray: [99, 98, 97, 96, 95] };
 
     // start by deleting the setting we're going to create.
@@ -269,7 +254,7 @@ describe("ConnectSettingsClient-Administrator (#integration)", () => {
   let settingsClient: ConnectSettingsClient;
   let requestContext: AuthorizedClientRequestContext;
 
-  before(async function (this: Mocha.IHookCallbackContext) {
+  before(async () => {
     if (TestConfig.enableMocks)
       return;
 
@@ -284,11 +269,28 @@ describe("ConnectSettingsClient-Administrator (#integration)", () => {
     chai.assert.isDefined(iModelId);
   });
 
-  // Application Setting
-  it("should save and retrieve an Application Setting (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
+  // Application Setting with the same name as a User App Setting (make sure they are independently stored.)
+  it("should maintain app-specific settings separately from user settings with the same namespace/name (#integration)", async () => {
+    const independentAppSetting = { stringValue: "App independence test", numberValue: 82919, arrayValue: [10, 14, 84, 1, 8, 87, 5, 13, 90, 7, 13, 92] };
 
+    const deleteResult: SettingsResult = await settingsClient.deleteSetting(requestContext, "TestSettings", "AppUser1", true);
+    chai.assert((SettingsStatus.Success === deleteResult.status) || (SettingsStatus.SettingNotFound === deleteResult.status), "Delete should work or give SettingNotFound");
+
+    // save the new setting (deleted above, so we know it's new)
+    const saveResult: SettingsResult = await settingsClient.saveSetting(requestContext, independentAppSetting, "TestSettings", "AppUser1", true);
+    chai.assert(SettingsStatus.Success === saveResult.status, "Save should work");
+
+    // read back the result.
+    const getResult: SettingsResult = await settingsClient.getSetting(requestContext, "TestSettings", "AppUser1", true);
+    chai.assert(SettingsStatus.Success === getResult.status, "Retrieval should work");
+    chai.assert(getResult.setting, "Setting should be returned");
+    chai.expect(getResult.setting.stringValue).equals(independentAppSetting.stringValue);
+    chai.expect(getResult.setting.numberValue).equals(independentAppSetting.numberValue);
+    chai.assert(arraysEqual(getResult.setting.arrayValue, independentAppSetting.arrayValue), "retrieved array contents correct");
+
+  });
+
+  it("should save and retrieve an Application Setting (#integration)", async () => {
     const appSetting = { appString: "application String", appNumber: 112, appArray: [101, 102, 103, 104] };
 
     // start by deleting the setting we're going to create.
@@ -322,10 +324,7 @@ describe("ConnectSettingsClient-Administrator (#integration)", () => {
   });
 
   // Application/Project Setting
-  it("should save and retrieve a Project/Application Setting (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve a Project/Application Setting (#integration)", async () => {
     const projectAppSetting = { projAppString: "project Application String", projAppNumber: 592, projAppArray: [2101, 2102, 2103, 2104] };
 
     // start by deleting the setting we're going to create.
@@ -360,10 +359,7 @@ describe("ConnectSettingsClient-Administrator (#integration)", () => {
   });
 
   // Application/IModel Setting
-  it("should save and retrieve an iModel/Application Setting (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve an iModel/Application Setting (#integration)", async () => {
     const iModelAppSetting = { iModelAppString: "iModel Application String", iModelAppNumber: 592, iModelAppArray: [3211, 3212, 3213, 3214, 3215] };
 
     // start by deleting the setting we're going to create.
@@ -398,10 +394,7 @@ describe("ConnectSettingsClient-Administrator (#integration)", () => {
   });
 
   // Project Setting (application independent)
-  it("should save and retrieve a Project Setting (Application independent) (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve a Project Setting (Application independent) (#integration)", async () => {
     const projectSettingTemplate = { projNumber: 592, projArray: [8765, 4321, 9876, 5432, 1987] };
 
     const projectSettings: any[] = [];
@@ -459,10 +452,7 @@ describe("ConnectSettingsClient-Administrator (#integration)", () => {
   });
 
   // IModel Setting (application independent)
-  it("should save and retrieve an iModel Setting (Application independent) (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve an iModel Setting (Application independent) (#integration)", async () => {
     const iModelSetting = { iModelString: "iModel String", iModelNumber: 592, iModelArray: [33482, 29385, 99742, 32195, 99475] };
 
     // start by deleting the setting we're going to create.
@@ -502,7 +492,7 @@ describe("Reading non-user settings from ordinary user (#integration)", () => {
   let settingsClient: ConnectSettingsClient;
   let requestContext: AuthorizedClientRequestContext;
 
-  before(async function (this: Mocha.IHookCallbackContext) {
+  before(async () => {
     settingsClient = new ConnectSettingsClient("1001");
     const authToken: AuthorizationToken = await TestConfig.login();
     const accessToken: AccessToken = await settingsClient.getAccessToken(new ClientRequestContext(), authToken);
@@ -515,10 +505,7 @@ describe("Reading non-user settings from ordinary user (#integration)", () => {
   });
 
   // Application Setting
-  it("should successfully retrieve an Application Setting (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should successfully retrieve an Application Setting (#integration)", async () => {
     const getResult: SettingsResult = await settingsClient.getSetting(requestContext, "TestSettings", "AppSetting", true);
     chai.assert(SettingsStatus.Success === getResult.status, "Retrieval should work");
     chai.assert(getResult.setting, "Setting should be returned");
@@ -526,10 +513,7 @@ describe("Reading non-user settings from ordinary user (#integration)", () => {
   });
 
   // Application/Project Setting
-  it("should successfully retrieve a Project/Application Setting (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should successfully retrieve a Project/Application Setting (#integration)", async () => {
     // read back the result.
     const getResult: SettingsResult = await settingsClient.getSetting(requestContext, "TestSettings", "AppProjectSetting", true, projectId);
     chai.assert(SettingsStatus.Success === getResult.status, "Retrieval should work");
@@ -538,10 +522,7 @@ describe("Reading non-user settings from ordinary user (#integration)", () => {
   });
 
   // Application/IModel Setting
-  it("should successfully retrieve an iModel/Application Setting (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should successfully retrieve an iModel/Application Setting (#integration)", async () => {
     // read back the result.
     const getResult: SettingsResult = await settingsClient.getSetting(requestContext, "TestSettings", "AppIModelSettings", true, projectId, iModelId);
     chai.assert(SettingsStatus.Success === getResult.status, "Retrieval should work");
@@ -550,10 +531,7 @@ describe("Reading non-user settings from ordinary user (#integration)", () => {
   });
 
   // Project Setting (application independent)
-  it("should successfully retrieve a Project Setting (Application independent)  (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should successfully retrieve a Project Setting (Application independent)  (#integration)", async () => {
     // read back the result.
     const getResult: SettingsResult = await settingsClient.getSetting(requestContext, "TestSettings", "ProjectSettings1", false, projectId);
     chai.assert(SettingsStatus.Success === getResult.status, "Retrieval should work");
@@ -562,10 +540,7 @@ describe("Reading non-user settings from ordinary user (#integration)", () => {
   });
 
   // IModel Setting (application independent)
-  it("should successfully retrieve an iModel Setting (Application independent) (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should successfully retrieve an iModel Setting (Application independent) (#integration)", async () => {
     // read back the result.
     const getResult: SettingsResult = await settingsClient.getSetting(requestContext, "TestSettings", "IModelSettings", false, projectId, iModelId);
     chai.assert(SettingsStatus.Success === getResult.status, "Retrieval should work");
@@ -581,7 +556,7 @@ describe("ConnectSettingsClient-Shared (#integration)", () => {
   const settingsClient = new ConnectSettingsClient("1001");
   let requestContext: AuthorizedClientRequestContext;
 
-  before(async function (this: Mocha.IHookCallbackContext) {
+  before(async () => {
     const authToken: AuthorizationToken = await TestConfig.login();
     const accessToken = await settingsClient.getAccessToken(new ClientRequestContext(), authToken);
     requestContext = new AuthorizedClientRequestContext(accessToken);
@@ -595,10 +570,7 @@ describe("ConnectSettingsClient-Shared (#integration)", () => {
   // Note: There is no Application Shared Setting, so don't test that.
 
   // Project/Application/Shared -specific  Setting
-  it("should save and retrieve a Project Shared setting for this Application (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve a Project Shared setting for this Application (#integration)", async () => {
     const appProjectSharedSetting = { appString: "application/Project Shared String", appNumber: 213, appArray: [10, 20, 30, 40, 50] };
 
     // start by deleting the setting we're going to create.
@@ -633,10 +605,7 @@ describe("ConnectSettingsClient-Shared (#integration)", () => {
   });
 
   // iModel/Application/Shared -specific  Setting
-  it("should save and retrieve an iModel Shared setting for this Application (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve an iModel Shared setting for this Application (#integration)", async () => {
     const appIModelSharedSetting = { appString: "application/iModel Shared String", appNumber: 41556, appArray: [1, 2, 3, 5, 8, 13, 21, 34] };
 
     // start by deleting the setting we're going to create.
@@ -670,10 +639,7 @@ describe("ConnectSettingsClient-Shared (#integration)", () => {
   });
 
   // Project/Shared -specific  Setting
-  it("should save and retrieve a Project Shared setting (Application independent) (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve a Project Shared setting (Application independent) (#integration)", async () => {
     const projectSharedSetting = { projString: "Project Shared String", projNumber: 213, projArray: [1, 3, 5, 7, 11, 13, 17] };
 
     // start by deleting the setting we're going to create.
@@ -708,10 +674,7 @@ describe("ConnectSettingsClient-Shared (#integration)", () => {
   });
 
   // IModel/Shared -specific  Setting
-  it("should save and retrieve an IModel Shared setting (Application independent) (#integration)", async function (this: Mocha.ITestCallbackContext) {
-    if (TestConfig.enableMocks)
-      this.skip();
-
+  it("should save and retrieve an IModel Shared setting (Application independent) (#integration)", async () => {
     const iModelSharedSetting = { iModelString: "iModel Shared String", iModelNumber: 723, iModelArray: [99, 98, 97, 96, 95] };
 
     // start by deleting the setting we're going to create.
@@ -743,6 +706,81 @@ describe("ConnectSettingsClient-Shared (#integration)", () => {
     chai.expect(getResult2.setting.iModelNumber).equals(iModelSharedSetting.iModelNumber);
     chai.assert(arraysEqual(getResult2.setting.iModelArray, iModelSharedSetting.iModelArray), "retrieved array contents correct");
 
+  });
+
+  it("should be able to retrieve more than 20 IModel Shared settings by Namespace (Application independent)", async () => {
+    // start by deleting the settings we are going to create.
+    for (let iSetting = 0; iSetting < 42; ++iSetting) {
+      const deleteResult: SettingsResult = await settingsClient.deleteSharedSetting(requestContext, "NamespaceTest", `ManySettings${iSetting}`, false, projectId, iModelId);
+      chai.assert((SettingsStatus.Success === deleteResult.status) || (SettingsStatus.SettingNotFound === deleteResult.status), "Delete should work or give SettingNotFound");
+    }
+
+    // now create many settings.
+    for (let iSetting = 0; iSetting < 40; ++iSetting) {
+      const newSetting: any = { testString: `Setting${iSetting}`, value: iSetting };
+      const saveResult: SettingsResult = await settingsClient.saveSharedSetting(requestContext, newSetting, "NamespaceTest", `ManySettings${iSetting}`, false, projectId, iModelId);
+      chai.assert((SettingsStatus.Success === saveResult.status), `Save of ManySettings${iSetting} should work`);
+    }
+
+    // now read back the (hopefully 40) settings by namespace and check them.
+    let readResult: SettingsMapResult = await settingsClient.getSharedSettingsByNamespace(requestContext, "NamespaceTest", false, projectId, iModelId);
+    chai.assert((SettingsStatus.Success === readResult.status), "Reading settings by namespace 'NamespaceTest' should work");
+    chai.assert(((undefined !== readResult.settingsMap) && (40 === readResult.settingsMap.size)), "NamespaceTest should contain 40 settings");
+    for (let iSetting = 0; iSetting < 40; iSetting++) {
+      const returnedValue: any = readResult.settingsMap!.get(`ManySettings${iSetting}`);
+      chai.assert (((undefined !== returnedValue) && (returnedValue.testString === `Setting${iSetting}`) && (returnedValue.value === iSetting)), `Returned Setting ${iSetting} should contain the right values`);
+    }
+
+    // add two more and read again.
+    for (let iSetting = 40; iSetting < 42; ++iSetting) {
+      const newSetting: any = { testString: `Setting${iSetting}`, value: iSetting };
+      const saveResult: SettingsResult = await settingsClient.saveSharedSetting(requestContext, newSetting, "NamespaceTest", `ManySettings${iSetting}`, false, projectId, iModelId);
+      chai.assert((SettingsStatus.Success === saveResult.status), `Save of ManySettings${iSetting} should work`);
+    }
+
+    // now read back the now (hopefully 42) settings by namespace and check them again/
+    readResult = await settingsClient.getSharedSettingsByNamespace(requestContext, "NamespaceTest", false, projectId, iModelId);
+    chai.assert((SettingsStatus.Success === readResult.status), "Reading settings by namespace 'NamespaceTest' should work");
+    chai.assert(((undefined !== readResult.settingsMap) && (42 === readResult.settingsMap.size)), "NamespaceTest should contain 40 settings");
+    for (let iSetting = 0; iSetting < 42; iSetting++) {
+      const returnedValue: any = readResult.settingsMap!.get(`ManySettings${iSetting}`);
+      chai.assert (((undefined !== returnedValue) && (returnedValue.testString === `Setting${iSetting}`) && (returnedValue.value === iSetting)), `Returned Setting ${iSetting} should contain the right values`);
+    }
+
+  });
+
+});
+
+describe("ConnectSettingsClient-User (#integration)", () => {
+  let projectId: GuidString;
+  let iModelId: GuidString;
+  const settingsClient = new ConnectSettingsClient("1001");
+  let requestContext: AuthorizedClientRequestContext;
+
+  before(async () => {
+    const authToken: AuthorizationToken = await TestConfig.login();
+    const accessToken = await settingsClient.getAccessToken(new ClientRequestContext(), authToken);
+    requestContext = new AuthorizedClientRequestContext(accessToken);
+
+    projectId = (await TestConfig.queryProject(requestContext, TestConfig.projectName)).wsgId;
+    chai.assert.isDefined(projectId);
+    iModelId = (await TestConfig.queryIModel(requestContext, projectId)).wsgId;
+    chai.assert.isDefined(iModelId);
+  });
+
+  // Application User Setting
+  it("should still retrieve a user setting after an App setting with the same name is stored. (#integration)", async () => {
+    const appUserSettings = { appString: "application User String 1", appNumber: 7, appArray: [20, 30, 40, 50] };
+
+    // read back the AppUser results.
+    for (let iSetting: number = 0; iSetting < 6; iSetting++) {
+      const getResult: SettingsResult = await settingsClient.getUserSetting(requestContext, "TestSettings", "AppUser1", true);
+      chai.assert(SettingsStatus.Success === getResult.status, "Retrieval should work");
+      chai.assert(getResult.setting, "Setting should be returned");
+      chai.expect(getResult.setting.appString).equals(appUserSettings.appString);
+      chai.expect(getResult.setting.appNumber).equals(appUserSettings.appNumber);
+      chai.assert(arraysEqual(getResult.setting.appArray, appUserSettings.appArray), "retrieved array contents correct");
+    }
   });
 
 });

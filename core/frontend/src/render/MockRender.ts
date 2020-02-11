@@ -1,16 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-import { Viewport, ViewRect } from "../Viewport";
+import { Viewport } from "../Viewport";
+import { ViewRect } from "../ViewRect";
 import {
   Decorations,
   GraphicBranch,
+  GraphicBranchOptions,
   GraphicList,
-  PackedFeatureTable,
   Pixel,
-  RenderClipVolume,
   RenderGraphic,
   RenderMemory,
   RenderPlan,
@@ -23,7 +23,7 @@ import { IModelConnection } from "../IModelConnection";
 import { PrimitiveBuilder } from "./primitives/geometry/GeometryListBuilder";
 import { MeshParams, PolylineParams, PointStringParams } from "./primitives/VertexTable";
 import { PointCloudArgs } from "./primitives/PointCloudPrimitive";
-import { ElementAlignedBox3d } from "@bentley/imodeljs-common";
+import { ElementAlignedBox3d, PackedFeatureTable } from "@bentley/imodeljs-common";
 import { Transform } from "@bentley/geometry-core";
 import { Id64String, dispose } from "@bentley/bentleyjs-core";
 
@@ -44,11 +44,12 @@ export namespace MockRender {
     protected constructor(private readonly _system: System) { super(); }
 
     public get renderSystem(): RenderSystem { return this._system; }
-    public get cameraFrustumNearScaleLimit() { return 0; }
     public get wantInvertBlackBackground() { return false; }
     public get animationFraction() { return 0; }
     public set animationFraction(_fraction: number) { }
     public changeScene(_scene: GraphicList) { }
+    public changeBackgroundMap(_backgroundMap: GraphicList) { }
+    public changeOverlayGraphics(_overlayGraphics: GraphicList) { }
     public changeDynamics(_dynamics?: GraphicList) { }
     public changeDecorations(_decs: Decorations) { }
     public changeRenderPlan(_plan: RenderPlan) { }
@@ -102,7 +103,7 @@ export namespace MockRender {
 
   /** @internal */
   export class Branch extends Graphic {
-    public constructor(public readonly branch: GraphicBranch, public readonly transform: Transform, public readonly clips?: RenderClipVolume) { super(); }
+    public constructor(public readonly branch: GraphicBranch, public readonly transform: Transform, public readonly options?: GraphicBranchOptions) { super(); }
 
     public dispose() { this.branch.dispose(); }
   }
@@ -129,7 +130,7 @@ export namespace MockRender {
 
     public createGraphicBuilder(placement: Transform, type: GraphicType, viewport: Viewport, pickableId?: Id64String) { return new Builder(this, placement, type, viewport, pickableId); }
     public createGraphicList(primitives: RenderGraphic[]) { return new List(primitives); }
-    public createGraphicBranch(branch: GraphicBranch, transform: Transform, clips?: RenderClipVolume) { return new Branch(branch, transform, clips); }
+    public createGraphicBranch(branch: GraphicBranch, transform: Transform, options?: GraphicBranchOptions) { return new Branch(branch, transform, options); }
     public createBatch(graphic: RenderGraphic, features: PackedFeatureTable, range: ElementAlignedBox3d) { return new Batch(graphic, features, range); }
 
     public createMesh(_params: MeshParams) { return new Graphic(); }

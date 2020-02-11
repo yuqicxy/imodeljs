@@ -1,17 +1,19 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module ArraysAndInterfaces */
+/** @packageDocumentation
+ * @module ArraysAndInterfaces
+ */
 
-import { Geometry } from "../Geometry";
+import { Geometry, PlaneAltitudeEvaluator } from "../Geometry";
 import { XYAndZ } from "./XYZProps";
 import { Point3d, Vector3d } from "./Point3dVector3d";
 import { Range3d, Range1d } from "./Range";
 import { Transform } from "./Transform";
 import { Matrix3d } from "./Matrix3d";
-import { IndexedXYZCollection } from "./IndexedXYZCollection";
+import { IndexedReadWriteXYZCollection, IndexedXYZCollection } from "./IndexedXYZCollection";
 
 import { Plane3dByOriginAndUnitNormal } from "./Plane3dByOriginAndUnitNormal";
 import { Point2d } from "./Point2dVector2d";
@@ -19,9 +21,9 @@ import { Point2d } from "./Point2dVector2d";
 /** `GrowableXYArray` manages a (possibly growing) Float64Array to pack xy coordinates.
  * @public
  */
-export class GrowableXYZArray extends IndexedXYZCollection {
+export class GrowableXYZArray extends IndexedReadWriteXYZCollection {
   /**
-   * array of packed xyzxyzxyz components
+   * array of packed xyz xyz xyz components
    */
   private _data: Float64Array;
   /**
@@ -41,8 +43,19 @@ export class GrowableXYZArray extends IndexedXYZCollection {
     this._xyzInUse = 0;
     this._xyzCapacity = numPoints;
   }
-  /** Return the number of points in use. */
+
+  /** The number of points in use. When the length is increased, the array is padded with zeroes. */
   public get length() { return this._xyzInUse; }
+  public set length(newLength: number) {
+    let oldLength = this.length;
+    if (newLength < oldLength) {
+      this._xyzInUse = newLength;
+    } else if (newLength > oldLength) {
+      this.ensureCapacity(newLength);
+      while (oldLength++ < newLength)
+        this.pushXYZ(0, 0, 0);
+    }
+  }
 
   /** Return the number of float64 in use. */
   public get float64Length() { return this._xyzInUse * 3; }
@@ -168,6 +181,9 @@ export class GrowableXYZArray extends IndexedXYZCollection {
       const n = p.length;
       for (let i = 0; i + 2 < n; i += 3)
         this.pushXYZ(p[i], p[i + 1], p[i + 2]);
+    } else if (p instanceof IndexedXYZCollection) {
+      for (let i = 0; i < p.length; i++)
+        this.pushXYZ(p.getXAtUncheckedPointIndex(i), p.getYAtUncheckedPointIndex(i), p.getZAtUncheckedPointIndex(i));
     }
   }
   /**
@@ -194,6 +210,18 @@ export class GrowableXYZArray extends IndexedXYZCollection {
     this._xyzInUse++;
   }
 
+  /** move the coordinates at fromIndex to toIndex.
+   * * No action if either index is invalid.
+   */
+  public moveIndexToIndex(fromIndex: number, toIndex: number) {
+    if (this.isIndexValid(fromIndex) && this.isIndexValid(toIndex)) {
+      let iA = fromIndex * 3;
+      let iB = toIndex * 3;
+      this._data[iB++] = this._data[iA++];
+      this._data[iB++] = this._data[iA++];
+      this._data[iB] = this._data[iA];
+    }
+  }
   /** Remove one point from the back.
    * * NOTE that (in the manner of std::vector native) this is "just" removing the point -- no point is NOT returned.
    * * Use `back ()` to get the last x,y,z assembled into a `Point3d `
@@ -248,6 +276,24 @@ export class GrowableXYZArray extends IndexedXYZCollection {
       return result;
     }
     return undefined;
+  }
+
+  /** access x of indexed point */
+  public getXAtUncheckedPointIndex(pointIndex: number): number {
+    const index = 3 * pointIndex;
+    return this._data[index];
+  }
+
+  /** access y of indexed point */
+  public getYAtUncheckedPointIndex(pointIndex: number): number {
+    const index = 3 * pointIndex;
+    return this._data[index + 1];
+  }
+
+  /** access y of indexed point */
+  public getZAtUncheckedPointIndex(pointIndex: number): number {
+    const index = 3 * pointIndex;
+    return this._data[index + 2];
   }
 
   /** copy xy into strongly typed Point2d */
@@ -399,6 +445,25 @@ export class GrowableXYZArray extends IndexedXYZCollection {
     }
   }
 
+  /** reverse the order of points. */
+  public reverseInPlace() {
+    const n = this.length;
+    let j0, j1;
+    let a;
+    const data = this._data;
+    for (let i0 = 0, i1 = n - 1; i0 < i1; i0++ , i1--) {
+      j0 = 3 * i0;
+      j1 = 3 * i1;
+      a = data[j0]; data[j0] = data[j1]; data[j1] = a;
+      j0++;
+      j1++;
+      a = data[j0]; data[j0] = data[j1]; data[j1] = a;
+      j0++;
+      j1++;
+      a = data[j0]; data[j0] = data[j1]; data[j1] = a;
+    }
+  }
+
   /** multiply each xyz (as a vector) by matrix, replace values. */
   public multiplyMatrix3dInPlace(matrix: Matrix3d) {
     const data = this._data;
@@ -502,6 +567,19 @@ export class GrowableXYZArray extends IndexedXYZCollection {
 
     }
   }
+  /** get range of points. */
+  public getRange(transform?: Transform): Range3d {
+    const range = Range3d.createNull();
+    this.extendRange(range, transform);
+    return range;
+  }
+
+  /** Initialize `range` with coordinates in this array. */
+  public setRange(range: Range3d, transform?: Transform) {
+    range.setNull();
+    this.extendRange(range, transform);
+  }
+
   /** Sum the lengths of segments between points. */
   public sumLengths(): number {
     let sum = 0.0;
@@ -632,6 +710,12 @@ export class GrowableXYZArray extends IndexedXYZCollection {
     const data = this._data;
     return data[i] * x + data[i + 1] * y + data[i + 2] * z;
   }
+  /** Compute the dot product of pointIndex with [x,y,z] */
+  public evaluateUncheckedIndexPlaneAltitude(pointIndex: number, plane: PlaneAltitudeEvaluator): number {
+    const i = pointIndex * 3;
+    const data = this._data;
+    return plane.altitudeXYZ(data[i], data[i + 1], data[i + 2]);
+  }
 
   /**
    * * compute the cross product from indexed origin t indexed targets targetAIndex and targetB index.
@@ -650,6 +734,20 @@ export class GrowableXYZArray extends IndexedXYZCollection {
     return undefined;
   }
 
+  /**
+   * * compute the cross product from indexed origin t indexed targets targetAIndex and targetB index.
+   * * accumulate it to the result.
+   */
+  public accumulateScaledXYZ(index: number, scale: number, sum: Point3d): void {
+    const i = index * 3;
+    const data = this._data;
+    if (this.isIndexValid(index)) {
+      sum.x += scale * data[i];
+      sum.y += scale * data[i + 1];
+      sum.z += scale * data[i + 2];
+    }
+  }
+
   /** Compute the cross product of vectors from from origin to indexed targets i and j */
   public crossProductXYAndZIndexIndex(origin: XYAndZ, targetAIndex: number, targetBIndex: number, result?: Vector3d): Vector3d | undefined {
     const j = targetAIndex * 3;
@@ -663,7 +761,9 @@ export class GrowableXYZArray extends IndexedXYZCollection {
     return undefined;
   }
 
-  /** Return the distance between two points in the array. */
+  /** Return the distance between two points in the array.
+   * @deprecated use distanceIndexIndex
+   */
   public distance(i: number, j: number): number | undefined {
     if (i >= 0 && i < this._xyzInUse && j >= 0 && j <= this._xyzInUse) {
       const i0 = 3 * i;
@@ -687,6 +787,43 @@ export class GrowableXYZArray extends IndexedXYZCollection {
     return undefined;
   }
 
+  /**
+   * Return distance squared between indicated points.
+   * * Concrete classes may be able to implement this without creating a temporary.
+   * @param index0 first point index
+   * @param index1 second point index
+   * @param defaultDistanceSquared distance squared to return if either point index is invalid.
+   *
+   */
+  public distanceSquaredIndexIndex(i: number, j: number): number | undefined {
+    if (i >= 0 && i < this._xyzInUse && j >= 0 && j <= this._xyzInUse) {
+      const i0 = 3 * i;
+      const j0 = 3 * j;
+      return Geometry.hypotenuseSquaredXYZ(
+        this._data[j0] - this._data[i0],
+        this._data[j0 + 1] - this._data[i0 + 1],
+        this._data[j0 + 2] - this._data[i0 + 2]);
+    }
+    return undefined;
+  }
+  /**
+   * Return distance between indicated points.
+   * * Concrete classes may be able to implement this without creating a temporary.
+   * @param index0 first point index
+   * @param index1 second point index
+   * @param defaultDistanceSquared distance squared to return if either point index is invalid.
+   */
+  public distanceIndexIndex(i: number, j: number): number | undefined {
+    if (i >= 0 && i < this._xyzInUse && j >= 0 && j <= this._xyzInUse) {
+      const i0 = 3 * i;
+      const j0 = 3 * j;
+      return Geometry.hypotenuseXYZ(
+        this._data[j0] - this._data[i0],
+        this._data[j0 + 1] - this._data[i0 + 1],
+        this._data[j0 + 2] - this._data[i0 + 2]);
+    }
+    return undefined;
+  }
   /** Return the distance between points in distinct arrays. */
   public static distanceBetweenPointsIn2Arrays(arrayA: GrowableXYZArray, i: number, arrayB: GrowableXYZArray, j: number): number | undefined {
 

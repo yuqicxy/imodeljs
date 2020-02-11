@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ContentView */
+/** @packageDocumentation
+ * @module ContentView
+ */
 
 import {
   IModelConnection,
@@ -62,9 +64,13 @@ export class SavedView {
       viewState = SpatialViewState.createFromProps(props, iModelConnection);
     else if (ViewUtilities.isDrawing(savedViewProps.bisBaseClass))
       viewState = DrawingViewState.createFromProps(props, iModelConnection);
-    else if (ViewUtilities.isSheet(savedViewProps.bisBaseClass))
-      viewState = SheetViewState.createFromProps(props, iModelConnection);
+    else {
+      // istanbul ignore else
+      if (ViewUtilities.isSheet(savedViewProps.bisBaseClass))
+        viewState = SheetViewState.createFromProps(props, iModelConnection);
+    }
 
+    // istanbul ignore else
     if (viewState)
       await viewState.load();
 

@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 
 import { StrokeOptions } from "./StrokeOptions";
 import { CurvePrimitive } from "./CurvePrimitive";
@@ -13,7 +15,6 @@ import { GeometryHandler } from "../geometry3d/GeometryHandler";
 import { LineString3d } from "./LineString3d";
 import { AnyCurve } from "./CurveChain";
 import { CurveChain } from "./CurveCollection";
-import { Geometry } from "../Geometry";
 import { Point3d } from "../geometry3d/Point3dVector3d";
 
 /**
@@ -22,6 +23,9 @@ import { Point3d } from "../geometry3d/Point3dVector3d";
  * @public
  */
 export class Path extends CurveChain {
+   /** String name for schema properties */
+  public readonly curveCollectionType = "path";
+
   /** Test if `other` is an instance of `Path` */
   public isSameGeometryClass(other: GeometryQuery): boolean { return other instanceof Path; }
   /** invoke `processor.announcePath(this, indexInParent)` */
@@ -66,19 +70,6 @@ export class Path extends CurveChain {
   }
   /** Return the boundary type (1) of a corresponding  MicroStation CurveVector */
   public dgnBoundaryType(): number { return 1; }
-  /**
-   * Return the `[index]` curve primitive, using `modulo` to map`index` to the cyclic indexing.
-   * * In particular, `-1` is the final curve.
-   * @param index cyclid index
-   */
-  public cyclicCurvePrimitive(index: number): CurvePrimitive | undefined {
-    const n = this.children.length;
-    if (n === 0)
-      return undefined;
-
-    const index2 = Geometry.modulo(index, n);
-    return this.children[index2];
-  }
   /** Clone as a new `Path` with no primitives */
   public cloneEmptyPeer(): Path { return new Path(); }
   /** Second step of double dispatch:  call `handler.handlePath(this)` */

@@ -2,10 +2,26 @@
 
 exports[`IconComponent should render correctly with ReactNode 1`] = `
 <i
-  className="icon uifw-item-svg-icon"
+  className="icon core-svg-icon"
 >
   <span>
     Test
   </span>
+</i>
+`;
+
+exports[`IconComponent should render correctly with icon class string 1`] = `
+<i
+  className="icon icon-developer"
+/>
+`;
+
+exports[`IconComponent should render correctly with icon svg string 1`] = `
+<i
+  className="icon core-svg-icon"
+>
+  <SvgSprite
+    src="test.svg"
+  />
 </i>
 `;

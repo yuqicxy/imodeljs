@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import * as chai from "chai";
@@ -10,16 +10,17 @@ const expect = chai.expect;
 import * as chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
 import { OneAtATimeAction, AbandonedError } from "../OneAtATimeAction";
+import { BeDuration } from "../Time";
 
 describe("OneAtATime test", () => {
-  const pause = async (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
   it("OneAtATime", async () => {
     let calls = 0;
     const operation = new OneAtATimeAction<number>(async (a: number, b: string) => {
       assert.equal(a, 200);
       assert.equal(b, "hello");
-      await pause(100); return ++calls;
+      await BeDuration.wait(100);
+      return ++calls;
     });
 
     expect(operation.request(200, "hello")).to.be.eventually.fulfilled; // is started immediately

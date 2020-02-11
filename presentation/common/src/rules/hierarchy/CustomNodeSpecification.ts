@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 import { ChildNodeSpecificationBase, ChildNodeSpecificationTypes } from "./ChildNodeSpecification";
 
@@ -18,12 +20,12 @@ export interface CustomNodeSpecification extends ChildNodeSpecificationBase {
   type: string;
 
   /**
-   * Label of the node. May be [localized]($docs/learning/Localization.md).
+   * Label of the node. May be [localized]($docs/learning/presentation/Localization.md).
    */
   label: string;
 
   /**
-   * Description of the node. May be [localized]($docs/learning/Localization.md).
+   * Description of the node. May be [localized]($docs/learning/presentation/Localization.md).
    */
   description?: string;
 

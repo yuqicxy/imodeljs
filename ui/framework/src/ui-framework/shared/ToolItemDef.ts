@@ -1,11 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Item */
+/** @packageDocumentation
+ * @module Item
+ */
 
-import { ToolItemProps } from "./ItemProps";
+import { OnItemExecutedFunc } from "@bentley/ui-abstract";
+import { IModelApp, Tool } from "@bentley/imodeljs-frontend";
 import { ActionButtonItemDef } from "./ActionButtonItemDef";
+import { ToolItemProps } from "./ItemProps";
 
 /** An Item that starts the execution of a Tool.
  * @public
@@ -13,8 +17,8 @@ import { ActionButtonItemDef } from "./ActionButtonItemDef";
 export class ToolItemDef extends ActionButtonItemDef {
   public toolId: string = "";
 
-  constructor(toolItemProps: ToolItemProps) {
-    super(toolItemProps);
+  constructor(toolItemProps: ToolItemProps, onItemExecuted?: OnItemExecutedFunc) {
+    super(toolItemProps, onItemExecuted);
 
     if (toolItemProps.execute) {
       this._commandHandler = { execute: toolItemProps.execute, parameters: toolItemProps.parameters, getCommandArgs: toolItemProps.getCommandArgs };
@@ -25,5 +29,16 @@ export class ToolItemDef extends ActionButtonItemDef {
 
   public get id(): string {
     return this.toolId;
+  }
+
+  /** Create a ToolItemDef that will run a registered tool. */
+  public static getItemDefForTool(tool: typeof Tool, iconSpec?: string, args?: any[]): ToolItemDef {
+    return new ToolItemDef({
+      toolId: tool.toolId,
+      iconSpec: iconSpec ? iconSpec : (tool.iconSpec && tool.iconSpec.length > 0) ? tool.iconSpec : "icon-placeholder",
+      label: () => tool.flyover,
+      description: () => tool.description,
+      execute: () => { IModelApp.tools.run(tool.toolId, args); },
+    });
   }
 }

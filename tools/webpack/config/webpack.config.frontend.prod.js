@@ -1,18 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
 const autoprefixer = require("autoprefixer");
 const path = require("path");
-const webpack = require("webpack");
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const ManifestPlugin = require("webpack-manifest-plugin");
 const UglifyJsPlugin = require("uglifyjs-webpack-plugin");
 const paths = require("./paths");
 const helpers = require("./helpers");
-const plugins = require("../scripts/utils/webpackPlugins");
 
 // Webpack uses `publicPath` to determine where the app is being served from.
 // It requires a trailing slash, or the file assets will get an incorrect path.
@@ -30,7 +28,7 @@ const config = helpers.mergeWebpackConfigs(baseConfiguration, {
   bail: true,
   // We generate sourcemaps in production. This is slow but gives good results.
   // You can exclude the *.map files from the build during deployment.
-  devtool: "source-map",
+  devtool: (process.env.DISABLE_SOURCE_MAPS) ? false : "source-map",
   // In production, we only want to load the polyfills and the app code.
   entry: [require.resolve("./polyfills"), paths.appIndexJs],
   output: {
@@ -130,15 +128,6 @@ const config = helpers.mergeWebpackConfigs(baseConfiguration, {
       // both options are optional
       filename: 'static/css/[name].[chunkhash:8].css',
       chunkFilename: 'static/css/[name].[chunkhash:8].chunk.css',
-    }),
-    // Find and bundle all license notices from package dependencies
-    new plugins.PrettyLicenseWebpackPlugin({
-      pattern: /.*/,
-      includeUndefined: true,
-      includePackagesWithoutLicense: true,
-      unacceptablePattern: /^L?GPL/i,
-      licenseFileOverrides: (require(paths.appPackageJson).buildConfig || {}).licenseFileOverrides,
-      licenseTypeOverrides: (require(paths.appPackageJson).buildConfig || {}).licenseTypeOverrides,
     }),
     // Generate a manifest file which contains a mapping of all asset filenames
     // to their corresponding output file so that tools can pick it up without

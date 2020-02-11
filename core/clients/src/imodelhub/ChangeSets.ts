@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModelHub */
+/** @packageDocumentation
+ * @module iModelHubClient
+ */
 
 import { GuidString, Logger } from "@bentley/bentleyjs-core";
 import { AuthorizedClientRequestContext } from "../AuthorizedClientRequestContext";
@@ -12,7 +14,7 @@ import { ProgressInfo } from "../Request";
 import { ECJsonTypeMap, WsgInstance } from "./../ECJsonTypeMap";
 import { IModelBaseHandler } from "./BaseHandler";
 import { ArgumentCheck, IModelHubClientError } from "./Errors";
-import { addSelectFileAccessKey, StringIdQuery } from "./Query";
+import { addSelectFileAccessKey, StringIdQuery, addSelectApplicationData } from "./HubQuery";
 
 const loggerCategory: string = ClientsLoggerCategory.IModelHub;
 
@@ -89,6 +91,14 @@ export class ChangeSet extends WsgInstance {
   @ECJsonTypeMap.propertyToJson("wsg", "relationshipInstances[FileAccessKey].relatedInstance[AccessKey].properties.UploadUrl")
   public uploadUrl?: string;
 
+  /** Id of the application that created this ChangeSet. */
+  @ECJsonTypeMap.propertyToJson("wsg", "relationshipInstances[CreatedByApplication].relatedInstance[Application].properties.Id")
+  public applicationId?: string;
+
+  /** Name of the application that created this ChangeSet. */
+  @ECJsonTypeMap.propertyToJson("wsg", "relationshipInstances[CreatedByApplication].relatedInstance[Application].properties.Name")
+  public applicationName?: string;
+
   /** Path to the download ChangeSet file on disk. */
   public pathname?: string;
 }
@@ -116,6 +126,15 @@ export class ChangeSetQuery extends StringIdQuery {
    */
   public selectDownloadUrl() {
     addSelectFileAccessKey(this._query);
+    return this;
+  }
+
+  /**
+   * Query will additionally select data about application that created this [[ChangeSet]].
+   * @returns This query.
+   */
+  public selectApplicationData() {
+    addSelectApplicationData(this._query);
     return this;
   }
 

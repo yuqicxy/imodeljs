@@ -1,15 +1,17 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Zone */
+/** @packageDocumentation
+ * @module Zone
+ */
 
-import { PointProps, Point } from "../utilities/Point";
-import { RectangleProps, Rectangle } from "../utilities/Rectangle";
-import { ZonesManagerProps, WidgetZoneIndex, ZonesManager, DefaultStateManager } from "../zones/manager/Zones";
+import { Point, PointProps, Rectangle, RectangleProps } from "@bentley/ui-core";
+import { ZonesManagerProps, WidgetZoneId, ZonesManager } from "../zones/manager/Zones";
 import { NineZoneNestedStagePanelsManagerProps, NineZoneNestedStagePanelsManager } from "./NestedStagePanels";
-import { StagePanelType, StagePanelsManager } from "../../ui-ninezone";
+import { StagePanelType, StagePanelsManager, NestedStagePanelKey, NestedStagePanelsManagerProps } from "../../ui-ninezone";
 import { NineZoneStagePanelManager } from "./StagePanel";
+import { ToolSettingsWidgetMode } from "../zones/manager/Widget";
 
 /** Properties used by [[NineZoneManager]].
  * @alpha
@@ -26,11 +28,11 @@ export interface WidgetTabDragStartArguments {
   /** Initial mouse down position. */
   readonly initialPosition: PointProps;
   /** Dragged tab index. */
-  readonly tabId: number;
+  readonly tabIndex: number;
   /** Current widget bounds. */
   readonly widgetBounds: RectangleProps;
   /** Dragged widget index. */
-  readonly widgetId: WidgetZoneIndex;
+  readonly widgetId: WidgetZoneId;
 }
 
 /** Stage panel target used by [[NineZoneManager]].
@@ -48,6 +50,16 @@ export interface NineZoneManagerPaneTarget extends NineZoneManagerPanelTarget {
   readonly paneIndex: number;
 }
 
+/**  @internal */
+export type NineZoneManagerHiddenWidgets = { readonly [id in WidgetZoneId]: NineZoneManagerHiddenWidget };
+
+/** @internal */
+export interface NineZoneManagerHiddenWidget {
+  panel?: {
+    key: NestedStagePanelKey<NestedStagePanelsManagerProps>;
+  };
+}
+
 /** Class used to manage [[NineZoneStagePanelManagerProps]].
  * @alpha
  */
@@ -56,8 +68,9 @@ export class NineZoneManager {
   private _zonesManager?: ZonesManager;
   private _paneTarget?: NineZoneManagerPaneTarget;
   private _panelTarget?: NineZoneManagerPanelTarget;
+  private _hiddenWidgets?: NineZoneManagerHiddenWidgets;
 
-  private findPanelWithWidget<TProps extends NineZoneManagerProps>(widgetId: WidgetZoneIndex, props: TProps) {
+  private findPanelWithWidget<TProps extends NineZoneManagerProps>(widgetId: WidgetZoneId, props: TProps) {
     const nestedPanelById = Object.keys(props.nested.panels).map((id) => {
       return { id, panels: props.nested.panels[id] };
     });
@@ -74,7 +87,7 @@ export class NineZoneManager {
     return undefined;
   }
 
-  public handleWidgetTabClick<TProps extends NineZoneManagerProps>(widgetId: WidgetZoneIndex, tabId: number, props: TProps): TProps {
+  public handleWidgetTabClick<TProps extends NineZoneManagerProps>(widgetId: WidgetZoneId, tabIndex: number, props: TProps): TProps {
     let zones = props.zones;
     const panelWithWidget = this.findPanelWithWidget(widgetId, props);
     const zonesManager = this.getZonesManager();
@@ -84,19 +97,16 @@ export class NineZoneManager {
       const pane = panel.panes[panelWithWidget.paneIndex];
       for (const widget of pane.widgets) {
         if (widget === widgetId)
-          zones = zonesManager.setWidgetTabId(widget, tabId, zones);
+          zones = zonesManager.setWidgetTabIndex(widget, tabIndex, zones);
         else
-          zones = zonesManager.setWidgetTabId(widget, -1, zones);
+          zones = zonesManager.setWidgetTabIndex(widget, -1, zones);
       }
     } else {
-      zones = zonesManager.handleTabClick(widgetId, tabId, zones);
+      zones = zonesManager.handleWidgetTabClick(widgetId, tabIndex, zones);
     }
     if (zones === props.zones)
       return props;
-    return {
-      ...props,
-      zones,
-    };
+    return this.setZones(zones, props);
   }
 
   public handleWidgetTabDragEnd<TProps extends NineZoneManagerProps>(props: TProps): TProps {
@@ -107,33 +117,31 @@ export class NineZoneManager {
     const targetKey = this.getTargetKey();
     const paneIndex = paneTarget ? paneTarget.paneIndex : undefined;
     let nested = props.nested;
-    const draggingWidget = props.zones.draggingWidget;
-    if (targetKey && draggingWidget) {
+    const draggedWidget = props.zones.draggedWidget;
+    if (targetKey && draggedWidget) {
       const nestedPanelsManager = this.getNestedPanelsManager();
       if (paneIndex !== undefined) {
         const panels = nested.panels[targetKey.id];
         const panel = StagePanelsManager.getPanel(targetKey.type, panels);
         const pane = panel.panes[paneIndex];
         for (const widget of pane.widgets) {
-          zones = zonesManager.setWidgetTabId(widget, -1, zones);
+          zones = zonesManager.setWidgetTabIndex(widget, -1, zones);
         }
       }
-      nested = nestedPanelsManager.addWidget(draggingWidget.id, targetKey, paneIndex, props.nested);
-      zones = zonesManager.removeWidget(draggingWidget.id, draggingWidget.id, zones);
+      nested = nestedPanelsManager.addWidget(draggedWidget.id, targetKey, paneIndex, props.nested);
+      zones = zonesManager.removeWidget(draggedWidget.id, draggedWidget.id, zones);
 
       const horizontalAnchor = NineZoneStagePanelManager.getHorizontalAnchor(targetKey.type);
-      zones = zonesManager.setWidgetHorizontalAnchor(draggingWidget.id, horizontalAnchor, zones);
+      zones = zonesManager.setWidgetHorizontalAnchor(draggedWidget.id, horizontalAnchor, zones);
       const verticalAnchor = NineZoneStagePanelManager.getVerticalAnchor(targetKey.type);
-      zones = zonesManager.setWidgetVerticalAnchor(draggingWidget.id, verticalAnchor, zones);
+      zones = zonesManager.setWidgetVerticalAnchor(draggedWidget.id, verticalAnchor, zones);
+      if (draggedWidget.id === 2)
+        zones = zonesManager.setToolSettingsWidgetMode(ToolSettingsWidgetMode.Tab, zones);
     }
 
-    if (nested === props.nested && zones === props.zones)
-      return props;
-    return {
-      ...props,
-      nested,
-      zones,
-    };
+    props = this.setNested(nested, props);
+    props = this.setZones(zones, props);
+    return props;
   }
 
   public handleWidgetTabDragStart<TProps extends NineZoneManagerProps>(args: WidgetTabDragStartArguments, props: TProps): TProps {
@@ -153,18 +161,18 @@ export class NineZoneManager {
       const pane = panel.panes[panelWithWidget.paneIndex];
       if (widget.tabIndex < 0) {
         // Open dragged widget for zones manager.
-        zones = zonesManager.setWidgetTabId(args.widgetId, args.tabId, zones);
+        zones = zonesManager.setWidgetTabIndex(args.widgetId, args.tabIndex, zones);
       } else {
         // Opened widget is removed, need to open next widget in a pane
         for (const w of pane.widgets) {
           if (w === args.widgetId)  // Skip removed widget if it is first
             continue;
-          zones = zonesManager.setWidgetTabId(w, 0, zones);
+          zones = zonesManager.setWidgetTabIndex(w, 0, zones);
           break;
         }
       }
     }
-    zones = zonesManager.handleWidgetTabDragStart(args.widgetId, args.tabId, args.initialPosition, args.widgetBounds, zones);
+    zones = zonesManager.handleWidgetTabDragStart(args.widgetId, args.tabIndex, args.initialPosition, args.widgetBounds, zones);
 
     const newZone = zones.zones[args.widgetId];
     const oldZone = props.zones.zones[args.widgetId];
@@ -174,19 +182,19 @@ export class NineZoneManager {
       const newSize = newBounds.getSize();
       const oldSize = oldBounds.getSize();
 
-      let draggingWidget = zones.draggingWidget;
-      if (draggingWidget && panelWithWidget && panelWithWidget.type === StagePanelType.Left) {
+      let draggedWidget = zones.draggedWidget;
+      if (draggedWidget && panelWithWidget && panelWithWidget.type === StagePanelType.Left) {
         const widthDiff = oldSize.width - newSize.width;
-        draggingWidget = {
-          ...draggingWidget,
-          lastPosition: Point.create(draggingWidget.lastPosition).offsetX(widthDiff).toProps(),
+        draggedWidget = {
+          ...draggedWidget,
+          lastPosition: Point.create(draggedWidget.lastPosition).offsetX(widthDiff).toProps(),
         };
       }
-      if (draggingWidget && panelWithWidget && panelWithWidget.type === StagePanelType.Top) {
+      if (draggedWidget && panelWithWidget && panelWithWidget.type === StagePanelType.Top) {
         const heightDiff = oldSize.height - newSize.height;
-        draggingWidget = {
-          ...draggingWidget,
-          lastPosition: Point.create(draggingWidget.lastPosition).offsetY(heightDiff).toProps(),
+        draggedWidget = {
+          ...draggedWidget,
+          lastPosition: Point.create(draggedWidget.lastPosition).offsetY(heightDiff).toProps(),
         };
       }
       zones = {
@@ -201,17 +209,13 @@ export class NineZoneManager {
             },
           },
         },
-        draggingWidget,
+        draggedWidget,
       };
     }
 
-    if (zones === props.zones && nested === props.nested)
-      return props;
-    return {
-      ...props,
-      nested,
-      zones,
-    };
+    props = this.setNested(nested, props);
+    props = this.setZones(zones, props);
+    return props;
   }
 
   public getNestedPanelsManager(): NineZoneNestedStagePanelsManager {
@@ -220,9 +224,25 @@ export class NineZoneManager {
     return this._nestedPanelsManager;
   }
 
+  /** @internal */
+  public getHiddenWidgets(): NineZoneManagerHiddenWidgets {
+    if (!this._hiddenWidgets)
+      this._hiddenWidgets = {
+        1: {},
+        2: {},
+        3: {},
+        4: {},
+        6: {},
+        7: {},
+        8: {},
+        9: {},
+      };
+    return this._hiddenWidgets;
+  }
+
   public getZonesManager(): ZonesManager {
     if (!this._zonesManager)
-      this._zonesManager = DefaultStateManager;
+      this._zonesManager = new ZonesManager();
     return this._zonesManager;
   }
 
@@ -252,5 +272,88 @@ export class NineZoneManager {
       id: paneTarget.panelId,
       type: paneTarget.panelType,
     } : undefined;
+  }
+
+  public showWidget<TProps extends NineZoneManagerProps>(widgetId: WidgetZoneId, props: TProps): TProps {
+    const zonesManager = this.getZonesManager();
+    const hiddenWidgets = this.getHiddenWidgets();
+    const hiddenWidget = hiddenWidgets[widgetId];
+    const panel = hiddenWidget.panel;
+    let zones = props.zones;
+    let nested = props.nested;
+    if (panel) {
+      const nestedPanelsManager = this.getNestedPanelsManager();
+      nested = nestedPanelsManager.addWidget(widgetId, panel.key, undefined, props.nested);
+    } else {
+      zones = zonesManager.addWidget(widgetId, widgetId, props.zones);
+    }
+    zones = zonesManager.setWidgetTabIndex(widgetId, 0, zones);
+    props = this.setZones(zones, props);
+    props = this.setNested(nested, props);
+    return props;
+  }
+
+  public hideWidget<TProps extends NineZoneManagerProps>(widgetId: WidgetZoneId, props: TProps): TProps {
+    const zonesManager = this.getZonesManager();
+    const hiddenWidgets = this.getHiddenWidgets();
+    const hiddenWidget = hiddenWidgets[widgetId];
+
+    const zoneWithWidget = zonesManager.findZoneWithWidget(widgetId, props.zones);
+    if (zoneWithWidget) {
+      hiddenWidget.panel = undefined;
+
+      const zones = zonesManager.removeWidget(widgetId, widgetId, props.zones);
+      return this.setZones(zones, props);
+    }
+
+    const panelWithWidget = this.findPanelWithWidget(widgetId, props);
+    if (panelWithWidget) {
+      hiddenWidget.panel = {
+        key: {
+          id: panelWithWidget.id,
+          type: panelWithWidget.type,
+        },
+      };
+
+      let zones = props.zones;
+      const nestedPanelsManager = this.getNestedPanelsManager();
+      const panels = props.nested.panels[panelWithWidget.id];
+      const panel = StagePanelsManager.getPanel(panelWithWidget.type, panels);
+      const pane = panel.panes[panelWithWidget.paneIndex];
+      const isOpen = props.zones.widgets[widgetId].tabIndex > -1;
+
+      if (isOpen && pane.widgets.length > 1) {
+        const widgetToOpen = pane.widgets.find((w) => w !== widgetId)!;
+        zones = zonesManager.setWidgetTabIndex(widgetToOpen, 0, zones);
+      }
+
+      zones = zonesManager.setWidgetTabIndex(widgetId, -1, zones);
+      const nested = nestedPanelsManager.removeWidget(widgetId, panelWithWidget, props.nested);
+      props = this.setZones(zones, props);
+      props = this.setNested(nested, props);
+      return props;
+    }
+
+    return props;
+  }
+
+  /** @internal */
+  public setZones<TProps extends NineZoneManagerProps>(zones: TProps["zones"], props: TProps): TProps {
+    return this.setProp(zones, "zones", props);
+  }
+
+  /** @internal */
+  public setNested<TProps extends NineZoneManagerProps>(nested: TProps["nested"], props: TProps): TProps {
+    return this.setProp(nested, "nested", props);
+  }
+
+  /** @internal */
+  public setProp<TProps extends NineZoneManagerProps, TKey extends keyof TProps>(value: TProps[TKey], key: TKey, props: TProps): TProps {
+    if (value === props[key])
+      return props;
+    return {
+      ...props,
+      [key]: value,
+    };
   }
 }

@@ -1,7 +1,7 @@
 sep=;
 Release Tag;API Item
 beta;AbandonedError 
-beta;assert(condition: boolean, msg?: string): void
+beta;assert(condition: boolean, msg?: string): asserts condition
 alpha;AsyncMutex
 alpha;AsyncMutexUnlockFnType = () => void
 beta;AuthStatus
@@ -15,6 +15,7 @@ public;BentleyStatus
 public;BeTimePoint
 beta;BeUiEvent
 beta;BriefcaseStatus
+beta;ByteStream
 public;ChangeSetApplyOption
 beta;ChangeSetStatus
 public;ClientRequestContext 
@@ -36,6 +37,7 @@ public;DisposableList
 public;dispose(disposable?: IDisposable): undefined
 public;disposeArray(list?: IDisposable[]): undefined
 public;DisposeFunc = () => void
+internal;electronRenderer: any
 public;Entry
 public;EntryContainer
 alpha;EnvMacroSubst
@@ -54,6 +56,7 @@ beta;IModelHubStatus
 public;IModelStatus
 public;IndexedValue
 public;IndexMap
+internal;isElectronRenderer: boolean
 public;JsonUtils
 public;Listener = (...arg: any[]) => void
 public;LogFunction = (category: string, message: string, metaData?: GetMetaDataFunction) => void
@@ -65,6 +68,7 @@ public;lowerBound
 public;LRUCache
 public;LRUDictionary
 public;LRUMap
+beta;ObservableSet
 beta;OneAtATimeAction
 public;OpenMode
 public;OrderedComparator

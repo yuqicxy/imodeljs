@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 
@@ -43,6 +43,10 @@ describe("ConditionalItemDef", () => {
 
   before(async () => {
     await TestUtils.initializeUiFramework();
+  });
+
+  after(() => {
+    TestUtils.terminateUiFramework();
   });
 
   it("ConditionalItemDef with no commandId should get generated id", () => {
@@ -93,6 +97,7 @@ describe("ConditionalItemDef", () => {
     expect(tool1.isVisible).to.be.false;
     expect(tool2.isEnabled).to.be.true;
     expect(tool2.isVisible).to.be.true;
+    expect(conditionalItem.getVisibleItems().length).to.eq(1);
 
     SyncUiEventDispatcher.dispatchImmediateSyncUiEvent(testItemEventId);
 
@@ -102,6 +107,7 @@ describe("ConditionalItemDef", () => {
     expect(tool1.isVisible).to.be.true;
     expect(tool2.isEnabled).to.be.true;
     expect(tool2.isVisible).to.be.true;
+    expect(conditionalItem.getVisibleItems().length).to.eq(2);
 
     SyncUiEventDispatcher.dispatchImmediateSyncUiEvent(testItemEventId);
 

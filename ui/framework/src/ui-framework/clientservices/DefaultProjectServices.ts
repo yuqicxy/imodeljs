@@ -1,15 +1,19 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ClientServices */
+/** @packageDocumentation
+ * @module ClientServices
+ */
 
-import { ConnectClient, AccessToken, Project, ConnectRequestQueryOptions, AuthorizedClientRequestContext } from "@bentley/imodeljs-clients";
+import { ConnectClient, Project, ConnectRequestQueryOptions } from "@bentley/imodeljs-clients";
 import { Logger } from "@bentley/bentleyjs-core";
 
 import { ProjectServices, ProjectScope, ProjectInfo, ProjectReadStatus } from "./ProjectServices";
 import { UiFramework } from "../UiFramework";
+import { AuthorizedFrontendRequestContext } from "@bentley/imodeljs-frontend";
 
+// istanbul ignore next
 class ProjectInfoImpl implements ProjectInfo {
   public readStatus: ProjectReadStatus;
 
@@ -22,6 +26,7 @@ class ProjectInfoImpl implements ProjectInfo {
  * Provides default [[ProjectServices]]
  * @internal
  */
+// istanbul ignore next
 export class DefaultProjectServices implements ProjectServices {
   private _connectClient: ConnectClient;
 
@@ -36,8 +41,8 @@ export class DefaultProjectServices implements ProjectServices {
   }
 
   /** Get projects accessible to the user based on various scopes/criteria */
-  public async getProjects(accessToken: AccessToken, projectScope: ProjectScope, top: number, skip: number, filter?: string): Promise<ProjectInfo[]> {
-    const requestContext = new AuthorizedClientRequestContext(accessToken);
+  public async getProjects(projectScope: ProjectScope, top: number, skip: number, filter?: string): Promise<ProjectInfo[]> {
+    const requestContext = await AuthorizedFrontendRequestContext.create();
 
     const queryOptions: ConnectRequestQueryOptions = {
       $select: "*", // TODO: Get Name,Number,AssetType to work
@@ -50,15 +55,14 @@ export class DefaultProjectServices implements ProjectServices {
     try {
       if (projectScope === ProjectScope.Invited) {
         projectList = await this._connectClient.getInvitedProjects(requestContext, queryOptions);
+      } else {
+        if (projectScope === ProjectScope.Favorites) {
+          queryOptions.isFavorite = true;
+        } else if (projectScope === ProjectScope.MostRecentlyUsed) {
+          queryOptions.isMRU = true;
+        }
+        projectList = await this._connectClient.getProjects(requestContext, queryOptions);
       }
-
-      if (projectScope === ProjectScope.Favorites) {
-        queryOptions.isFavorite = true;
-      } else if (projectScope === ProjectScope.MostRecentlyUsed) {
-        queryOptions.isMRU = true;
-      }
-
-      projectList = await this._connectClient.getProjects(requestContext, queryOptions);
     } catch (e) {
       alert(JSON.stringify(e));
       return Promise.reject(e);

@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module LineWeight */
+/** @packageDocumentation
+ * @module LineWeight
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -12,7 +14,7 @@ import ReactResizeDetector from "react-resize-detector";
 import { LineWeightSwatch } from "./Swatch";
 import "./WeightPickerButton.scss";
 
-// cSpell:ignore weightpicker
+// cSpell:ignore weightpicker lineweight
 
 /** Properties for the [[WeightPickerButton]] React component
  * @beta
@@ -69,7 +71,7 @@ export class WeightPickerButton extends React.PureComponent<WeightPickerProps, W
   private _togglePopup = () => {
     if (this.props.readonly)
       return;
-    this.setState({ showPopup: !this.state.showPopup });
+    this.setState((prevState) => ({ showPopup: !prevState.showPopup }));
   }
 
   private _onPopupOpened = () => {
@@ -209,6 +211,8 @@ export class WeightPickerButton extends React.PureComponent<WeightPickerProps, W
               style={{ width: `${width}px` }}
               isOpen={this.state.showPopup}
               position={Position.Bottom}
+              offset={0}
+              showShadow={false}
               onClose={this._closePopup}
               onOpen={this._onPopupOpened}
               focusTarget={`#${this.buildIdForWeight(this.props.activeWeight)}`}

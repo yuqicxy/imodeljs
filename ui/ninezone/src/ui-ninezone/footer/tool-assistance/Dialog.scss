@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 @import "@bentley/ui-core/lib/ui-core/style/themecolors";
-@import "@bentley/ui-core/lib/ui-core/_z-index";
-@import "../_variables";
+@import "@bentley/ui-core/lib/ui-core/z-index";
+@import "../variables";
 
 .nz-footer-toolAssistance-dialog {
   min-width: $nz-footer-popup-min-width;
@@ -12,13 +12,8 @@
   color: $buic-background-dialog-stroke;
 
   .nz-content {
-    $horizontal-padding: 15px;
-    $vertical-padding: 10px;
-
-    padding-left: $horizontal-padding;
-    padding-right: $horizontal-padding;
-    padding-top: $vertical-padding;
-    padding-bottom: $vertical-padding;
     color: $buic-text-color;
+    min-width: 250px;
+    max-width: 360px;
   }
 }

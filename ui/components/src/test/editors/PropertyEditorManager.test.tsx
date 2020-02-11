@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import * as React from "react";
@@ -167,7 +167,7 @@ describe("PropertyEditorManager", () => {
       if (property.editor && property.editor.params) {
         property.editor.params.forEach((params: PropertyEditorParams) => {
           if (params.type === PropertyEditorParamTypes.Icon) {
-            if ((params as IconEditorParams).definition.iconClass === "cool")
+            if ((params as IconEditorParams).definition.iconSpec === "cool")
               (record as any).iconParamsWorked = true;
           }
         });
@@ -178,7 +178,7 @@ describe("PropertyEditorManager", () => {
   it("applyEditorParams", () => {
     const iconEditorParams = {
       type: PropertyEditorParamTypes.Icon,
-      definition: { iconClass: "cool" },
+      definition: { iconSpec: "cool" },
     } as IconEditorParams;
 
     PropertyEditorManager.registerEditor("withEditorParams", PropertyEditorWithEditorParams);

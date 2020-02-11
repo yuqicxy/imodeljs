@@ -1,32 +1,36 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module IModelHost */
+/** @packageDocumentation
+ * @module IModelHost
+ */
 
 import { AuthStatus, BeEvent, BentleyError, ClientRequestContext, Guid, GuidString, IModelStatus, Logger } from "@bentley/bentleyjs-core";
 import { AccessToken, AuthorizedClientRequestContext, Config, IAuthorizationClient, IModelClient, UrlDiscoveryClient, UserInfo } from "@bentley/imodeljs-clients";
 import { BentleyStatus, IModelError, MobileRpcConfiguration, RpcConfiguration, SerializedRpcRequest } from "@bentley/imodeljs-common";
+import { IModelJsNative } from "@bentley/imodeljs-native";
 import * as os from "os";
 import * as path from "path";
 import * as semver from "semver";
-import { BackendRequestContext } from "./BackendRequestContext";
-import { BisCoreSchema } from "./BisCore";
-import { BriefcaseManager } from "./BriefcaseManager";
-import { FunctionalSchema } from "./domains/Functional";
-import { GenericSchema } from "./domains/Generic";
-import { IModelJsFs } from "./IModelJsFs";
-import { IModelJsNative } from "./IModelJsNative";
+import { AliCloudStorageService } from "./AliCloudStorageService";
 import { BackendLoggerCategory } from "./BackendLoggerCategory";
+import { BackendRequestContext } from "./BackendRequestContext";
+import { BisCoreSchema } from "./BisCoreSchema";
+import { BriefcaseManager } from "./BriefcaseManager";
+import { AzureBlobStorage, CloudStorageService, CloudStorageServiceCredentials, CloudStorageTileUploader } from "./CloudStorageBackend";
+import { Config as ConcurrentQueryConfig } from "./ConcurrentQuery";
+import { FunctionalSchema } from "./domains/FunctionalSchema";
+import { GenericSchema } from "./domains/GenericSchema";
+import { IModelJsFs } from "./IModelJsFs";
+import { DevToolsRpcImpl } from "./rpc-impl/DevToolsRpcImpl";
 import { IModelReadRpcImpl } from "./rpc-impl/IModelReadRpcImpl";
 import { IModelTileRpcImpl } from "./rpc-impl/IModelTileRpcImpl";
 import { IModelWriteRpcImpl } from "./rpc-impl/IModelWriteRpcImpl";
 import { SnapshotIModelRpcImpl } from "./rpc-impl/SnapshotIModelRpcImpl";
+import { NativeAppRpcImpl } from "./rpc-impl/NativeAppRpcImpl";
 import { WipRpcImpl } from "./rpc-impl/WipRpcImpl";
 import { initializeRpcBackend } from "./RpcBackend";
-import { CloudStorageService, CloudStorageServiceCredentials, AzureBlobStorage } from "./CloudStorageBackend";
-import { DevToolsRpcImpl } from "./rpc-impl/DevToolsRpcImpl";
-import { Config as ConcurrentQueryConfig } from "./ConcurrentQuery";
 const loggerCategory: string = BackendLoggerCategory.IModelHost;
 
 /** @alpha */
@@ -61,6 +65,22 @@ export interface CrashReportingConfig {
   /** Upload crash dump and node-reports to Bentley's crash-reporting service? Defaults to false */
   uploadToBentley?: boolean;
 }
+/** Configuration for event sink
+ * @internal
+ */
+export interface EventSinkOptions {
+  maxQueueSize: number;
+  maxNamespace: number;
+}
+
+/**
+ * Type of the backend application
+ * @alpha
+ */
+export enum ApplicationType {
+  WebAgent,
+  WebApplicationBackend,
+}
 
 /** Configuration of imodeljs-backend.
  * @public
@@ -71,7 +91,9 @@ export class IModelHostConfiguration {
 
   private _briefcaseCacheDir = path.normalize(path.join(KnownLocations.tmpdir, "Bentley/IModelJs/cache/"));
 
-  /** The path where the cache of briefcases are stored. Defaults to `path.join(KnownLocations.tmpdir, "Bentley/IModelJs/cache/iModels/")` */
+  /** The path where the cache of briefcases are stored. Defaults to `path.join(KnownLocations.tmpdir, "Bentley/IModelJs/cache/iModels/")`
+   * If overriding this, ensure it's set to a folder with complete access - it may have to be deleted and recreated.
+   */
   public get briefcaseCacheDir(): string { return this._briefcaseCacheDir; }
   public set briefcaseCacheDir(cacheDir: string) { this._briefcaseCacheDir = path.normalize(cacheDir.replace(/\/?$/, path.sep)); }
 
@@ -85,6 +107,16 @@ export class IModelHostConfiguration {
    * @beta
    */
   public tileCacheCredentials?: CloudStorageServiceCredentials;
+
+  /** Whether to restrict tile cache URLs by client IP address (if available).
+   * @beta
+   */
+  public restrictTileUrlsByClientIp?: boolean;
+
+  /** Whether to compress cached tiles.
+   * @beta
+   */
+  public compressCachedTiles?: boolean;
 
   /** The time, in milliseconds, for which [IModelTileRpcInterface.requestTileTreeProps]($common) should wait before returning a "pending" status.
    * @internal
@@ -121,7 +153,10 @@ export class IModelHostConfiguration {
    * @alpha
    */
   public crashReportingConfig?: CrashReportingConfig;
-
+  /** Configuration for event sink
+   * @internal
+   */
+  public eventSinkOptions: EventSinkOptions = { maxQueueSize: 5000, maxNamespace: 255 };
   public concurrentQuery: ConcurrentQueryConfig = {
     concurrent: (os.cpus().length - 1),
     autoExpireTimeForCompletedQuery: 2 * 60, // 2 minutes
@@ -131,12 +166,18 @@ export class IModelHostConfiguration {
     maxQueueSize: (os.cpus().length - 1) * 500,
     pollInterval: 50,
     useSharedCache: false,
-    useUncommitedRead: false,
+    useUncommittedRead: false,
     quota: {
       maxTimeAllowed: 60, // 1 Minute
       maxMemoryAllowed: 2 * 1024 * 1024, // 2 Mbytes
     },
   };
+
+  /**
+   * Application (host) type
+   * @alpha
+   */
+  public applicationType?: ApplicationType;
 }
 
 /** IModelHost initializes ($backend) and captures its configuration. A backend must call [[IModelHost.startup]] before using any backend classes.
@@ -166,7 +207,7 @@ export class IModelHost {
   /** The version of this backend application - needs to be set if is an agent application. The applicationVersion will otherwise originate at the frontend. */
   public static applicationVersion: string;
 
-  /** Implementation of [[IAuthorizationClient]] to supply the authorization information for this session - only required for backend applications */
+  /** Implementation of [[IAuthorizationClient]] to supply the authorization information for this session - only required for agent applications, or backends that want to override access tokens passed from the frontend */
   public static get authorizationClient(): IAuthorizationClient | undefined { return IModelHost._authorizationClient; }
   public static set authorizationClient(authorizationClient: IAuthorizationClient | undefined) { IModelHost._authorizationClient = authorizationClient; }
 
@@ -193,7 +234,7 @@ export class IModelHost {
       this.validateNativePlatformVersion();
 
     platform.logger = Logger;
-    platform.initializeRegion(region);
+    platform.NativeUlasClient.initializeRegion(region);
   }
 
   private static validateNativePlatformVersion(): void {
@@ -217,16 +258,24 @@ export class IModelHost {
 
   private static getApplicationVersion(): string { return require("../package.json").version; }
 
-  private static _setupRpcRequestContext() {
+  private static setupRpcRequestContext() {
     RpcConfiguration.requestContext.deserialize = async (serializedContext: SerializedRpcRequest): Promise<ClientRequestContext> => {
+      // Setup a ClientRequestContext if authorization is NOT required for the RPC operation
       if (!serializedContext.authorization)
         return new ClientRequestContext(serializedContext.id, serializedContext.applicationId, serializedContext.applicationVersion, serializedContext.sessionId);
 
-      const accessToken = AccessToken.fromTokenString(serializedContext.authorization);
-      const userId = serializedContext.userId; // Really needed only for JWTs
-      if (!userId)
-        throw new BentleyError(AuthStatus.Error, "UserId needs to be passed into the backend", Logger.logError, loggerCategory);
-      accessToken.setUserInfo(new UserInfo(userId));
+      // Setup an AuthorizationClientRequestContext if authorization is required for the RPC operation
+      let accessToken: AccessToken;
+      if (!IModelHost.authorizationClient) {
+        // Determine the access token from the frontend request
+        accessToken = AccessToken.fromTokenString(serializedContext.authorization);
+        const userId = serializedContext.userId;
+        if (userId)
+          accessToken.setUserInfo(new UserInfo(userId));
+      } else {
+        // Determine the access token from  the backend's authorization client
+        accessToken = await IModelHost.authorizationClient.getAccessToken();
+      }
 
       return new AuthorizedClientRequestContext(accessToken, serializedContext.id, serializedContext.applicationId, serializedContext.applicationVersion, serializedContext.sessionId);
     };
@@ -235,8 +284,16 @@ export class IModelHost {
   /** @internal */
   public static loadNative(region: number, dir?: string): void { this.registerPlatform(Platform.load(dir), region); }
 
-  /** @internal */
+  /**
+   * @beta
+   * @note A reference implementation is set by default for [AzureBlobStorage]. To supply a different implementation for any service provider (such as AWS),
+   *       set this property with a custom [CloudStorageService] and also set [IModelHostConfiguration.tileCacheCredentials] using "external" for the service name.
+   *       Note that the account and access key members of [CloudStorageServiceCredentials] may have blank values unless the custom service implementation uses them.
+   */
   public static tileCacheService: CloudStorageService;
+
+  /** @internal */
+  public static tileUploader: CloudStorageTileUploader;
 
   /** This method must be called before any iModel.js services are used.
    * @param configuration Host configuration data.
@@ -272,13 +329,6 @@ export class IModelHost {
       }
     }
 
-    // if (configuration.crashReportingConfig === undefined) {
-    //   configuration.crashReportingConfig = {
-    //     crashDir: path.resolve(configuration.briefcaseCacheDir, "..", "Crashes"),
-    //     enableCrashDumps: false,
-    //   };
-    // }
-
     if (configuration.crashReportingConfig && configuration.crashReportingConfig.crashDir && this._platform && (Platform.isNodeJs && !Platform.electron)) {
       this._platform.setCrashReporting(configuration.crashReportingConfig);
 
@@ -298,7 +348,7 @@ export class IModelHost {
     if (configuration.imodelClient)
       BriefcaseManager.imodelClient = configuration.imodelClient;
 
-    IModelHost._setupRpcRequestContext();
+    IModelHost.setupRpcRequestContext();
 
     IModelReadRpcImpl.register();
     IModelTileRpcImpl.register();
@@ -306,7 +356,7 @@ export class IModelHost {
     SnapshotIModelRpcImpl.register();
     WipRpcImpl.register();
     DevToolsRpcImpl.register();
-
+    NativeAppRpcImpl.register();
     BisCoreSchema.registerSchema();
     GenericSchema.registerSchema();
     FunctionalSchema.registerSchema();
@@ -357,15 +407,29 @@ export class IModelHost {
    */
   public static get usingExternalTileCache(): boolean { return undefined !== IModelHost.configuration && undefined !== IModelHost.configuration.tileCacheCredentials; }
 
+  /** Whether to restrict tile cache URLs by client IP address.
+   * @internal
+   */
+  public static get restrictTileUrlsByClientIp(): boolean { return undefined !== IModelHost.configuration && (IModelHost.configuration.restrictTileUrlsByClientIp ? true : false); }
+
+  /** Whether to compress cached tiles.
+   * @internal
+   */
+  public static get compressCachedTiles(): boolean { return undefined !== IModelHost.configuration && (IModelHost.configuration.compressCachedTiles ? true : false); }
+
   private static setupTileCache() {
     const config = IModelHost.configuration!;
     const credentials = config.tileCacheCredentials;
     if (undefined === credentials)
       return;
 
-    if (credentials.service === "azure") {
+    IModelHost.tileUploader = new CloudStorageTileUploader();
+
+    if (credentials.service === "azure" && !IModelHost.tileCacheService) {
       IModelHost.tileCacheService = new AzureBlobStorage(credentials);
-    } else {
+    } else if (credentials.service === "alicloud") {
+      IModelHost.tileCacheService = new AliCloudStorageService(credentials);
+    } else if (credentials.service !== "external") {
       throw new IModelError(BentleyStatus.ERROR, "Unsupported cloud service credentials for tile cache.");
     }
   }
@@ -424,9 +488,8 @@ export class KnownLocations {
   public static get packageAssetsDir(): string {
     const imodeljsMobile = Platform.imodeljsMobile;
     if (imodeljsMobile !== undefined) {
-      return path.join(imodeljsMobile.knownLocations.packageAssetsDir, "imodeljs-backend");
+      return path.join(process.execPath!, "Assets", "assets");
     }
-
     // Assume that we are running in nodejs
     return path.join(__dirname, "assets");
   }

@@ -1,9 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Core */
-
+/**
+ * @module Core
+ *
+ * @docs-group-description Core
+ * Common types used all across Presentation packages.
+ */
 export {
   ClassId, InstanceId, InstanceKey,
   ClassInfo, EnumerationChoice, EnumerationInfo, KindOfQuantityInfo,
@@ -12,32 +16,51 @@ export {
 export { PresentationError, PresentationStatus } from "./Error";
 export { KeySet, Keys, Key, DEFAULT_KEYS_BATCH_SIZE } from "./KeySet";
 export { PersistentKeysContainer } from "./PersistentKeysContainer";
+export { RulesetVariablesState, RulesetVariable, VariableValueTypes, VariableValue } from "./RulesetVariables";
+export { RegisteredRuleset, RulesetManagerState } from "./RegisteredRuleset";
+export { RulesetsFactory } from "./RulesetsFactory";
+export { LoggingNamespaces } from "./Logging";
+export {
+  Omit, Subtract, ValuesDictionary,
+  getInstancesCount, LOCALES_DIRECTORY,
+} from "./Utils";
+export { AsyncTasksTracker } from "./AsyncTasks";
 export {
   RequestOptions, HierarchyRequestOptions, ContentRequestOptions,
   LabelRequestOptions, SelectionScopeRequestOptions,
-  PageOptions, Paged, RequestOptionsWithRuleset,
+  PageOptions, Paged, RequestOptionsWithRuleset, RequestPriority,
 } from "./PresentationManagerOptions";
+export { LabelDefinition, LabelRawValue, LabelCompositeValue } from "./LabelDefinition";
+
+/**
+ * @module RPC
+ *
+ * @docs-group-description RPC
+ * Types used for RPC communication between frontend and backend. Generally should
+ * only be used internally by presentation packages.
+ */
 export {
   PresentationRpcInterface, PresentationRpcRequestOptions,
   LabelRpcRequestOptions, ClientStateSyncRequestOptions, ContentRpcRequestOptions,
   HierarchyRpcRequestOptions, SelectionScopeRpcRequestOptions,
   PresentationRpcResponse,
 } from "./PresentationRpcInterface";
-export { RpcRequestsHandler, RpcRequestsHandlerProps, IClientStateHolder } from "./RpcRequestsHandler";
-export { RulesetVariablesState, VariableValueTypes, VariableValue } from "./RulesetVariables";
-export { RegisteredRuleset, RulesetManagerState } from "./RegisteredRuleset";
-export { RulesetsFactory } from "./RulesetsFactory";
-export { LoggingNamespaces } from "./Logging";
-export {
-  Omit, Subtract, ValuesDictionary,
-  getInstancesCount,
-} from "./Utils";
-export { AsyncTasksTracker } from "./AsyncTasks";
+export { RpcRequestsHandler, RpcRequestsHandlerProps } from "./RpcRequestsHandler";
 
-/** @module UnifiedSelection */
+/**
+ * @module UnifiedSelection
+ *
+ * @docs-group-description UnifiedSelection
+ * Types related to [unified selection]($docs/learning/presentation/Unified-Selection/index.md).
+ */
 export { SelectionScope } from "./selection/SelectionScope";
 
-/** @module Content */
+/**
+ * @module Content
+ *
+ * @docs-group-description Content
+ * Types related to presentation [content]($docs/learning/presentation/Content/index.md).
+ */
 export { CategoryDescription } from "./content/Category";
 export { Content } from "./content/Content";
 export {
@@ -60,16 +83,26 @@ export {
   NestedContentValue,
 } from "./content/Value";
 
-/** @module Hierarchies */
+/**
+ * @module Hierarchies
+ *
+ * @docs-group-description Hierarchies
+ * Types related to presentation [hierarchies]($docs/learning/presentation/Hierarchies/index.md).
+ */
 export { NodeKey, NodeKeyPath, StandardNodeTypes } from "./hierarchy/Key";
 export {
-  BaseNodeKey, ECInstanceNodeKey, GroupingNodeKey,
+  BaseNodeKey, ECInstanceNodeKey, ECInstancesNodeKey, GroupingNodeKey,
   ECClassGroupingNodeKey, ECPropertyGroupingNodeKey, LabelGroupingNodeKey,
 } from "./hierarchy/Key";
 export { Node } from "./hierarchy/Node";
 export { NodePathElement, NodePathFilteringData } from "./hierarchy/NodePathElement";
 
-/** @module PresentationRules */
+/**
+ * @module PresentationRules
+ *
+ * @docs-group-description PresentationRules
+ * Types for defining the presentation ruleset.
+ */
 export { NavigationRule, NavigationRuleBase } from "./rules/hierarchy/NavigationRule";
 export { RootNodeRule } from "./rules/hierarchy/RootNodeRule";
 export { ChildNodeRule } from "./rules/hierarchy/ChildNodeRule";
@@ -103,10 +136,12 @@ export { SortingRule, PropertySortingRule, DisabledSortingRule, SortingRuleBase 
 export { StyleOverride } from "./rules/customization/StyleOverride";
 export {
   GroupingRule, GroupingSpecification, GroupingSpecificationTypes,
-  SameLabelInstanceGroup, ClassGroup,
+  SameLabelInstanceGroup, SameLabelInstanceGroupApplicationStage, ClassGroup,
   PropertyGroup, PropertyGroupingValue, PropertyRangeGroupSpecification,
   GroupingSpecificationBase,
 } from "./rules/customization/GroupingRule";
+export { ExtendedDataRule } from "./rules/customization/ExtendedDataRule";
+export { NodeArtifactsRule } from "./rules/hierarchy/NodeArtifactsRule";
 
 export { ContentRule } from "./rules/content/ContentRule";
 export { ContentSpecification, ContentSpecificationTypes, ContentSpecificationBase } from "./rules/content/ContentSpecification";
@@ -114,7 +149,8 @@ export { ContentInstancesOfSpecificClassesSpecification } from "./rules/content/
 export { ContentRelatedInstancesSpecification } from "./rules/content/ContentRelatedInstancesSpecification";
 export { SelectedNodeInstancesSpecification } from "./rules/content/SelectedNodeInstancesSpecification";
 
-export { ContentModifier } from "./rules/content/modifiers/ContentModifier";
+export { ContentModifier, ContentModifiersList } from "./rules/content/modifiers/ContentModifier";
+export { PropertyOverrides, PropertySpecification } from "./rules/content/PropertySpecification";
 export {
   RelatedPropertiesSpecification, RelationshipMeaning,
   RelatedPropertiesSpecialValues,

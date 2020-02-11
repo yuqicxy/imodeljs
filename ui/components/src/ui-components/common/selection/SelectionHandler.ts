@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Common */
+/** @packageDocumentation
+ * @module Common
+ */
 import { SelectionMode, hasFlag, SelectionModeFlags } from "./SelectionModes";
 import { Range2d } from "@bentley/geometry-core";
 
@@ -192,8 +194,10 @@ export class DragAction<Item> {
   }
 
   private findItem(itemSelectionHandlers: Array<Array<SingleSelectionHandler<Item>>>, item: Item): { x: number, y: number } {
-    if (this._previousRow !== undefined && this._previousColumn !== undefined && this._componentSelectionHandler.areEqual(itemSelectionHandlers[this._previousRow][this._previousColumn].item(), item))
+    if (this._previousRow !== undefined && this._previousRow !== -1 && this._previousColumn !== undefined && this._previousColumn !== -1 &&
+      this._componentSelectionHandler.areEqual(itemSelectionHandlers[this._previousRow][this._previousColumn].item(), item)) {
       return { y: this._previousRow, x: this._previousColumn };
+    }
     for (let row = 0; row < itemSelectionHandlers.length; row++) {
       for (let column = 0; column < itemSelectionHandlers[row].length; column++) {
         if (this._componentSelectionHandler.areEqual(itemSelectionHandlers[row][column].item(), item))
@@ -227,6 +231,10 @@ export class SelectionHandler<Item> {
   /** Creates a function that should be called when selection changes. */
   public createSelectionFunction(componentHandler: MultiSelectionHandler<Item>, itemHandler: SingleSelectionHandler<Item>): OnSelectionChanged {
     const onSelectionChange: OnSelectionChanged = (shiftDown, ctrlDown) => {
+      if (this.selectionMode === SelectionMode.None) {
+        return;
+      }
+
       let operationCreated = false;
       let shiftSelected = false;
       if (!this._currentOperation) {

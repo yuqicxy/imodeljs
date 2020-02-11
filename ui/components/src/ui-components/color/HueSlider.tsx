@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Color */
+/** @packageDocumentation
+ * @module Color
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -188,9 +190,9 @@ export class HueSlider extends React.PureComponent<HueSliderProps> {
     const pointerStyle: React.CSSProperties = this.props.isHorizontal ? {
       left: `${(this.props.hsv.h * 100) / 360}%`,
     } : {
-        left: `0px`,
-        top: `${-((this.props.hsv.h * 100) / 360) + 100}%`,
-      };
+      left: `0px`,
+      top: `${-((this.props.hsv.h * 100) / 360) + 100}%`,
+    };
 
     return (
       <div className={containerClasses} style={this.props.style} data-testid="hue-container">

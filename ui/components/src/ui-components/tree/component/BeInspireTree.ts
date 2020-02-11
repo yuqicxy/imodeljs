@@ -1,20 +1,23 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 import InspireTree, * as Inspire from "inspire-tree";
 import { isArrayLike } from "lodash";
 import { CallableInstance } from "callable-instance2/import";
 import { IDisposable, using } from "@bentley/bentleyjs-core";
-import { CheckBoxInfo, CheckBoxState, isPromiseLike, UiError } from "@bentley/ui-core";
+import { UiError } from "@bentley/ui-abstract";
+import { CheckBoxInfo, CheckBoxState, isPromiseLike } from "@bentley/ui-core";
 import { PageOptions } from "../../common/PageOptions";
 import { UiComponents } from "../../UiComponents";
 
 /**
  * Enum containing all events that may be emitted by [[BeInspireTree]]
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export enum BeInspireTreeEvent {
   ChangesApplied = "changes.applied",
@@ -40,7 +43,7 @@ export enum BeInspireTreeEvent {
 }
 
 /** Be alias for Inspire.NodeConfig
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface BeInspireTreeNodeConfig {
   children?: BeInspireTreeNodeConfig[] | true;
@@ -50,12 +53,13 @@ export interface BeInspireTreeNodeConfig {
 }
 
 /** Be alias for Inspire.NodeConfig.ITree
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface BeInspireTreeNodeITree {
   icon?: string;
   checkboxTooltip?: string;
   dirtyTimestamp?: number;
+  dirtyCounter?: number;
   state?: {
     checkboxVisible?: boolean;
     checkboxDisabled?: boolean;
@@ -71,7 +75,7 @@ export interface BeInspireTreeNodeITree {
 }
 
 /** Data structure for [[BeInspireTreeNodeConfig]] with our injected props
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface BeInspireTreeNodePayloadConfig<TPayload> extends BeInspireTreeNodeConfig {
   /** Node's data. May be `undefined` if this is placeholder node. */
@@ -83,7 +87,7 @@ export interface BeInspireTreeNodePayloadConfig<TPayload> extends BeInspireTreeN
 }
 
 /** Type definition for all BeInspireTree nodes
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface BeInspireTreeNode<TPayload> extends Inspire.TreeNode, BeInspireTreeNodePayloadConfig<TPayload> {
   isDirty(): boolean;
@@ -94,7 +98,7 @@ export interface BeInspireTreeNode<TPayload> extends Inspire.TreeNode, BeInspire
 
 /**
  * Definition of a list of [[BeInspireTreeNode]] with some additional filtering methods
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface BeInspireTreeNodes<TPayload> extends Array<BeInspireTreeNode<TPayload>> {
   node(id: string): BeInspireTreeNode<TPayload> | undefined;
@@ -108,26 +112,26 @@ export interface BeInspireTreeNodes<TPayload> extends Array<BeInspireTreeNode<TP
 }
 
 /** Array of tree node data elements
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export type BeInspireTreeDataProviderRaw<TPayload> = TPayload[];
 /** A Promise for DataProviderRaw
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export type BeInspireTreeDataProviderPromise<TPayload> = Promise<BeInspireTreeDataProviderRaw<TPayload>>;
 /** Signature for BeInspireTree data provider
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export type BeInspireTreeDataProviderMethod<TPayload> = (parent?: TPayload) => BeInspireTreeDataProviderPromise<TPayload>;
 /** Signature for BeInspireTree data provider
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface BeInspireTreeDataProviderInterface<TPayload> {
   getNodesCount(parent?: TPayload): Promise<number>;
   getNodes(parent?: TPayload, page?: PageOptions): BeInspireTreeDataProviderPromise<TPayload>;
 }
 /** Type definition for all BeInspireTree data providers
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export type BeInspireTreeDataProvider<TPayload> = BeInspireTreeDataProviderRaw<TPayload>
   | BeInspireTreeDataProviderPromise<TPayload>
@@ -135,7 +139,7 @@ export type BeInspireTreeDataProvider<TPayload> = BeInspireTreeDataProviderRaw<T
   | BeInspireTreeDataProviderInterface<TPayload>;
 
 /** Type definition for a BeInspireTree renderer
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export type BeInspireTreeRenderer<TPayload> = (rootNodes: Array<BeInspireTreeNode<TPayload>>) => void;
 
@@ -151,7 +155,7 @@ type BeInspireTreeData<TPayload> = Array<BeInspireTreeNodePayloadConfig<TPayload
 /**
  * A context which keeps [[BeInspireTree]] events muted until
  * it gets disposed.
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export class EventsMuteContext implements IDisposable {
 
@@ -204,18 +208,18 @@ export class EventsMuteContext implements IDisposable {
 }
 
 /** Prototype for BeInspireTreeProps.mapPayloadToInspireNodeConfig
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export type MapPayloadToInspireNodeCallback<TPayload> = (payload: TPayload, remapper: MapPayloadToInspireNodeCallback<TPayload>) => BeInspireTreeNodeConfig;
 
 interface DeferredLoadingHandler<TPayload> {
   requestNodeLoad(parent: BeInspireTreeNode<TPayload> | undefined, index: number): Promise<void>;
-  disposeNodeCaches(parent: BeInspireTreeNode<TPayload>): void;
+  disposeNodeCaches(parent?: BeInspireTreeNode<TPayload>): void;
 }
 
 /**
  * Configuration properties for [[BeInspireTree]]
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface BeInspireTreeProps<TNodePayload> {
   dataProvider: BeInspireTreeDataProvider<TNodePayload>;
@@ -226,7 +230,7 @@ export interface BeInspireTreeProps<TNodePayload> {
 
 /**
  * Bentley wrapper for 'inspire-tree'
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export class BeInspireTree<TNodePayload> {
 
@@ -254,9 +258,12 @@ export class BeInspireTree<TNodePayload> {
     };
     this._tree = new InspireTree(config);
 
-    // make sure model is dirty when it's loaded
+    // make sure nodes are dirty when they're loaded
     this.on(BeInspireTreeEvent.ModelLoaded, (model: BeInspireTreeNodes<TNodePayload>) => {
       model.forEach((n) => n.markDirty());
+    });
+    this.on(BeInspireTreeEvent.ChildrenLoaded, (parent: BeInspireTreeNode<TNodePayload>) => {
+      parent.getChildren().forEach((n) => n.markDirty());
     });
 
     // dispose `visible` cache when data is loaded or nodes are expanded or collapsed
@@ -272,6 +279,8 @@ export class BeInspireTree<TNodePayload> {
       this._suspendedRendering = this.pauseRendering();
     });
     this.on([BeInspireTreeEvent.ModelLoaded, BeInspireTreeEvent.ChildrenLoaded], () => {
+      // NODES_LOADED_LAST_LISTENER: this listener must be executed last of all ModelLoaded and ChildrenLoaded
+      // listeners to avoid excessive re-renders
       if (this._suspendedRendering) {
         this._suspendedRendering.dispose();
         this._suspendedRendering = undefined;
@@ -392,9 +401,10 @@ export class BeInspireTree<TNodePayload> {
   public on(event: BeInspireTreeEvent | BeInspireTreeEvent[], listener: (...values: any[]) => void): this {
     const events = Array.isArray(event) ? event : [event];
     events.forEach((e) => {
-      const shouldInsertBeforeLast = ((e === BeInspireTreeEvent.DataLoaded && this._tree.listeners(e).length >= 2)
-        || (e === BeInspireTreeEvent.ModelLoaded && this._tree.listeners(e).length >= 2)
-        || (e === BeInspireTreeEvent.ChildrenLoaded && this._tree.listeners(e).length >= 1));
+      // note: we want our specific listener to be executed last, so have to make sure no other listeners
+      // are appended to the listeners list (see NODES_LOADED_LAST_LISTENER)
+      const shouldInsertBeforeLast = ((e === BeInspireTreeEvent.ModelLoaded && this._tree.listeners(e).length >= 2)
+        || (e === BeInspireTreeEvent.ChildrenLoaded && this._tree.listeners(e).length >= 2));
       if (shouldInsertBeforeLast)
         this._tree.listeners(e).splice(this._tree.listeners(e).length - 1, 0, listener);
       else
@@ -464,6 +474,8 @@ export class BeInspireTree<TNodePayload> {
 
   /** Reload the tree */
   public async reload() {
+    if (this._deferredLoadingHandler)
+      this._deferredLoadingHandler.disposeNodeCaches(undefined);
     await using(this.pauseRendering(), async (_r) => {
       const rootNodes = await this._tree.reload();
       rootNodes.forEach((n) => toNode(n).setDirty(true));
@@ -757,7 +769,13 @@ export const toNode = <TPayload>(inspireNode: Inspire.TreeNode): BeInspireTreeNo
     const markDirtyBase = inspireNode.markDirty;
     anyNode.markDirty = function () {
       const result = markDirtyBase.call(this);
-      this.itree.dirtyTimestamp = (new Date()).getTime();
+      const currTimestamp = (new Date()).getTime();
+      if (this.itree.dirtyTimestamp === currTimestamp) {
+        ++this.itree.dirtyCounter;
+      } else {
+        this.itree.dirtyTimestamp = currTimestamp;
+        this.itree.dirtyCounter = 0;
+      }
       return result;
     };
     anyNode._markDirtyOverriden = markDirtyBase;
@@ -869,8 +887,6 @@ class WrappedInterfaceProvider<TPayload> extends CallableInstance implements Def
 
   public constructor(props: WrappedInterfaceProviderProps<TPayload>) {
     super("inspireLoad");
-    this.inspireLoad;
-
     this._tree = props.tree;
     this._provider = props.provider;
     this._nodesRemapper = props.nodesRemapper;
@@ -884,11 +900,17 @@ class WrappedInterfaceProvider<TPayload> extends CallableInstance implements Def
     await this._paginationHelper.request(parent ? parent.id : undefined, index);
   }
 
-  public disposeNodeCaches(node: BeInspireTreeNode<TPayload>) {
-    node.getChildren().forEach((c) => this.disposeNodeCaches(toNode(c)));
-    this._stashedPages.delete(node.id);
-    if (this._paginationHelper)
-      this._paginationHelper.disposeCaches(node.id);
+  public disposeNodeCaches(node?: BeInspireTreeNode<TPayload>) {
+    if (!node) {
+      this._stashedPages.clear();
+      if (this._paginationHelper)
+        this._paginationHelper.disposeCaches(undefined);
+    } else {
+      node.getChildren().forEach((c) => this.disposeNodeCaches(toNode(c)));
+      this._stashedPages.delete(node.id);
+      if (this._paginationHelper)
+        this._paginationHelper.disposeCaches(node.id);
+    }
   }
 
   /** Called by PaginationHelper to load a page */
@@ -983,7 +1005,8 @@ class WrappedInterfaceProvider<TPayload> extends CallableInstance implements Def
     return resolvedNodes;
   }
 
-  /** Called by inspire-tree */
+  /** Called by inspire-tree through CallableInstance */
+  // tslint:disable-next-line:no-unused-variable
   private inspireLoad(parent: BeInspireTreeNode<TPayload> | undefined, resolve: (nodes: Array<BeInspireTreeNodePayloadConfig<TPayload>>, totalCount: number) => any) {
     if (!this._paginationHelper) {
       // pagination is disabled - just load all nodes for the parent
@@ -1000,12 +1023,21 @@ class WrappedInterfaceProvider<TPayload> extends CallableInstance implements Def
     // paginated behavior
     const parentId = parent ? parent.id : undefined;
     const complete = () => {
-      const pagedNodes = this.createPagedNodesResult(parent);
-      if (parent && isArrayLike(parent.children)) {
+      // note: the parent might be over-written due to other sibling page loads,
+      // so we have to make sure we're using the right parent and not the stale one
+      const actualParent = parent ? parent.beInspireTree.node(parent.id!) : undefined;
+      const pagedNodes = this.createPagedNodesResult(actualParent);
+      if (actualParent && isArrayLike(actualParent.children)) {
         // reset so concat doesn't duplicate nodes
-        parent.children = true;
+        actualParent.children = true;
       }
-      onNodesDelayLoaded(parent, pagedNodes);
+      onNodesDelayLoaded(actualParent, pagedNodes);
+      if (actualParent && actualParent !== parent) {
+        // if the `parent` is indeed stale, then calling resolve won't add child nodes
+        // to the tree - we have to additionally add them to the actual parent that's not stale
+        // see VSTS#152885
+        actualParent.addChildren(pagedNodes);
+      }
       resolve(pagedNodes, pagedNodes.length);
     };
     if (!this._paginationHelper.hasOrWillHaveLoadedPages(parentId)) {
@@ -1056,8 +1088,13 @@ class PaginationHelper<TPageLoadResult> {
   }
 
   public disposeCaches(parentId: string | undefined) {
-    this._loadedPages.delete(parentId);
-    this._requestedPages.delete(parentId);
+    if (!parentId) {
+      this._loadedPages.clear();
+      this._requestedPages.clear();
+    } else {
+      this._loadedPages.delete(parentId);
+      this._requestedPages.delete(parentId);
+    }
   }
 
   public async request(parentId: string | undefined, index: number): Promise<void> {

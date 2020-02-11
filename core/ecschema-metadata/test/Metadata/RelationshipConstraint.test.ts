@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { assert, expect } from "chai";
 
@@ -49,7 +49,7 @@ describe("RelationshipConstraint", () => {
     let testConstraint: RelationshipConstraint;
 
     beforeEach(() => {
-      const schema = new Schema(new SchemaContext(), "TestSchema", 1, 0, 0);
+      const schema = new Schema(new SchemaContext(), "TestSchema", "ts", 1, 0, 0);
       const relClass = new RelationshipClass(schema, "TestRelationship");
       testConstraint = new RelationshipConstraint(relClass, RelationshipEnd.Source);
     });

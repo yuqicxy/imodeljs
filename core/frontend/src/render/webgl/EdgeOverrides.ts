@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { LinePixels, HiddenLine } from "@bentley/imodeljs-common";
-import { FloatPreMulRgba } from "./FloatRGBA";
+import { FloatRgba } from "./FloatRGBA";
 import { OvrFlags } from "./RenderFlags";
 
 /** Describes one of the pre-defined line patterns. See Render.LinePixels.
@@ -55,7 +57,7 @@ export namespace LineCode {
 
 /** @internal */
 export class EdgeOverrides {
-  private _color?: FloatPreMulRgba;
+  private _color?: FloatRgba;
   private _lineCode?: number;
   private _weight?: number;
   private _forceOpaque: boolean = false;
@@ -93,7 +95,7 @@ export class EdgeOverrides {
       this._weight = undefined;
       this._lineCode = undefined;
     } else {
-      this._color = undefined !== style.color ? FloatPreMulRgba.fromColorDef(style.color) : undefined;
+      this._color = undefined !== style.color ? FloatRgba.fromColorDef(style.color) : undefined;
       this._weight = style.width;
       this._lineCode = undefined !== style.pattern ? LineCode.valueFromLinePixels(style.pattern) : undefined;
     }

@@ -1,6 +1,6 @@
 # @bentley/webpack-tools
 
-Copyright © 2019 Bentley Systems, Incorporated. All rights reserved.
+Copyright © Bentley Systems, Incorporated. All rights reserved.
 
 The `@bentley/webpack-tools` package includes configuration and scripts for developing, building, and testing TypeScript apps and services.
 It supports building for web, electron, and mobile from the same codebase, and is designed to support the basic backend/frontend architecture
@@ -11,7 +11,7 @@ of [iModel.js apps](#TODO!).
 ### What is Webpack? ###
 As its name implies, `webpack-tools` makes extensive use of [webpack](https://webpack.js.org/).
 At its core, webpack is a module bundler – it combines files so you can use a module system like [RequireJS](https://requirejs.org/)
-or [ES6 imports](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import) in a web environment – where such
+or [ES6 imports](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/import) in a web environment – where such
 module systems aren't generally supported.  Lots of smaller modules may make sense on the server side of things (where the files are
 already on the filesystem), but the overhead of fetching these files via HTTP means that we need to combine them into a few larger files
 for the client side.

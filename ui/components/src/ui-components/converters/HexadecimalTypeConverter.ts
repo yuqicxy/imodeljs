@@ -1,10 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module TypeConverters */
+/** @packageDocumentation
+ * @module TypeConverters
+ */
 
-import { TypeConverter } from "./TypeConverter";
+import { TypeConverter, StandardTypeConverterTypeNames } from "./TypeConverter";
 import { TypeConverterManager } from "./TypeConverterManager";
 import { Id64 } from "@bentley/bentleyjs-core";
 import { Primitives } from "@bentley/imodeljs-frontend";
@@ -46,5 +48,5 @@ export class HexadecimalTypeConverter extends TypeConverter {
   }
 }
 
-TypeConverterManager.registerConverter("hex", HexadecimalTypeConverter);
-TypeConverterManager.registerConverter("hexadecimal", HexadecimalTypeConverter);
+TypeConverterManager.registerConverter(StandardTypeConverterTypeNames.Hex, HexadecimalTypeConverter);
+TypeConverterManager.registerConverter(StandardTypeConverterTypeNames.Hexadecimal, HexadecimalTypeConverter);

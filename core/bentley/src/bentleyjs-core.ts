@@ -1,24 +1,27 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 export * from "./Assert";
 export * from "./AsyncMutex";
 export * from "./BeEvent";
+export * from "./BeSQLite";
 export * from "./BentleyError";
 export * from "./BentleyLoggerCategory";
-export * from "./BeSQLite";
+export * from "./ByteStream";
 export * from "./ClientRequestContext";
 export * from "./Compare";
 export * from "./Dictionary";
 export * from "./Disposable";
+export * from "./ElectronUtils";
 export * from "./Id";
 export * from "./IndexMap";
 export * from "./JsonUtils";
-export * from "./Logger";
 export * from "./LRUMap";
-export * from "./PriorityQueue";
+export * from "./Logger";
+export * from "./ObservableSet";
 export * from "./OneAtATimeAction";
+export * from "./PriorityQueue";
 export * from "./SortedArray";
 export * from "./StringUtils";
 export * from "./Time";
@@ -31,7 +34,9 @@ if ((typeof (BUILD_SEMVER) !== "undefined") && (typeof window !== "undefined") &
   (window as any).iModelJsVersions.set("bentleyjs-core", BUILD_SEMVER);
 }
 
-/** @module Utils */
+/** @packageDocumentation
+ * @module Utils
+ */
 
 /** @docs-package-description
  * The bentleyjs-core package contains classes to solve problems that are common for both client and server use cases.

@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 
 import { Geometry } from "../Geometry";
 import { Angle } from "../geometry3d/Angle";
@@ -45,15 +47,17 @@ export class StrokeOptions {
   /** whether or not to triangulate each added facet */
   public shouldTriangulate: boolean = false;
   private _needNormals?: boolean;
+  private _needTwoSided?: boolean;
   private _needParams?: boolean;
-  /** ask if params are requested. */
+  /** Whether params are requested. */
   public get needParams(): boolean { return this._needParams !== undefined ? this._needParams : false; }
-  /** set the params request flag */
   public set needParams(value: boolean) { this._needParams = value; }
-  /** ask if normals are requested */
+  /** Whether normals are requested */
   public get needNormals(): boolean { return this._needNormals !== undefined ? this._needNormals : false; }
-  /** set the normals request flag */
   public set needNormals(value: boolean) { this._needNormals = value; }
+  /** Whether twoSided is requested. */
+  public get needTwoSided(): boolean { return this._needTwoSided !== undefined ? this._needTwoSided : false; }
+  public set needTwoSided(value: boolean) { this._needTwoSided = value; }
   /** optional color request flag */
   public needColors?: boolean;
   /** default number of strokes for a circle. */

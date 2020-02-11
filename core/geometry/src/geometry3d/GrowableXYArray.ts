@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module ArraysAndInterfaces */
+/** @packageDocumentation
+ * @module ArraysAndInterfaces
+ */
 
 import { Geometry } from "../Geometry";
 import { XAndY, XYAndZ } from "./XYZProps";
@@ -14,13 +16,15 @@ import { Matrix3d } from "./Matrix3d";
 import { IndexedXYCollection } from "./IndexedXYCollection";
 import { GrowableXYZArray } from "./GrowableXYZArray";
 import { Point3d } from "./Point3dVector3d";
+import { MultiLineStringDataVariant } from "../topology/Triangulation";
+import { PointStreamGrowableXYZArrayCollector, VariantPointDataStream } from "./PointStreaming";
 
 /** `GrowableXYArray` manages a (possibly growing) Float64Array to pack xy coordinates.
  * @public
  */
 export class GrowableXYArray extends IndexedXYCollection {
   /**
-   * array of packed xyzxyzxyz components
+   * array of packed xyz xyz xyz components
    */
   private _data: Float64Array;
   /**
@@ -40,8 +44,20 @@ export class GrowableXYArray extends IndexedXYCollection {
     this._xyInUse = 0;
     this._xyzCapacity = numPoints;
   }
-  /** Return the number of points in use. */
+
+  /** The number of points in use. When the length is increased, the array is padded with zeroes. */
   public get length() { return this._xyInUse; }
+  public set length(newLength: number) {
+    let oldLength = this.length;
+    if (newLength < oldLength) {
+      this._xyInUse = newLength;
+    } else if (newLength > oldLength) {
+      this.ensureCapacity(newLength);
+      while (oldLength++ < newLength)
+        this.pushXY(0, 0);
+    }
+  }
+
   /** Return the number of float64 in use. */
   public get float64Length() { return this._xyInUse * 2; }
   /** Return the raw packed data.
@@ -105,6 +121,12 @@ export class GrowableXYArray extends IndexedXYCollection {
     return newPoints;
   }
 
+  /** Restructure MultiLineStringDataVariant as array of GrowableXYZArray */
+  public static createArrayOfGrowableXYZArray(data: MultiLineStringDataVariant): GrowableXYZArray[] | undefined {
+    const collector = new PointStreamGrowableXYZArrayCollector();
+    VariantPointDataStream.streamXYZ(data, collector);
+    return collector.claimArrayOfGrowableXYZArray();
+  }
   /** push a point to the end of the array */
   public push(toPush: XAndY) {
     this.pushXY(toPush.x, toPush.y);
@@ -272,6 +294,20 @@ export class GrowableXYArray extends IndexedXYCollection {
       return 1;
     }
     return 0;
+  }
+
+  /**
+   * * Compute a point at fractional coordinate between points i and j of source
+   * * push onto this array.
+   */
+  public pushInterpolatedFromGrowableXYArray(source: GrowableXYArray, i: number, fraction: number, j: number) {
+    if (source.isIndexValid(i) && source.isIndexValid(j)) {
+      const data = source._data;
+      i = 3 * i;
+      j = 3 * j;
+      this.pushXY(Geometry.interpolate(data[i], fraction, data[j]),
+        Geometry.interpolate(data[i + 1], fraction, data[j + 1]));
+    }
   }
 
   /**

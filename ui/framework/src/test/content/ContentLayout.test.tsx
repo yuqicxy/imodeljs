@@ -1,10 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { mount, shallow } from "enzyme";
 import { expect } from "chai";
 import * as React from "react";
+import * as sinon from "sinon";
+
 import {
   ContentLayout,
   ContentGroup,
@@ -17,7 +19,9 @@ import {
   FrontstageManager,
 } from "../../ui-framework";
 import TestUtils from "../TestUtils";
-import sinon = require("sinon");
+
+// import SplitPane from "react-split-pane";
+const SplitPane: typeof import("react-split-pane").default = require("react-split-pane"); // tslint:disable-line
 
 describe("ContentLayout", () => {
 
@@ -97,13 +101,13 @@ describe("ContentLayout", () => {
   const fourQuadrantsVerticalLayoutDef: ContentLayoutDef = new ContentLayoutDef(
     { // Four Views, two stacked on the left, two stacked on the right.
       id: "fourQuadrantsVertical",
-      descriptionKey: "SampleApp:ContentLayoutDef.FourQuadrants",
-      priority: 85,
       verticalSplit: {
         percentage: 0.50,
         lock: true,
-        left: { horizontalSplit: { percentage: 0.50, top: 0, bottom: 1, lock: true } },
-        right: { horizontalSplit: { percentage: 0.50, top: 2, bottom: 3, lock: true } },
+        minSizeLeft: 100,
+        minSizeRight: 100,
+        left: { horizontalSplit: { percentage: 0.50, top: 0, bottom: 1, lock: true, minSizeTop: 50, minSizeBottom: 50 } },
+        right: { horizontalSplit: { percentage: 0.50, top: 2, bottom: 3, lock: true, minSizeTop: 50, minSizeBottom: 50 } },
       },
     },
   );
@@ -119,13 +123,13 @@ describe("ContentLayout", () => {
 
   const fourQuadrantsHorizontalLayoutDef: ContentLayoutDef = new ContentLayoutDef(
     { // Four Views, two stacked on the left, two stacked on the right.
-      descriptionKey: "SampleApp:ContentLayoutDef.FourQuadrants",
-      priority: 85,
       horizontalSplit: {
         percentage: 0.50,
         lock: true,
-        top: { verticalSplit: { percentage: 0.50, left: 0, right: 1, lock: true } },
-        bottom: { verticalSplit: { percentage: 0.50, left: 2, right: 3, lock: true } },
+        minSizeTop: 100,
+        minSizeBottom: 100,
+        top: { verticalSplit: { percentage: 0.50, left: 0, right: 1, lock: true, minSizeLeft: 100, minSizeRight: 100 } },
+        bottom: { verticalSplit: { percentage: 0.50, left: 2, right: 3, lock: true, minSizeLeft: 100, minSizeRight: 100 } },
       },
     },
   );
@@ -163,29 +167,34 @@ describe("ContentLayout", () => {
     wrapper.unmount();
   });
 
-  it("SplitPane onChanged", () => {
+  it("Vertical SplitPane onChanged", () => {
     const wrapper = mount(
-      <div style={{ width: "100px", height: "100px" }}>
+      <div>
         <ContentLayout contentGroup={contentGroup2} contentLayout={contentLayout2} isInFooterMode={true} />
       </div>);
 
-    const resizer = wrapper.find("span.Resizer");
-    expect(resizer.length).to.eq(1);
+    const splitPanel = wrapper.find(SplitPane);
+    expect(splitPanel.length).to.eq(1);
 
-    const top = document.documentElement;
-    expect(top).to.not.be.null;
+    splitPanel.prop("onChange")!(50);
 
-    // TODO: This is not triggering onChange as expected
-    if (top) {
-      resizer.simulate("mousedown");
+    wrapper.update();
 
-      const mouseMove = new Event("mousemove");  // creates a new event
-      top.dispatchEvent(mouseMove);              // dispatches it
-      const mouseUp = new Event("mouseup");
-      top.dispatchEvent(mouseUp);
+    wrapper.unmount();
+  });
 
-      wrapper.update();
-    }
+  it("Horizontal SplitPane onChanged", () => {
+    const wrapper = mount(
+      <div>
+        <ContentLayout contentGroup={contentGroup2} contentLayout={contentLayout3} isInFooterMode={true} />
+      </div>);
+
+    const splitPanel = wrapper.find(SplitPane);
+    expect(splitPanel.length).to.eq(1);
+
+    splitPanel.prop("onChange")!(50);
+
+    wrapper.update();
 
     wrapper.unmount();
   });

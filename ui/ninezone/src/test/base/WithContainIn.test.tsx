@@ -1,14 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { mount } from "enzyme";
 import * as React from "react";
 import * as sinon from "sinon";
-import { createRect } from "../Utils";
 
+import { RectangleProps, Rectangle } from "@bentley/ui-core";
+
+import { createBoundingClientRect } from "../Utils";
 import { withContainIn } from "../../ui-ninezone";
-import { RectangleProps, Rectangle } from "../../ui-ninezone/utilities/Rectangle";
 import { containVertically, containHorizontally } from "../../ui-ninezone/base/WithContainIn";
 
 const component = () => <div></div>;
@@ -16,16 +17,10 @@ const component = () => <div></div>;
 const ContainedComponent = withContainIn(component);
 
 describe("<WithContainIn />", () => {
-  let innerWidthStub: sinon.SinonStub | undefined;
-  let innerHeightStub: sinon.SinonStub | undefined;
-  let createRectangleStub: sinon.SinonStub | undefined;
-  let createRefStub: sinon.SinonStub | undefined;
+  const sandbox = sinon.createSandbox();
 
   afterEach(() => {
-    innerWidthStub && innerWidthStub.restore();
-    innerHeightStub && innerHeightStub.restore();
-    createRectangleStub && createRectangleStub.restore();
-    createRefStub && createRefStub.restore();
+    sandbox.restore();
   });
 
   it("should render", () => {
@@ -37,20 +32,18 @@ describe("<WithContainIn />", () => {
       current: null,
     };
     sinon.stub(ref, "current").set(() => { });
-    createRefStub = sinon.stub(React, "createRef");
-    createRefStub.returns(ref);
+    sandbox.stub(React, "createRef").returns(ref);
     mount(<ContainedComponent />);
   });
 
   it("should use window bounds when container reference is not set", () => {
-    innerWidthStub = sinon.stub(window, "innerWidth").get(() => {
+    sandbox.stub(window, "innerWidth").get(() => {
       return 333;
     });
-    innerHeightStub = sinon.stub(window, "innerHeight").get(() => {
+    sandbox.stub(window, "innerHeight").get(() => {
       return 222;
     });
 
-    const ref = React.createRef<HTMLElement>();
     const spy = sinon.spy((_: RectangleProps, containerBounds: RectangleProps): RectangleProps => {
       containerBounds.right.should.eq(333);
       containerBounds.bottom.should.eq(222);
@@ -62,20 +55,16 @@ describe("<WithContainIn />", () => {
       };
     });
 
-    mount(
-      <ContainedComponent
-        container={ref}
-        containFn={spy}
-      />,
-    );
+    mount(<ContainedComponent
+      containFn={spy}
+    />);
 
     spy.calledOnce.should.true;
   });
 
   it("should use container bounds", () => {
-    const container: React.MutableRefObject<HTMLDivElement | null> = {
-      current: null,
-    };
+    const container = document.createElement("div");
+    sinon.stub(container, "getBoundingClientRect").returns(createBoundingClientRect(50, 100, 200, 400));
     const containFnSpy = sinon.spy((_: RectangleProps, containerBounds: RectangleProps): RectangleProps => {
       containerBounds.left.should.eq(50);
       containerBounds.top.should.eq(100);
@@ -84,24 +73,10 @@ describe("<WithContainIn />", () => {
       return new Rectangle();
     });
 
-    mount(
-      <div>
-        <div
-          ref={(instance) => {
-            container.current = instance;
-
-            if (!instance)
-              return;
-            sinon.stub(instance, "getBoundingClientRect").returns(createRect(50, 100, 200, 400));
-          }}
-        >
-        </div>
-        <ContainedComponent
-          container={container}
-          containFn={containFnSpy}
-        />
-      </div>,
-    );
+    mount(<ContainedComponent
+      container={container}
+      containFn={containFnSpy}
+    />);
 
     containFnSpy.calledOnce.should.true;
   });
@@ -110,7 +85,7 @@ describe("<WithContainIn />", () => {
     const expectedResult = new Rectangle();
     const createdRect = new Rectangle();
     const containHorizontallyInStub = sinon.stub(createdRect, "containHorizontallyIn").returns(expectedResult);
-    createRectangleStub = sinon.stub(Rectangle, "create").returns(createdRect);
+    const createRectangleStub = sandbox.stub(Rectangle, "create").returns(createdRect);
 
     const contained = containHorizontally(new Rectangle(), new Rectangle());
     createRectangleStub.calledOnce.should.true;
@@ -122,7 +97,7 @@ describe("<WithContainIn />", () => {
     const expectedResult = new Rectangle();
     const createdRect = new Rectangle();
     const containVerticallyInStub = sinon.stub(createdRect, "containVerticallyIn").returns(expectedResult);
-    createRectangleStub = sinon.stub(Rectangle, "create").returns(createdRect);
+    const createRectangleStub = sandbox.stub(Rectangle, "create").returns(createdRect);
 
     const contained = containVertically(new Rectangle(), new Rectangle());
     createRectangleStub.calledOnce.should.true;

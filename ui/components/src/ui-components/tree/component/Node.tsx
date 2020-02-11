@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 import * as React from "react";
 import { TreeTest } from "./Tree";
@@ -22,7 +24,7 @@ import { ImageRenderer } from "../../common/ImageRenderer";
 
 /**
  * Properties for Checkbox in [[TreeNode]]
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface NodeCheckboxProps extends Omit<CheckboxProps, "onClick"> {
   onClick: (node: BeInspireTreeNode<TreeNodeItem>, newState: CheckBoxState) => void;
@@ -30,7 +32,7 @@ export interface NodeCheckboxProps extends Omit<CheckboxProps, "onClick"> {
 
 /**
  * Properties for [[TreeNode]] React component
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface TreeNodeProps extends CommonProps {
   node: BeInspireTreeNode<TreeNodeItem>;
@@ -40,8 +42,11 @@ export interface TreeNodeProps extends CommonProps {
   onMouseMove?: (e: React.MouseEvent) => void;
   onMouseUp?: (e: React.MouseEvent) => void;
 
+  /** @beta */
   cellEditing?: CellEditingEngine;
+  /** @beta */
   highlightProps?: HighlightableTreeNodeProps;
+
   showDescription?: boolean;
   valueRendererManager: PropertyValueRendererManager;
 
@@ -69,8 +74,8 @@ export interface TreeNodeProps extends CommonProps {
 }
 
 /**
- * Default component for rendering a node for the [Tree]($components)
- * @public
+ * Default component for rendering a node for the [Tree]($ui-components)
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export class TreeNode extends React.Component<TreeNodeProps> {
 
@@ -154,7 +159,7 @@ function doPropsDiffer(props1: TreeNodeProps, props2: TreeNodeProps) {
 }
 
 /** Properties for [[TreeNodeIcon]] React component
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export interface TreeNodeIconProps extends React.Attributes {
   node: BeInspireTreeNode<TreeNodeItem>;
@@ -162,7 +167,7 @@ export interface TreeNodeIconProps extends React.Attributes {
 }
 
 /** React component that renders tree node icons
- * @public
+ * @public @deprecated Use [[ControlledTree]] instead
  */
 export const TreeNodeIcon: React.FunctionComponent<TreeNodeIconProps> = ({ imageLoader, node }) => { // tslint:disable-line:variable-name
   let image: Image | undefined;

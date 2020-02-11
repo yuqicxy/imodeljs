@@ -1,6 +1,169 @@
 # Change Log - @bentley/imodeljs-backend
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Native apps can now cancel tile requests in progress on the backend.
+- Remove echo test function from devTools
+- Allow outline fill to be specified by subcategory appearance.
+- Upgrade to TypeScript 3.7.2.
+- Added TypeScript wrapper over the native SaaSClient.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Typescript code for the classes in the Analytical schema.
+- Return error message from concurrent query manager
+- Added support for embedding images in a GeometryStream.
+- IModelExporter, IModelTransformer, and IModelImporter are now beta and provide low-level functionality needed for iModel transformation and data exchange.
+- Added IModelDb.isBriefcase() getter.
+- Implementing LinearlyLocatedBase interface by base LR abstract element-classes.
+- Moving data-holder structures used during the LinearElement.queryLinearLocations API to imodeljs-common.
+- Allow events to be sent from backend to frontend
+- Add tryGetInstance / tryGetInstanceProps methods to the Relationship class which return undefined rather than throwing an exception when a relationship is not found.
+- Fix webpack for ios test that were failing due to new dependencies
+- VSTS#225894 - Allowed agents to bypass usage logging calls. These cause usage logging errors. 
+- Add tryGetElement / tryGetElementProps which return undefined rather than throwing an exception when an element is not found.
+- Add tryGetModel, tryGetModelProps, tryGetSubModel which return undefined instead of throwing exceptions when the model is not found.
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Updated to addon 9.1.3
+- Added AliCloud tile cache service
+- Added framework to run imodeljs-backend test on ios using appcenter
+- Setup OidcDesktopClient for Electron use cases. 
+- fix warnings from static analysis
+- Enabling testing code for updating LR aspects after fix in native side.
+- Addressing typo in a couple of members, making them match the schema properly.
+- Avoid concurrent tile uploads
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Option to include part references in GeometrySummary output.
+- Expose isTwoSided flag on ExportGraphicsMesh
+- SchemaDesignPerf import tests
+- Added missing topic descriptions
+- Add experimental Node 12 support
+- Change SectionLocationProps.clipGeometry type to string. Add get/set ClipVector methods on SectionLocation.
+- Add support for view-independent display of geometry streams.
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Add TypeScript wrapper class for BisCore:ElementOwnsExternalSourceAspects
+- New wip plugin for hypermodeling support.
+- Calling IModelDb.pushChanges is now a no-op if there are no changes
+- Adding accessor for LinearElementId from LinearlyLocated. Adding convenience APIs to manipulate LinearReferencing data stored in multi-aspects.
+- Add TypeScript wrappers for GeometricElement2dHasTypeDefinition and GeometricElement3dHasTypeDefinition navigation relationships
+- Tests for Mixin impact on CRUD
+- Add and fix npm script to create backend test for mobile.
+- Schema Design Perf tests for Polymorphic queries
+- Add IModelDb.querySchemaVersion
+- Schema Design Perf tests for relationships
+- Resurrected the old way of doing agent registrations
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+### Updates
+
+- Add isNotSpatiallyLocated and isPlanProjection to GeometricModel3d
+- Add SectionLocation
+- Add GraphicalPartition3d and GraphicalModel3d
+- Schema perf tests
+- Addressing bug while querying for linearLocations filtering on more than 1 classes.
+- Addressing rush lint issues.
+- Addressing issues while returning LinearLocationReferences.
+- Deprecating importSchema on the LinearReferencing domain in favor of its bulk-version.
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- added support for blank IModelConnections
+- 170215: Setup a way to supply authorization through the backend for frontend requests. 
+- 174346: Error log when downloading change sets should include iModelId for context. 
+- Bug 173765: Fixed the iModelHub client to properly dispose a file handle after upload to the iModelHub. 
+- Add IModelDb.Elements.hasSubModel
+- Make ExternalSourceAspect.checksum optional
+- Clear statement cache after schema import
+- Added utility to summarize geometry
+- filter redundant hub requests
+- Removed the `[propName: string]: any` indexed from Entity. It prevented the compiler from catching many basic errors.
+- briefcase editing and undo/redo
+- api
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- 170215: Setup a way to supply authorization through the backend for frontend requests. 
+- Bug 163480: Allow attaching change cache file before change summary extraction. 
+- 162722, 162377: Added change summary test, and improved doc a little. 
+- Add minimum brep size option to IModelDb.exportGraphics
+- FunctionalSchema.importSchema is now deprecated.
+- Add support for GeometricModel.geometryGuid for detecting whether tiles for a model can be reused across versions
+- Added performance logging for tile upload
+- Bug 162459: IModelConnection.close() for read-only connections should not close the Db at the backend; Bug 162373: Opening an iModel with SyncModel.PullAndPush() multiple times (without disposing it) must reuse the briefcase. 
+- Add method to create view with camera
+- Fixed misleading logging output in tile upload
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Allow custom tile cache services.
+- Bug 155921: Always acquire a briefcase when creating a new backend instance for PullAndPush workflows. 
+- Added Change Summary integration test, and fixed documentation. 
+- Trial code for tile upload errors
+- Fixed changeset performance tests
+- Tile upload logging.
+- Mark ExportGraphics API as public
+- Fixed typo
+- Support for gzip compression of tiles
+- Bug 148574: Fixed issue with opening iModels with names that are invalid on Unix or Windows. 
+- Add IModelDb.isSnapshot
+- internal addon API refactoring
+- Tile upload error catching.
+- Azure tile upload logging
+- Upgrade azure storage library.
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+### Updates
+
+- Added option to restrict tile cache URLs by client IP address.
+- Apply change sets at the backend in a non-blocking worker thread. 
+- Add ElementAspect handler methods
+- When deleting a parent element, make sure there are onDelete/onDeleted callbacks for child elements
+- Add support for linework to IModelDb.exportGraphics
+- The className parameter to IModelDb.Element.getAspects is now optional to allow all aspects to be returned
+- Deprecate IModelDb.importSchema in favor of IModelDb.importSchemas
+- Added method to get element mass properties.
+- Add exportPartGraphics and accompanying interfaces
+- Capture tile upload errors using JSON.stringify.
+- Fallback to toString for Error derivative errors in tile upload
+- Always report tile upload response on failure
+- Discover properties of azure 'error' object
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT
@@ -11,9 +174,8 @@ Mon, 01 Jul 2019 19:04:29 GMT
 - Catch tile upload errors.
 - Setting up briefcase is always from an older checkpoint. 
 - Add materialId, subCategory to ExportGraphicsInfo
-- fix crash in getViewThumbnail for odd number of bytes 
+- Fix crash in getViewThumbnail for odd number of bytes 
 - Adding relationship class for GraphicalElement3dRepresentsElement.
-- fix internal addon API
 - Initial implementation of the LinearReferencing typescript domain
 - Adding domain classes for all relatinships in the LinearReferencing schema.
 - Exporting relationships module.
@@ -22,10 +184,9 @@ Mon, 01 Jul 2019 19:04:29 GMT
 - Add a new method `forceLoadSchemas` to `IModelJsNative.ECPresentationManager`.
 - Introduced AsyncMutex - a utility to run async blocks of code in sequence. 
 - Properly document ModelSelector.models and CategorySelector.categories as Id64String arrays
-- remove unnecssary logging
-- insertElement will never return Id64.invalid, throws error instead
+- Made `insertElement` not return Id64.invalid, throws error instead
 - Update to TypeScript 3.5
-- update property referenced in ULAS error message
+- Update property referenced in ULAS error message
 
 ## 1.0.0
 Mon, 03 Jun 2019 18:09:39 GMT
@@ -38,7 +199,6 @@ Mon, 03 Jun 2019 18:09:39 GMT
 - Fix bug in IModelDb.createSnapshotFromSeed
 - Add BriefcaseId.Snapshot
 - Improve reading and binding binary blob using concurrent query manager
-- Fixed typo in function name
 - Modified ElementAspect Performance tests
 - Add options to IModelHost for logging large tile sizes and long tile load times.
 - Add TypeScript wrapper for BisCore:ExternalSourceAspect
@@ -49,7 +209,6 @@ Mon, 03 Jun 2019 18:09:39 GMT
 - IModelDb.openSnapshot cannot open a briefcase copy of an iModel managed by iModelHub
 - The IModelDb.createSnapshot instance method replaces the IModelDb.createSnapshotFromSeed static method
 - crash reporting, node-report opt-in
-- rush extract-api + rush change
 - Throw IModelError if an IModelDb query would return too many rows
 - Retire some tile-related feature gates.
 - Introduced tile format v4.0

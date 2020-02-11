@@ -3,7 +3,7 @@
     "true": "true",
     "false": "false",
     "loading": "loading",
-    "noData": "No data",
+    "noData": "The data required for this tree layout is not available in this iModel.",
     "length": "Length",
     "label": "Label"
   },
@@ -30,7 +30,8 @@
     "title": "Show/Hide"
   },
   "property": {
-    "varies": "*** Varies ***"
+    "varies": "*** Varies ***",
+    "arrayLength": "Number of Items"
   },
   "signIn": {
     "prompt": "Please sign in to access your Bentley services.",
@@ -42,7 +43,10 @@
   "timeline": {
     "expand": "Expand",
     "minimize": "Minimize",
-    "repeat": "Repeat"
+    "repeat": "Repeat",
+    "slow": "Speed: slow",
+    "medium": "Speed: medium",
+    "fast": "Speed: fast"
   },
   "month": {
     "long": {
@@ -109,5 +113,8 @@
   },
   "errors": {
     "unable-to-parse-quantity": "Unable to parse string into quantity"
+  },
+  "filteringInput": {
+    "placeholder": "Search..."
   }
 }

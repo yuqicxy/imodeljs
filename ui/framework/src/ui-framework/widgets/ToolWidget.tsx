@@ -1,22 +1,24 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Widget */
+/** @packageDocumentation
+ * @module Widget
+ */
 
 import * as React from "react";
+
+import { PluginUiManager, UiProviderRegisteredEventArgs } from "@bentley/ui-abstract";
+import { CommonProps, Icon } from "@bentley/ui-core";
+import { AppButton, Tools as NZ_ToolsWidget, Direction } from "@bentley/ui-ninezone";
 
 import { ToolWidgetProps, WidgetType } from "./WidgetDef";
 import { ToolbarWidgetDefBase } from "./ToolbarWidgetBase";
 import { CommandItemDef } from "../shared/CommandItemDef";
-import { Icon } from "../shared/IconComponent";
-import { FrontstageManager, ToolActivatedEventArgs } from "../frontstage/FrontstageManager";
+import { FrontstageManager } from "../frontstage/FrontstageManager";
 import { UiShowHideManager } from "../utils/UiShowHideManager";
 
-import { AppButton, Tools as NZ_ToolsWidget, Direction } from "@bentley/ui-ninezone";
-import { CommonProps } from "@bentley/ui-core";
-
-/** A Tool Widget normally displayed in the top left zone in the 9-Zone Layout system.
+/** Definition of a Tool Widget normally displayed in the top left zone in the 9-Zone Layout system.
  * @public
  */
 export class ToolWidgetDef extends ToolbarWidgetDefBase {
@@ -30,6 +32,9 @@ export class ToolWidgetDef extends ToolbarWidgetDefBase {
 
     this.widgetType = WidgetType.Tool;
     this.verticalDirection = (props.verticalDirection !== undefined) ? props.verticalDirection : Direction.Right;
+
+    const activeStageName = FrontstageManager.activeFrontstageDef ? FrontstageManager.activeFrontstageDef.id : "";
+    this.widgetBaseName = `[${activeStageName}]ToolWidget`;
   }
 
   public get reactElement(): React.ReactNode {
@@ -88,7 +93,7 @@ export class ToolWidget extends React.Component<ToolWidgetPropsEx, ToolWidgetSta
 
   public componentDidUpdate(prevProps: ToolWidgetPropsEx, _prevState: ToolWidgetState) {
     if (this.props !== prevProps) {
-      this.setState({ toolWidgetDef: new ToolWidgetDef(this.props) });
+      this.setState((_, props) => ({ toolWidgetDef: new ToolWidgetDef(props) }));
     }
   }
 
@@ -115,42 +120,61 @@ interface Props extends CommonProps {
   verticalToolbar?: React.ReactNode;
 }
 
+interface ToolWidgetWithDefState {
+  horizontalToolbar: React.ReactNode;
+  verticalToolbar: React.ReactNode;
+  cornerItem: React.ReactNode;
+}
+
 /** Tool Widget React component.
  */
-class ToolWidgetWithDef extends React.Component<Props> {
+class ToolWidgetWithDef extends React.Component<Props, ToolWidgetWithDefState> {
   constructor(props: Props) {
     super(props);
+
+    if (PluginUiManager.hasRegisteredProviders) {
+      this.props.toolWidgetDef.generateMergedItemLists();
+    }
+
+    const horizontalToolbar = (this.props.horizontalToolbar) ? this.props.horizontalToolbar : this.props.toolWidgetDef.renderHorizontalToolbar();
+    const verticalToolbar = (this.props.verticalToolbar) ? this.props.verticalToolbar : this.props.toolWidgetDef.renderVerticalToolbar();
+    const cornerItem = (this.props.button !== undefined) ? this.props.button : this.props.toolWidgetDef.renderCornerItem();
+    this.state = { horizontalToolbar, verticalToolbar, cornerItem };
   }
 
-  private _handleToolActivatedEvent = (args: ToolActivatedEventArgs): void => {
-    this.setState((_prevState, _props) => {
-      const toolId = args.toolId;
-      return {
-        toolId,
-      };
-    });
+  private reloadToolbars() {
+    const horizontalToolbar = (this.props.horizontalToolbar) ? this.props.horizontalToolbar : this.props.toolWidgetDef.renderHorizontalToolbar();
+    const verticalToolbar = (this.props.verticalToolbar) ? this.props.verticalToolbar : this.props.toolWidgetDef.renderVerticalToolbar();
+    this.setState({ horizontalToolbar, verticalToolbar });
+  }
+
+  private _handleUiProviderRegisteredEvent = (_args: UiProviderRegisteredEventArgs): void => {
+    // create, merge, and cache ItemList from plugins
+    this.props.toolWidgetDef.generateMergedItemLists();
+    this.reloadToolbars();
   }
 
   public componentDidMount() {
-    FrontstageManager.onToolActivatedEvent.addListener(this._handleToolActivatedEvent);
+    PluginUiManager.onUiProviderRegisteredEvent.addListener(this._handleUiProviderRegisteredEvent);
   }
 
   public componentWillUnmount() {
-    FrontstageManager.onToolActivatedEvent.removeListener(this._handleToolActivatedEvent);
+    PluginUiManager.onUiProviderRegisteredEvent.removeListener(this._handleUiProviderRegisteredEvent);
+  }
+
+  public componentDidUpdate(prevProps: Props) {
+    if (this.props !== prevProps)
+      this.reloadToolbars();
   }
 
   public render(): React.ReactNode {
-    const button = (this.props.button !== undefined) ? this.props.button : this.props.toolWidgetDef.renderCornerItem();
-    const horizontalToolbar = (this.props.horizontalToolbar) ? this.props.horizontalToolbar : this.props.toolWidgetDef.renderHorizontalToolbar();
-    const verticalToolbar = (this.props.verticalToolbar) ? this.props.verticalToolbar : this.props.toolWidgetDef.renderVerticalToolbar();
-
     return (
       <NZ_ToolsWidget
         className={this.props.className}
         style={this.props.style}
-        button={button}
-        horizontalToolbar={horizontalToolbar}
-        verticalToolbar={verticalToolbar}
+        button={this.state.cornerItem}
+        horizontalToolbar={this.state.horizontalToolbar}
+        verticalToolbar={this.state.verticalToolbar}
         preserveSpace={true}
         onMouseEnter={UiShowHideManager.handleWidgetMouseEnter}
       />

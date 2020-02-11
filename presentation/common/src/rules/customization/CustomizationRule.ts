@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 import { CheckBoxRule } from "./CheckBoxRule";
 import { GroupingRule } from "./GroupingRule";
@@ -12,10 +14,11 @@ import { LabelOverride } from "./LabelOverride";
 import { SortingRule } from "./SortingRule";
 import { StyleOverride } from "./StyleOverride";
 import { ExtendedDataRule } from "./ExtendedDataRule";
+import { NodeArtifactsRule } from "../hierarchy/NodeArtifactsRule";
 
 /**
  * Customization rules allow customizing each node or content item separately.
- * Most of the rules have a `condition` property which uses [ECExpressions]($docs/learning/customization/ECExpressions.md)
+ * Most of the rules have a `condition` property which uses [ECExpressions]($docs/learning/presentation/Customization/ECExpressions.md)
  * for conditional rule filtering.
  *
  * **Nested customization rules:**
@@ -39,4 +42,5 @@ export declare type CustomizationRule = InstanceLabelOverride |
   LabelOverride |
   SortingRule |
   StyleOverride |
-  ExtendedDataRule;
+  ExtendedDataRule |
+  NodeArtifactsRule;

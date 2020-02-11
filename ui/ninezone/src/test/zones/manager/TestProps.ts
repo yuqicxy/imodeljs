@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { ZonesManagerProps, getDefaultZonesManagerProps } from "../../../ui-ninezone";
 import { HorizontalAnchor } from "../../../ui-ninezone/widget/Stacked";
-import { getDefaultWidgetProps } from "../../../ui-ninezone/zones/manager/Widget";
+import { getDefaultWidgetManagerProps } from "../../../ui-ninezone/zones/manager/Widget";
+import { WidgetZoneId } from "../../../ui-ninezone/zones/manager/Zones";
 
 // tslint:disable: completed-docs
 export namespace TestProps {
@@ -12,14 +13,7 @@ export namespace TestProps {
 
   export const inWidgetMode: ZonesManagerProps = {
     ...defaultProps,
-    zones: {
-      ...defaultProps.zones,
-      [8]: {
-        ...defaultProps.zones[8],
-        isInFooterMode: false,
-        allowsMerging: true,
-      },
-    },
+    isInFooterMode: false,
   };
 
   export const openedZone6: ZonesManagerProps = {
@@ -85,6 +79,34 @@ export namespace TestProps {
           stackId: 1,
         },
       },
+    },
+  };
+
+  export const draggedOpenedZone6 = {
+    ...openedZone6,
+    zones: {
+      ...openedZone6.zones,
+      6: {
+        ...openedZone6.zones[6],
+        floating: {
+          bounds: {
+            left: 10,
+            top: 20,
+            right: 40,
+            bottom: 80,
+          },
+          stackId: 1,
+        },
+      },
+    },
+    draggedWidget: {
+      id: 6 as WidgetZoneId,
+      isUnmerge: true,
+      lastPosition: {
+        x: 10,
+        y: 20,
+      },
+      tabIndex: 5,
     },
   };
 
@@ -156,9 +178,9 @@ export namespace TestProps {
     ...defaultProps,
     widgets: {
       ...defaultProps.widgets,
-      8: getDefaultWidgetProps(8),
+      8: getDefaultWidgetManagerProps(8),
       9: {
-        ...getDefaultWidgetProps(9),
+        ...getDefaultWidgetManagerProps(9),
         tabIndex: 1,
       },
     },
@@ -166,7 +188,6 @@ export namespace TestProps {
       ...defaultProps.zones,
       8: {
         ...defaultProps.zones[8],
-        allowsMerging: true,
         bounds: {
           left: 10,
           top: 20,
@@ -304,6 +325,38 @@ export namespace TestProps {
     },
   };
 
+  export const merged7To4: ZonesManagerProps = {
+    ...defaultProps,
+    widgets: {
+      ...defaultProps.widgets,
+      4: {
+        ...defaultProps.widgets[4],
+        tabIndex: -1,
+      },
+      7: {
+        ...defaultProps.widgets[7],
+        tabIndex: 1,
+      },
+    },
+    zones: {
+      ...defaultProps.zones,
+      4: {
+        ...defaultProps.zones[4],
+        bounds: {
+          left: 5,
+          top: 20,
+          right: 125,
+          bottom: 30,
+        },
+        widgets: [4, 7],
+      },
+      7: {
+        ...defaultProps.zones[7],
+        widgets: [],
+      },
+    },
+  };
+
   export const merged9To7: ZonesManagerProps = {
     ...defaultProps,
     widgets: {
@@ -429,7 +482,6 @@ export namespace TestProps {
       8: {
         ...defaultProps.zones[8],
         widgets: [],
-        allowsMerging: true,
       },
       9: {
         ...defaultProps.zones[9],

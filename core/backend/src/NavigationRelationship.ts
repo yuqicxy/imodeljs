@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Relationships */
+/** @packageDocumentation
+ * @module Relationships
+ */
 
 // NOTE: A NavigationRelationship is not an Entity, so is not registered in the ClassRegistry.
 // NOTE: It does, however, have a classFullName property for consistency with Entity subclasses.
@@ -80,12 +82,32 @@ export class PhysicalElementAssemblesElements extends ElementOwnsChildElements {
   }
 }
 
+/** Relates a [[GeometricElement2d]] to its [[TypeDefinitionElement]]
+ * @public
+ */
+export class GeometricElement2dHasTypeDefinition extends RelatedElement {
+  public static classFullName = "BisCore:GeometricElement2dHasTypeDefinition";
+  public constructor(id: Id64String, relClassName: string = GeometricElement2dHasTypeDefinition.classFullName) {
+    super({ id, relClassName });
+  }
+}
+
 /** Relates a [[GraphicalElement2d]] to its [[GraphicalType2d]]
  * @public
  */
-export class GraphicalElement2dIsOfType extends RelatedElement {
+export class GraphicalElement2dIsOfType extends GeometricElement2dHasTypeDefinition {
   public static classFullName = "BisCore:GraphicalElement2dIsOfType";
   public constructor(id: Id64String, relClassName: string = GraphicalElement2dIsOfType.classFullName) {
+    super(id, relClassName);
+  }
+}
+
+/** Relates a [[GeometricElement3d]] to its [[TypeDefinitionElement]]
+ * @public
+ */
+export class GeometricElement3dHasTypeDefinition extends RelatedElement {
+  public static classFullName = "BisCore:GeometricElement3dHasTypeDefinition";
+  public constructor(id: Id64String, relClassName: string = GeometricElement3dHasTypeDefinition.classFullName) {
     super({ id, relClassName });
   }
 }
@@ -93,19 +115,49 @@ export class GraphicalElement2dIsOfType extends RelatedElement {
 /** Relates a [[PhysicalElement]] to its [[PhysicalType]]
  * @public
  */
-export class PhysicalElementIsOfType extends RelatedElement {
+export class PhysicalElementIsOfType extends GeometricElement3dHasTypeDefinition {
   public static classFullName = "BisCore:PhysicalElementIsOfType";
   public constructor(id: Id64String, relClassName: string = PhysicalElementIsOfType.classFullName) {
-    super({ id, relClassName });
+    super(id, relClassName);
   }
 }
 
 /** Relates a [[SpatialLocationElement]] to its [[SpatialLocationType]]
  * @public
  */
-export class SpatialLocationIsOfType extends RelatedElement {
+export class SpatialLocationIsOfType extends GeometricElement3dHasTypeDefinition {
   public static classFullName = "BisCore:SpatialLocationIsOfType";
   public constructor(id: Id64String, relClassName: string = SpatialLocationIsOfType.classFullName) {
-    super({ id, relClassName });
+    super(id, relClassName);
+  }
+}
+
+/** Relates an [[Element]] and an [[ElementUniqueAspect]] that it owns.
+ * @public
+ */
+export class ElementOwnsUniqueAspect extends RelatedElement {
+  public static classFullName = "BisCore:ElementOwnsUniqueAspect";
+  public constructor(parentId: Id64String, relClassName: string = ElementOwnsUniqueAspect.classFullName) {
+    super({ id: parentId, relClassName });
+  }
+}
+
+/** Relates an [[Element]] and an [[ElementMultiAspect]] that it owns.
+ * @public
+ */
+export class ElementOwnsMultiAspects extends RelatedElement {
+  public static classFullName = "BisCore:ElementOwnsMultiAspects";
+  public constructor(parentId: Id64String, relClassName: string = ElementOwnsMultiAspects.classFullName) {
+    super({ id: parentId, relClassName });
+  }
+}
+
+/** Relates an [[Element]] and an [[ExternalSourceAspect]] that it owns.
+ * @public
+ */
+export class ElementOwnsExternalSourceAspects extends ElementOwnsMultiAspects {
+  public static classFullName = "BisCore:ElementOwnsExternalSourceAspects";
+  public constructor(parentId: Id64String, relClassName: string = ElementOwnsExternalSourceAspects.classFullName) {
+    super(parentId, relClassName);
   }
 }

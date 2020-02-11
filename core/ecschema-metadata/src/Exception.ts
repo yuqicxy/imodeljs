@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { assert, BentleyError } from "@bentley/bentleyjs-core";
@@ -33,6 +33,8 @@ export enum ECObjectsStatus {
   ClassNotFound = ECOBJECTS_ERROR_BASE + 22,
   SchemaContextUndefined = ECOBJECTS_ERROR_BASE + 23,
   DifferentSchemaContexts = ECOBJECTS_ERROR_BASE + 24,
+  InvalidSchemaComparisonArgument = ECOBJECTS_ERROR_BASE + 25,
+  InvalidSchemaAlias = ECOBJECTS_ERROR_BASE + 26,
 }
 
 /** @internal */

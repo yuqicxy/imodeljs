@@ -1,7 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+
+#root {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
 .simpleicon {
   position:relative;
@@ -16,28 +20,160 @@
   cursor:pointer;
 }
 
-.imodel-viewport-wrap {
+.app-surface {
   position: absolute;
-  top: 50px;
-  bottom: 50px;
+  top: 75px;
+  bottom: 20px;
   width: 100%;
+  overflow: auto;
+  z-index: 5;
+  background-color: #778899;
+  overflow: hidden;
+}
+
+.console-output {
+  width: 100%;
+  background-color: gray;
+  overflow: hidden;
+  border: none;
+  position: absolute;
+  bottom: 0px;
+  left: 0px;
+  font-family: monospace, monospace;
+  resize: none;
+}
+
+#notifications-window {
   overflow: auto;
 }
 
-.imodel-viewport-container {
-  display: table;
-  height: 100%;
-  width: 100%;
-}
-
-.imodel-viewport {
-  display: table-cell;
-  height: 100%;
-  width: 100%;
+.floating-window {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   vertical-align: middle;
-  border: 1px solid black;
   background-color: gray;
   z-index: 10;
+}
+
+.floating-window-container {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  top: 100px;
+  left: 100px;
+  width: 640px;
+  height: 480px;
+  background-color: gray;
+  z-index: 100;
+  border: 2px solid black;
+  box-sizing: border-box;
+}
+
+.keyin-entry {
+  float: left;
+  display: inline;
+  margin-left: 5px;
+  width: 350px;
+  height: 25px;
+}
+
+.keyin-entry-textbox {
+  display: inline;
+  width: 350px;
+  font-family: monospace, monospace;
+}
+
+#fps-container {
+  font-family: monospace, monospace;
+  margin-left: 15px;
+  margin-right: 5px;
+}
+
+#fps-checkbox {
+  vertical-align: middle;
+}
+
+.floating-window-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-left:2.5px;
+  padding-right:2.5px;
+  height: 25px;
+  background-color: #a0a0a0;
+  cursor: move;
+  border-bottom: 2px solid black;
+  position: relative;
+  overflow: hidden;
+}
+
+.window-focused {
+  border: 2px solid white;
+}
+
+.window-header-focused {
+  border-bottom: 2px solid white;
+  background-color: #eeeeee;
+}
+
+.window-header-selected {
+  border-bottom: 2px solid GoldenRod;
+}
+
+.viewport-header-focused {
+  background-color: #eeeeee;
+}
+
+.viewport-selected {
+  border: 2px solid GoldenRod;
+}
+
+.floating-window-header-resize {
+  width: 0;
+  height: 0;
+  border-top: 25px solid #444444;
+  border-left: 25px solid transparent;
+  position: absolute;
+  cursor: nesw-resize;
+  right: 0px;
+  background-color: #cccccc;
+}
+
+.floating-window-header-resize-pinned {
+  border-top: 25px solid #44ff44;
+}
+
+.floating-window-header-close {
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 20px;
+  height: 25px;
+  opacity: 0.5;
+  cursor: default;
+}
+.floating-window-header-close:hover {
+  opacity: 1;
+}
+.floating-window-header-close:before, .floating-window-header-close:after {
+  position: absolute;
+  left: 9px;
+  content: ' ';
+  height: 24px;
+  width: 2px;
+  background-color: #333;
+}
+.floating-window-header-close:before {
+  transform: rotate(36deg);
+}
+.floating-window-header-close:after {
+  transform: rotate(-36deg);
+}
+
+.window-pinned {
+  border-top-color: crimson;
 }
 
 .topdiv {
@@ -48,9 +184,17 @@
   height: 50px;
 }
 
+.status-bar {
+  width: 100%;
+  height: 25px;
+  /*position: fixed;
+  top: 50px;*/
+  vertical-align: middle;
+}
+
 .bottomdiv {
   width: 100%;
-  height: 30px;
+  height: 20px;
   position: fixed;
   bottom: 0;
   vertical-align: middle;
@@ -75,7 +219,7 @@
 
 .statusspan {
   margin-left: 5px;
-  display:  inline;
+  display: inline;
 }
 
 .bim-spinner-container {
@@ -126,178 +270,11 @@
   max-width:300px;
 }
 
-/*** Bentley Cesium Web Viewer Icon Font ***/
 @font-face {
-  font-family: 'Bentley-Cesium-Web-Viewer-Icons';
-  src:  url('Fonts/Bentley-Cesium-Web-Viewer-Icons.eot');
-  src:  url('Fonts/Bentley-Cesium-Web-Viewer-Icons.eot?#iefix') format('embedded-opentype'),
-  url('Fonts/Bentley-Cesium-Web-Viewer-Icons.ttf') format('truetype'),
-  url('Fonts/Bentley-Cesium-Web-Viewer-Icons.woff') format('woff'),
-  url('Fonts/Bentley-Cesium-Web-Viewer-Icons.svg?#Bentley-Cesium-Web-Viewer-Icons') format('svg');
+  font-family: 'Display-Test-App-Icons';
+  src: url('Fonts/Display-Test-App-Icons.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
-}
-
-#root i {
-  /* use !important to prevent issues with browser extensions that change fonts */
-  font-family: 'Bentley-Cesium-Web-Viewer-Icons' !important;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
-  font-size: 35px;
-  /* Better Font Rendering =========== */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.bim-icon-pan:before {
-  content: "\e91b";
-}
-.bim-icon-walk:before {
-  content: "\e91c";
-}
-.bim-icon-viewnext:before {
-  content: "\e918";
-}
-.bim-icon-viewprevious:before {
-  content: "\e919";
-}
-.bim-icon-windowarea:before {
-  content: "\e91a";
-}
-.bim-icon-hidecategory:before {
-  content: "\e917";
-}
-.bim-icon-appicon:before {
-  content: "\e900";
-}
-.bim-icon-categories:before {
-  content: "\e901";
-}
-.bim-icon-chevrondown:before {
-  content: "\e902";
-}
-.bim-icon-chevronleft:before {
-  content: "\e903";
-}
-.bim-icon-chevronright:before {
-  content: "\e904";
-}
-.bim-icon-chevronup:before {
-  content: "\e905";
-}
-.bim-icon-cornerarrow:before {
-  content: "\e906";
-}
-.bim-icon-cursor:before {
-  content: "\e907";
-}
-.bim-icon-fitview:before {
-  content: "\e908";
-}
-.bim-icon-gyroscope:before {
-  content: "\e909";
-}
-.bim-icon-isolate:before {
-  content: "\e90a";
-}
-.bim-icon-model:before {
-  content: "\e90b";
-}
-.bim-icon-properties:before {
-  content: "\e90c";
-}
-.bim-icon-savedview:before {
-  content: "\e90d";
-}
-.bim-icon-settings:before {
-  content: "\e90e";
-}
-.bim-icon-viewback:before {
-  content: "\e90f";
-}
-.bim-icon-viewbottom:before {
-  content: "\e910";
-}
-.bim-icon-viewfront:before {
-  content: "\e911";
-}
-.bim-icon-viewisoleft:before {
-  content: "\e912";
-}
-.bim-icon-viewisoright:before {
-  content: "\e913";
-}
-.bim-icon-viewleft:before {
-  content: "\e914";
-}
-.bim-icon-viewright:before {
-  content: "\e915";
-}
-.bim-icon-viewtop:before {
-  content: "\e916";
-}
-.bim-icon-link:before {
-  content: "\e9cb";
-}
-.bim-icon-paste:before {
-  content: "\e92d";
-}
-.bim-icon-property-data:before {
-  content: "\e9d8";
-}
-.bim-icon-cancel:before {
-  content: "\ea2a";
-}
-.bim-icon-calendar:before {
-  content: "\e970";
-}
-.bim-icon-briefcases:before {
-  content: "\e9cc";
-}
-.bim-icon-drawer:before {
-  content: "\e979";
-}
-.rd-icon-measure-position:before {
-  content: "\eb08";
-}
-.rd-icon-measure-distance:before {
-  content: "\eb09";
-}
-.rd-icon-measure-area:before {
-  content: "\eb0a";
-}
-.bim-icon-measure-tool:before {
-  content: "\e9b4";
-}
-.bim-icon-undo:before {
-  content: "\e982";
-}
-.bim-icon-redo:before {
-  content: "\e983";
-}
-.bim-icon-model:before {
-  content: "\e90b";
-}
-.bim-icon-model:categories {
-  content: "\e901";
-}
-.bim-icon-animation:before {
-  content: "\e931";
-}
-.bim-icon-play:before {
-  content: "\ea32";
-}
-.bim-icon-pause:before {
-  content: "\ea33";
-}
-.bim-icon-stop:before {
-  content: "\ea34";
-}
-.bim-icon-work:before {
-  content: "\e9b2";
 }
 
 .toolMenu {
@@ -314,11 +291,12 @@
   border-style: solid;
   border-width: 1px;
 }
+
 .scrollingToolMenu {
   position:absolute;
   background-color: #f0f0f0;
   display:none;
-  width:200px;
+  width:220px;
   padding: 3px;
   z-index: 999;
   top: 45px;

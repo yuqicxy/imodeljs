@@ -16,34 +16,37 @@ alpha;BackTarget
 alpha;BackTargetProps 
 alpha;Cell 
 alpha;CellProps
-alpha;Chevron 
-alpha;ChevronProps 
 alpha;Columns 
 alpha;ColumnsProps 
 alpha;contain: (componentBounds: RectangleProps, containerBounds: RectangleProps) => RectangleProps
 alpha;containHorizontally: (componentBounds: RectangleProps, containerBounds: RectangleProps) => RectangleProps
 alpha;containVertically: (componentBounds: RectangleProps, containerBounds: RectangleProps) => RectangleProps
-alpha;ContentZone 
-alpha;ContentZoneIndex = 5
-alpha;Corner
+internal;ContentZoneId = 5
 internal;Css
 internal;CssProperties
 alpha;DefaultHistoryManager: HistoryManager
-alpha;DefaultStateManager: ZonesManager
 beta;Dialog 
 beta;DialogProps 
 beta;Direction
 internal;DirectionHelpers
-alpha;DraggingWidget
-alpha;DraggingWidgetProps
-alpha;DropTarget
-alpha;Edge
+beta;DisabledResizeHandles
+internal;DisabledResizeHandlesHelpers
+internal;DockedToolSetting(props: ToolSettingProps): JSX.Element
+internal;DockedToolSettings(props: DockedToolSettingsProps): JSX.Element
+internal;DockedToolSettingsHandle(props: DockedToolSettingsHandleProps): JSX.Element
+internal;DockedToolSettingsHandleProps 
+internal;DockedToolSettingsOverflow(props: DockedToolSettingsOverflowProps): JSX.Element
+internal;DockedToolSettingsOverflowProps 
+internal;DockedToolSettingsProps 
+internal;DraggedWidgetManager
+beta;DraggedWidgetManagerProps
+internal;DragHandle 
+internal;DragHandleProps 
+internal;Ellipsis(props: CommonProps): JSX.Element
 alpha;ExpandableButton 
 alpha;ExpandableButtonProps 
 beta;ExpandableItem 
 beta;ExpandableItemProps 
-alpha;FloatingProps
-alpha;FloatingZoneProps 
 beta;Footer 
 beta;FooterIndicator 
 beta;FooterIndicatorProps 
@@ -54,21 +57,29 @@ beta;FooterPopupProps
 beta;FooterProps 
 beta;FooterSeparator 
 beta;FooterSeparatorProps 
+internal;getClosedWidgetTabIndex: (tabIndex: number) => number
+internal;getColumnZones: (id: WidgetZoneId) => WidgetZoneId[]
+internal;getDefaultAllowsMerging: (id: WidgetZoneId) => boolean
 alpha;getDefaultNineZoneStagePanelManagerProps: () => NineZoneStagePanelManagerProps
 alpha;getDefaultNineZoneStagePanelPaneManagerProps: () => NineZoneStagePanelPaneManagerProps
 alpha;getDefaultNineZoneStagePanelsManagerProps: () => NineZoneStagePanelsManagerProps
 beta;getDefaultStagePanelManagerProps: () => StagePanelManagerProps
 beta;getDefaultStagePanelsManagerProps: () => StagePanelsManagerProps
-alpha;getDefaultStatusZoneProps: () => StatusZoneManagerProps
-alpha;getDefaultWidgetHorizontalAnchor: (id: WidgetZoneIndex) => HorizontalAnchor
-alpha;getDefaultWidgetProps: (id: WidgetZoneIndex) => WidgetProps
-alpha;getDefaultWidgetVerticalAnchor: (id: WidgetZoneIndex) => VerticalAnchor.Bottom | VerticalAnchor.Middle
-alpha;getDefaultZoneProps: (id: WidgetZoneIndex) => ZoneManagerProps
-alpha;getDefaultZonesManagerProps: () => ZonesManagerProps
-alpha;getDefaultZonesManagerWidgetsProps: () => ZonesManagerWidgets
-alpha;getDefaultZonesManagerZonesProps: () => Readonly
+internal;getDefaultToolSettingsWidgetManagerProps: () => ToolSettingsWidgetManagerProps
+internal;getDefaultWidgetHorizontalAnchor: (id: WidgetZoneId) => HorizontalAnchor
+internal;getDefaultWidgetManagerProps: (id: WidgetZoneId) => WidgetManagerProps
+internal;getDefaultWidgetVerticalAnchor: (id: WidgetZoneId) => VerticalAnchor.Bottom | VerticalAnchor.Middle
+internal;getDefaultZoneManagerProps: (id: WidgetZoneId) => ZoneManagerProps
+beta;getDefaultZonesManagerProps: () => ZonesManagerProps
+internal;getDefaultZonesManagerWidgetsProps: () => ZonesManagerWidgetsProps
+internal;getDefaultZonesManagerZonesProps: () => ZonesManagerZonesProps
+internal;getDragDistance: (from: Point, to: Point, direction: Direction) => number
+internal;getOverflown(width: number, docked: ReadonlyArray
 alpha;getToolbarDirection: (expandsTo: Direction) => OrthogonalDirection
 alpha;getToolbarItemProps: 
+internal;getWindowResizeSettings: (zoneId: WidgetZoneId) => ZoneWindowResizeSettings
+internal;getZoneCell: (id: ZoneId) => Cell
+internal;getZoneIdFromCell: (cell: CellProps) => WidgetZoneId
 alpha;Group 
 alpha;GroupColumn 
 alpha;GroupColumnProps 
@@ -77,11 +88,6 @@ alpha;GroupTool
 alpha;GroupToolExpander 
 alpha;GroupToolExpanderProps 
 alpha;GroupToolProps 
-alpha;GrowBottomStrategy 
-alpha;GrowLeftStrategy 
-alpha;GrowRightStrategy 
-alpha;class GrowStrategy 
-alpha;GrowTopStrategy 
 alpha;HandleMode
 alpha;HandleModeHelpers
 alpha;History
@@ -93,24 +99,12 @@ alpha;HistoryKey = number | string
 alpha;HistoryManager
 alpha;HistoryTray 
 alpha;HistoryTrayProps 
-alpha;HorizontalAnchor
-alpha;HorizontalAnchorHelpers
-alpha;isStatusZone: (zone: ZoneManagerProps) => zone is StatusZoneManagerProps
+beta;HorizontalAnchor
+internal;HorizontalAnchorHelpers
 beta;Item 
 beta;ItemProps 
 alpha;Items 
 alpha;ItemsProps 
-alpha;Layout
-alpha;Layout1 
-alpha;Layout2 
-alpha;Layout3 
-alpha;Layout4 
-alpha;Layout6 
-alpha;Layout7 
-alpha;Layout8 
-alpha;Layout9 
-alpha;LayoutFactory
-alpha;LayoutProps
 beta;MergeTarget 
 beta;MergeTargetProps 
 beta;Message 
@@ -137,15 +131,14 @@ beta;NestedStagePanelsManager
 beta;NestedStagePanelsManagerProps
 beta;NestedToolSettings 
 beta;NestedToolSettingsProps 
-alpha;NineZone 
-alpha;NineZoneFactory = (props: ZonesManagerProps) => NineZone
 alpha;NineZoneManager
+internal;NineZoneManagerHiddenWidget
+internal;NineZoneManagerHiddenWidgets =
 alpha;NineZoneManagerPanelTarget
 alpha;NineZoneManagerPaneTarget 
 alpha;NineZoneManagerProps
 alpha;NineZoneNestedStagePanelsManager 
 alpha;NineZoneNestedStagePanelsManagerProps 
-alpha;NineZoneRoot 
 alpha;NineZoneStagePanelManager 
 alpha;NineZoneStagePanelManagerProps 
 alpha;NineZoneStagePanelPaneManager
@@ -163,35 +156,19 @@ alpha;Panel
 alpha;PanelProps 
 alpha;PanelsProvider 
 alpha;PanelsProviderProps
-alpha;Point 
-beta;PointProps
+internal;PointerCaptor 
+internal;PointerCaptorProps 
 beta;ProgressProps 
-alpha;Rectangle 
-beta;RectangleProps
 alpha;ResizeDirection
 alpha;ResizeDirectionHelpers
 alpha;ResizeGrip 
 alpha;ResizeGripProps 
 alpha;ResizeGripResizeArgs
-alpha;ResizeHandle = Corner | Edge
-alpha;Resizers
-alpha;ResizeStrategy
-alpha;Root
-alpha;Scrollable 
-alpha;ScrollableDefaultProps = Pick
-alpha;ScrollableProps 
+beta;ResizeHandle
+beta;SafeAreaInsets
+internal;SafeAreaInsetsHelpers
 beta;ScrollableToolSettings 
 beta;ScrollableToolSettingsProps 
-alpha;ScrollIndicator 
-alpha;ShrinkBottomStrategy 
-alpha;class ShrinkHorizontalStrategy 
-alpha;ShrinkLeftStrategy 
-alpha;ShrinkRightStrategy 
-alpha;class ShrinkStrategy 
-alpha;ShrinkTopStrategy 
-alpha;class ShrinkVerticalStrategy 
-beta;Size 
-beta;SizeProps
 beta;Snap 
 beta;SnapMode 
 beta;SnapModePanel 
@@ -220,10 +197,6 @@ internal;StagePanelTypeHelpers
 beta;Status
 internal;StatusHelpers
 beta;StatusMessageProps 
-alpha;StatusZoneIndex = 8
-alpha;StatusZoneManager
-alpha;StatusZoneManagerHelper 
-alpha;StatusZoneManagerProps 
 alpha;Tab 
 alpha;TabGroup 
 alpha;TabGroupProps 
@@ -232,9 +205,6 @@ alpha;TabModeHelpers
 alpha;TabProps 
 alpha;TabSeparator 
 alpha;TabSeparatorProps 
-alpha;Target
-alpha;TargetType
-alpha;TargetZoneProps
 alpha;Title 
 beta;TitleBar 
 beta;TitleBarButton 
@@ -248,6 +218,8 @@ alpha;ToastStyle = Pick
 beta;ToolAssistance 
 beta;ToolAssistanceDialog 
 beta;ToolAssistanceDialogProps 
+beta;ToolAssistanceInstruction 
+beta;ToolAssistanceInstructionProps 
 beta;ToolAssistanceItem 
 beta;ToolAssistanceItemProps 
 beta;ToolAssistanceProps 
@@ -256,6 +228,7 @@ beta;ToolAssistanceSeparatorProps
 beta;Toolbar 
 alpha;ToolbarButton 
 alpha;ToolbarButtonProps 
+internal;ToolbarDirectionContext: React.Context
 alpha;ToolbarIcon 
 alpha;ToolbarIconProps 
 alpha;ToolbarItem
@@ -264,42 +237,56 @@ beta;ToolbarPanelAlignment
 alpha;ToolbarPanelAlignmentHelpers
 beta;ToolbarProps 
 alpha;Tools 
+internal;ToolSettingProps 
 beta;ToolSettings 
+internal;ToolSettingsOverflowPanel: React.ForwardRefExoticComponent
+internal;ToolSettingsOverflowPanelProps 
 beta;ToolSettingsPopup 
 beta;ToolSettingsPopupProps 
 beta;ToolSettingsProps 
 beta;ToolSettingsTab 
 beta;ToolSettingsTabProps 
+beta;ToolSettingsWidgetManagerProps 
+beta;ToolSettingsWidgetMode
 alpha;ToolsProps 
 beta;Tooltip 
 beta;TooltipDefaultProps = Pick
 beta;TooltipProps 
+internal;useOverflow(children: React.ReactNode): [ReadonlyArray
+internal;usePointerCaptor
+internal;useRefEffect
+internal;useRefs
+internal;useResizeObserver
 beta;UserProfile 
 beta;UserProfileProps 
-alpha;VerticalAnchor
-alpha;VerticalAnchorHelpers
-alpha;Widget
+internal;useTargeted: (elementRef: React.RefObject
+internal;useToolSettingsEntry(): DockedToolSettingsEntryContextArgs
+beta;VerticalAnchor
+internal;VerticalAnchorHelpers
 alpha;WidgetContent 
 alpha;WidgetContentProps 
-alpha;WidgetProps
+beta;WidgetManagerProps
 alpha;WidgetTabDragStartArguments
-alpha;WidgetZone 
-alpha;WidgetZoneIndex = 1 | 2 | 3 | 4 | 6 | 7 | StatusZoneIndex | 9
-alpha;WidgetZoneLayout 
-alpha;WidgetZoneLayout
-alpha;WidgetZoneLayoutProps
+internal;widgetZoneColumnIds: ReadonlyArray
+beta;WidgetZoneId = 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9
+beta;widgetZoneIds: ReadonlyArray
 alpha;withContainIn: 
 alpha;WithContainInProps
+beta;withDragInteraction: 
+beta;WithDragInteractionProps
 beta;Zone 
-alpha;ZoneIdToWidget
-alpha;ZoneIdToWidget
-alpha;ZoneIndex = WidgetZoneIndex | ContentZoneIndex
-alpha;ZoneManager
-alpha;ZoneManagerHelper
-alpha;ZoneManagerProps
+internal;ZoneId = WidgetZoneId | ContentZoneId
+internal;ZoneManager
+beta;ZoneManagerFloatingProps
+beta;ZoneManagerProps
 beta;ZoneProps 
 beta;Zones 
-alpha;ZonesManager
-alpha;ZonesManagerProps
-alpha;ZonesManagerWidgets =
+beta;ZonesManager
+beta;ZonesManagerProps
+beta;ZonesManagerTargetProps
+beta;ZonesManagerWidgetResizeArgs
+beta;ZonesManagerWidgetsProps =
+beta;ZonesManagerZonesProps =
 beta;ZonesProps 
+beta;ZoneTargetType
+internal;ZoneWindowResizeSettings

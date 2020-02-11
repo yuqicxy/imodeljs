@@ -1,12 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 export * from "./ui-ninezone/backstage/Backstage";
 export * from "./ui-ninezone/backstage/Item";
 export * from "./ui-ninezone/backstage/Separator";
 export * from "./ui-ninezone/backstage/UserProfile";
 
+export * from "./ui-ninezone/base/DragHandle";
+export * from "./ui-ninezone/base/Ellipsis";
+export * from "./ui-ninezone/base/PointerCaptor";
+export * from "./ui-ninezone/base/useOnOutsideClick";
+export * from "./ui-ninezone/base/useRefEffect";
+export * from "./ui-ninezone/base/useRefs";
+export * from "./ui-ninezone/base/useResizeObserver";
+export * from "./ui-ninezone/base/useTargeted";
 export * from "./ui-ninezone/base/WithContainIn";
 
 export * from "./ui-ninezone/footer/dialog/Button";
@@ -32,6 +40,7 @@ export * from "./ui-ninezone/footer/snap-mode/Snap";
 
 export * from "./ui-ninezone/footer/tool-assistance/Dialog";
 export * from "./ui-ninezone/footer/tool-assistance/Indicator";
+export * from "./ui-ninezone/footer/tool-assistance/Instruction";
 export * from "./ui-ninezone/footer/tool-assistance/Item";
 export * from "./ui-ninezone/footer/tool-assistance/Separator";
 
@@ -56,9 +65,16 @@ export * from "./ui-ninezone/stage-panels/manager/NestedStagePanels";
 export * from "./ui-ninezone/stage-panels/manager/StagePanel";
 export * from "./ui-ninezone/stage-panels/manager/StagePanels";
 
+export * from "./ui-ninezone/tool-settings/Docked";
+export * from "./ui-ninezone/tool-settings/Handle";
+export * from "./ui-ninezone/tool-settings/Overflow";
+export * from "./ui-ninezone/tool-settings/Panel";
+export * from "./ui-ninezone/tool-settings/Setting";
+
 export * from "./ui-ninezone/toolbar/item/Item";
 export * from "./ui-ninezone/toolbar/item/Overflow";
 export * from "./ui-ninezone/toolbar/item/expandable/Expandable";
+export * from "./ui-ninezone/toolbar/item/expandable/WithDragInteraction";
 
 export * from "./ui-ninezone/toolbar/item/expandable/group/BackArrow";
 export * from "./ui-ninezone/toolbar/item/expandable/group/Column";
@@ -75,19 +91,14 @@ export * from "./ui-ninezone/toolbar/item/expandable/history/Icon";
 export * from "./ui-ninezone/toolbar/item/expandable/history/Item";
 export * from "./ui-ninezone/toolbar/item/expandable/history/Tray";
 
-export * from "./ui-ninezone/toolbar/scroll/Chevron";
-export * from "./ui-ninezone/toolbar/scroll/Indicator";
-
 export * from "./ui-ninezone/toolbar/Items";
-export * from "./ui-ninezone/toolbar/Scrollable";
 export * from "./ui-ninezone/toolbar/Toolbar";
 
 export * from "./ui-ninezone/utilities/Cell";
 export * from "./ui-ninezone/utilities/Css";
 export * from "./ui-ninezone/utilities/Direction";
-export * from "./ui-ninezone/utilities/Point";
-export * from "./ui-ninezone/utilities/Rectangle";
-export * from "./ui-ninezone/utilities/Size";
+export * from "./ui-ninezone/utilities/DisabledResizeHandles";
+export * from "./ui-ninezone/utilities/SafeAreaInsets";
 
 export * from "./ui-ninezone/widget/Stacked";
 export * from "./ui-ninezone/widget/Tools";
@@ -101,7 +112,6 @@ export * from "./ui-ninezone/widget/tools/button/Icon";
 
 export * from "./ui-ninezone/widget/rectangular/Content";
 export * from "./ui-ninezone/widget/rectangular/ResizeGrip";
-export * from "./ui-ninezone/widget/rectangular/ResizeHandle";
 
 export * from "./ui-ninezone/widget/rectangular/tab/Group";
 export * from "./ui-ninezone/widget/rectangular/tab/Separator";
@@ -116,14 +126,9 @@ export * from "./ui-ninezone/zones/Outline";
 export * from "./ui-ninezone/zones/Zone";
 export * from "./ui-ninezone/zones/Zones";
 
-export * from "./ui-ninezone/zones/manager/Target";
 export * from "./ui-ninezone/zones/manager/Widget";
 export * from "./ui-ninezone/zones/manager/Zone";
 export * from "./ui-ninezone/zones/manager/Zones";
-
-export * from "./ui-ninezone/zones/manager/layout/Layout";
-export * from "./ui-ninezone/zones/manager/layout/Layouts";
-export * from "./ui-ninezone/zones/manager/layout/Root";
 
 export * from "./ui-ninezone/zones/target/Back";
 export * from "./ui-ninezone/zones/target/Merge";
@@ -142,7 +147,7 @@ if ((typeof (BUILD_SEMVER) !== "undefined") && (typeof window !== "undefined") &
 
 /** @docs-package-description
  * The ui-ninezone package contains React components for application user interface layouts following the Bentley 9-Zone pattern.
- * For more information, see [learning about ui-ninezone]($docs/learning/ninezone/index.md).
+ * For more information, see [learning about ui-ninezone]($docs/learning/ui/ninezone/index.md).
  */
 /**
  * @docs-group-description Backstage

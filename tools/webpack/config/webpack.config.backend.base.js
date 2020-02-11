@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
@@ -8,8 +8,6 @@ const path = require("path");
 const webpack = require("webpack");
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const CaseSensitivePathsPlugin = require("case-sensitive-paths-webpack-plugin");
-const ModuleScopePlugin = require("react-dev-utils/ModuleScopePlugin");
-const nodeExternals = require("webpack-node-externals");
 const getClientEnvironment = require("./env");
 const plugins = require("../scripts/utils/webpackPlugins");
 const paths = require("./paths");
@@ -62,10 +60,14 @@ module.exports = (publicPath) => {
       modules: ["node_modules", paths.appNodeModules, paths.appSrc].concat(
         (process.env.NODE_PATH || "").split(path.delimiter).filter(Boolean)
       ),
+      // By default, webpack will prefer ES Modules over CommonJS modules.
+      // This causes trouble with importing node-fetch, so we need to explicitly prefer CommonJS over ES/Harmony.
+      // https://github.com/bitinn/node-fetch/issues/450#issuecomment-494475397
+      mainFields: ["main"],
       extensions: [
         ".ts",
-        ".mjs",
         ".js",
+        ".mjs",
         ".json",
       ],
       plugins: [
@@ -135,7 +137,7 @@ module.exports = (publicPath) => {
     plugins: [
       new ForkTsCheckerWebpackPlugin({
         tsconfig: paths.appTsConfig,
-        tslint: paths.appTsLint,
+        tslint: (process.env.NODE_ENV === "development") ? paths.appTsLint : undefined,
         async: false,
         silent: true,
       }),

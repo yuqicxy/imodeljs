@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import { mount } from "enzyme";
@@ -114,5 +114,23 @@ describe("NonPrimitivePropertyRenderer", () => {
       />);
 
     expect(rendererMount.find(PropertyRenderer).at(0).key()).to.be.eq("unique_key_array_length");
+  });
+
+  it("renders as expanded if property should be automatically expanded", () => {
+    const structProperty = TestUtils.createStructProperty(
+      "House", {
+        building: TestUtils.createPrimitiveStringProperty("Building", "Residential"),
+        street: TestUtils.createPrimitiveStringProperty("Street", "Glass st."),
+      });
+    structProperty.autoExpand = true;
+
+    const rendererMount = mount(
+      <NonPrimitivePropertyRenderer
+        orientation={Orientation.Horizontal}
+        propertyRecord={structProperty}
+        isCollapsible={true}
+      />);
+
+    expect(rendererMount.find(PropertyRenderer).length).to.be.be.eq(2);
   });
 });

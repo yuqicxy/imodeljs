@@ -1,15 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Widget */
+/** @packageDocumentation
+ * @module Widget
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
-import { CommonProps } from "@bentley/ui-core";
+import { CommonProps, Point, PointProps, Rectangle, RectangleProps } from "@bentley/ui-core";
 import { PointerCaptor } from "../../base/PointerCaptor";
-import { Rectangle, RectangleProps } from "../../utilities/Rectangle";
-import { PointProps, Point } from "../../utilities/Point";
 import "./ResizeGrip.scss";
 
 /** Available resize directions of resize grip.
@@ -76,30 +76,38 @@ export interface ResizeGripProps extends CommonProps {
   direction: ResizeDirection;
 }
 
+interface ResizeGripState {
+  isPointerDown: boolean;
+}
+
 /** Resize grip used by [[Stacked]] component.
  * @alpha
  */
-export class ResizeGrip extends React.PureComponent<ResizeGripProps> {
+export class ResizeGrip extends React.PureComponent<ResizeGripProps, ResizeGripState> {
   private _grip = React.createRef<HTMLDivElement>();
   private _isResizing = false;
   private _movedBy = 0;
   private _lastPosition = new Point();
 
-  public render() {
-    const { className, onClick, ...props } = this.props;
+  /** @internal */
+  public readonly state: ResizeGripState = {
+    isPointerDown: false,
+  };
 
-    const pointerCaptorClassName = classnames(
+  public render() {
+    const className = classnames(
       "nz-widget-rectangular-resizeGrip",
       ResizeDirectionHelpers.getCssClassName(this.props.direction),
       this.props.className);
 
     return (
       <PointerCaptor
-        className={pointerCaptorClassName}
-        onMouseDown={this._handleMouseDown}
-        onMouseUp={this._handleMouseUp}
-        onMouseMove={this._handleMouseMove}
-        {...props}
+        className={className}
+        isPointerDown={this.state.isPointerDown}
+        onPointerDown={this._handlePointerDown}
+        onPointerUp={this._handlePointerUp}
+        onPointerMove={this._handlePointerMove}
+        style={this.props.style}
       >
         <div
           className="nz-grip"
@@ -116,7 +124,8 @@ export class ResizeGrip extends React.PureComponent<ResizeGripProps> {
     this.props.onClick && this.props.onClick();
   }
 
-  private _handleMouseDown = (e: MouseEvent) => {
+  private _handlePointerDown = (e: PointerEvent) => {
+    this.setState({ isPointerDown: true });
     const grip = this._grip.current;
     if (!grip)
       return;
@@ -137,7 +146,8 @@ export class ResizeGrip extends React.PureComponent<ResizeGripProps> {
     });
   }
 
-  private _handleMouseUp = (e: MouseEvent) => {
+  private _handlePointerUp = (e: PointerEvent) => {
+    this.setState({ isPointerDown: false });
     const grip = this._grip.current;
     if (!this._isResizing || !grip)
       return;
@@ -158,7 +168,7 @@ export class ResizeGrip extends React.PureComponent<ResizeGripProps> {
     });
   }
 
-  private _handleMouseMove = (e: MouseEvent) => {
+  private _handlePointerMove = (e: PointerEvent) => {
     const grip = this._grip.current;
     if (!this._isResizing || !grip)
       return;

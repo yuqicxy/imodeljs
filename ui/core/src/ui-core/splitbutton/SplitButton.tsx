@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module SplitButton */
+/** @packageDocumentation
+ * @module SplitButton
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -92,10 +94,12 @@ export class SplitButton extends React.Component<SplitButtonProps, SplitButtonSt
 
   private _open = () => {
     if (!this.state.expanded && !this._closing) {
-      this.setState({ expanded: true }, () => {
-        if (this._menu && this.state.expanded)
-          this._menu.focus();
-      });
+      this.setState(
+        { expanded: true },
+        () => {
+          if (this._menu && this.state.expanded)
+            this._menu.focus();
+        });
     } else {
       this._closing = false;
     }

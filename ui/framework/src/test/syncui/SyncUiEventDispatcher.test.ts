@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import * as sinon from "sinon";
@@ -12,7 +12,7 @@ import {
   ModalFrontstageChangedEventArgs,
   ToolActivatedEventArgs,
 } from "../../ui-framework/frontstage/FrontstageManager";
-import { Backstage, BackstageCloseEventArgs } from "../../ui-framework/backstage/Backstage";
+import { Backstage, BackstageEventArgs } from "../../ui-framework/backstage/Backstage";
 import { WorkflowManager, TaskActivatedEventArgs, WorkflowActivatedEventArgs } from "../../ui-framework/workflow/Workflow";
 import { ContentViewManager, ActiveContentChangedEventArgs } from "../../ui-framework/content/ContentViewManager";
 import {
@@ -40,6 +40,10 @@ const timeToWaitForUiSyncCallback = 60;
 describe("SyncUiEventDispatcher", () => {
   before(async () => {
     await TestUtils.initializeUiFramework();
+  });
+
+  after(() => {
+    TestUtils.terminateUiFramework();
   });
 
   beforeEach(() => {
@@ -207,7 +211,7 @@ describe("SyncUiEventDispatcher", () => {
     expect(handleSyncUiEvent.calledOnce).to.be.true;
 
     handleSyncUiEvent.resetHistory();
-    Backstage.onBackstageCloseEvent.emit({} as BackstageCloseEventArgs);
+    Backstage.onBackstageEvent.emit({} as BackstageEventArgs);
     await TestUtils.tick(timeToWaitForUiSyncCallback);
     expect(handleSyncUiEvent.calledOnce).to.be.true;
 
@@ -319,6 +323,7 @@ describe("SyncUiEventDispatcher", () => {
 
     after(() => {
       MockRender.App.shutdown();
+      TestUtils.terminateUiFramework();
     });
 
     it("handles onSelectedViewportChanged", () => {

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { assert, expect } from "chai";
@@ -13,6 +13,7 @@ import { ECObjectsError } from "./../../src/Exception";
 import { FormatProps } from "../../src/Deserialization/JsonProps";
 import { JsonParser } from "../../src/Deserialization/JsonParser";
 import { SchemaContext } from "../../src/Context";
+import { createEmptyXmlDocument, getElementChildrenByTagName } from "../TestUtils/SerializationHelper";
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 
@@ -23,13 +24,13 @@ function createSchemaJson(koq: any) {
       ...koq,
     },
   }, {
-      references: [
-        {
-          name: "Formats",
-          version: "1.0.0",
-        },
-      ],
-    });
+    references: [
+      {
+        name: "Formats",
+        version: "1.0.0",
+      },
+    ],
+  });
 }
 
 describe("Format", () => {
@@ -193,7 +194,7 @@ describe("Format", () => {
 
   describe("deserialize formatted ECJSON", () => {
     beforeEach(() => {
-      schema = new Schema(new SchemaContext(), "TestSchema", 1, 0, 0);
+      schema = new Schema(new SchemaContext(), "TestSchema", "ts", 1, 0, 0);
       testFormat = (schema as MutableSchema).createFormatSync("TestFormat");
     });
 
@@ -709,6 +710,9 @@ describe("Format", () => {
       function validateTestFormat(testFormat: Format | undefined) {
         assert.isDefined(testFormat);
 
+        expect(testFormat!.name).eq("TestFormat");
+        expect(testFormat!.fullName).eq("TestSchema.TestFormat");
+
         expect(testFormat!.includeZero).false;
         expect(testFormat!.spacer).eq("-");
 
@@ -773,4 +777,83 @@ describe("Format", () => {
       expect(formatSerialization).to.deep.equal(testFormatJson);
     });
   }); // toJson
+
+  describe("toXml", () => {
+    let context: SchemaContext;
+    const newDom = createEmptyXmlDocument();
+
+    beforeEach(() => {
+      context = new SchemaContext();
+      context.addLocater(new TestSchemaLocater());
+    });
+
+    it("should properly serialize", async () => {
+      const testFormatJson = {
+        schemaItemType: "Format",
+        type: "Scientific",
+        precision: 4,
+        roundFactor: 0,
+        minWidth: 10,
+        showSignOption: "OnlyNegative",
+        formatTraits: "KeepSingleZero|TrailZeroes",
+        decimalSeparator: ".",
+        thousandSeparator: ",",
+        uomSeparator: " ",
+        stationSeparator: "_",
+        scientificType: "Normalized",
+        composite: {
+          includeZero: false,
+          spacer: "-",
+          units: [
+            {
+              name: "Formats.MILE",
+              label: "mile(s)",
+            },
+            {
+              name: "Formats.YRD",
+              label: "yard(s)",
+            },
+          ],
+        },
+      };
+
+      const ecschema = Schema.fromJsonSync(createSchemaJson(testFormatJson), context);
+      assert.isDefined(ecschema);
+      const format = ecschema.getItemSync<Format>("TestFormat");
+      assert.isDefined(format);
+
+      const serialized = await format!.toXml(newDom);
+      expect(serialized.nodeName).to.eql("Format");
+      expect(serialized.getAttribute("typeName")).to.eql("TestFormat");
+      expect(serialized.getAttribute("type")).to.eql("scientific");
+      expect(serialized.getAttribute("precision")).to.eql("4");
+      expect(serialized.getAttribute("roundFactor")).to.eql("0");
+      expect(serialized.getAttribute("minWidth")).to.eql("10");
+      expect(serialized.getAttribute("showSignOption")).to.eql("OnlyNegative");
+      // formatTraitsToArray ingores insertion order in favor of an arbitrary order
+      expect(serialized.getAttribute("formatTraits")).to.eql("TrailZeroes|KeepSingleZero");
+      expect(serialized.getAttribute("decimalSeparator")).to.eql(".");
+      expect(serialized.getAttribute("thousandSeparator")).to.eql(",");
+      expect(serialized.getAttribute("uomSeparator")).to.eql(" ");
+      expect(serialized.getAttribute("stationSeparator")).to.eql("_");
+      expect(serialized.getAttribute("scientificType")).to.eql("Normalized");
+
+      const compositeResult = getElementChildrenByTagName(serialized, "Composite");
+      assert.strictEqual(compositeResult.length, 1);
+      const composite = compositeResult[0];
+      expect(composite.getAttribute("spacer")).to.eql("-");
+      expect(composite.getAttribute("includeZero")).to.eql("false");
+
+      const units = getElementChildrenByTagName(composite, "Unit");
+      assert.strictEqual(units.length, 2);
+
+      const firstUnit = units[0];
+      expect(firstUnit.textContent).to.eql("f:MILE");
+      expect(firstUnit.getAttribute("label")).to.eql("mile(s)");
+
+      const secondUnit = units[1];
+      expect(secondUnit.textContent).to.eql("f:YRD");
+      expect(secondUnit.getAttribute("label")).to.eql("yard(s)");
+    });
+  });
 });

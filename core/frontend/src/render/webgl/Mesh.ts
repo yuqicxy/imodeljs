@@ -1,68 +1,107 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
-import { IDisposable, dispose } from "@bentley/bentleyjs-core";
+import { dispose, assert } from "@bentley/bentleyjs-core";
+import { Point3d } from "@bentley/geometry-core";
 import { SurfaceFlags, RenderPass, RenderOrder } from "./RenderFlags";
 import { LUTGeometry, PolylineBuffers, CachedGeometry } from "./CachedGeometry";
 import { VertexIndices, SurfaceType, MeshParams, SegmentEdgeParams, SilhouetteParams, TesselatedPolyline } from "../primitives/VertexTable";
 import { LineCode } from "./EdgeOverrides";
 import { ColorInfo } from "./ColorInfo";
-import { Graphic, Batch } from "./Graphic";
-import { FeaturesInfo } from "./FeaturesInfo";
+import { Graphic } from "./Graphic";
 import { VertexLUT } from "./VertexLUT";
 import { Primitive } from "./Primitive";
-import { FloatPreMulRgba } from "./FloatRGBA";
-import { ShaderProgramParams, RenderCommands } from "./DrawCommand";
+import { FloatRgba } from "./FloatRGBA";
+import { ShaderProgramParams } from "./DrawCommand";
+import { RenderCommands } from "./RenderCommands";
 import { Target } from "./Target";
-import { Material } from "./Material";
+import { createMaterialInfo, MaterialInfo } from "./Material";
 import { Texture } from "./Texture";
-import { FillFlags, RenderMode, LinePixels, ViewFlags } from "@bentley/imodeljs-common";
+import { FeatureIndexType, FillFlags, RenderMode, LinePixels, ViewFlags } from "@bentley/imodeljs-common";
 import { System } from "./System";
-import { BufferHandle, AttributeHandle } from "./Handle";
+import { BufferHandle, BuffersContainer, BufferParameters } from "./Handle";
 import { GL } from "./GL";
 import { TechniqueId } from "./TechniqueId";
 import { InstancedGraphicParams, RenderMemory } from "../System";
 import { InstanceBuffers } from "./InstancedGeometry";
+import { AttributeMap } from "./AttributeMap";
+import { WebGLDisposable } from "./Disposable";
 
 /** @internal */
-export class MeshData implements IDisposable {
+export class MeshData implements WebGLDisposable {
   public readonly edgeWidth: number;
-  public features?: FeaturesInfo;
+  public readonly hasFeatures: boolean;
+  public readonly uniformFeatureId?: number; // Used strictly by BatchPrimitiveCommand.computeisFlashed for flashing volume classification primitives.
   public readonly texture?: Texture;
-  public readonly material?: Material;
+  public readonly materialInfo?: MaterialInfo;
   public readonly type: SurfaceType;
   public readonly fillFlags: FillFlags;
   public readonly edgeLineCode: number; // Must call LineCode.valueFromLinePixels(val: LinePixels) and set the output to edgeLineCode
   public readonly isPlanar: boolean;
   public readonly hasBakedLighting: boolean;
+  public readonly hasFixedNormals: boolean;   // Fixed normals will not be flipped to face front (Terrain skirts).
   public readonly lut: VertexLUT;
+  public readonly viewIndependentOrigin?: Point3d;
+  private readonly _textureAlwaysDisplayed: boolean;
 
-  private constructor(lut: VertexLUT, params: MeshParams) {
+  private constructor(lut: VertexLUT, params: MeshParams, viOrigin: Point3d | undefined) {
     this.lut = lut;
-    this.features = FeaturesInfo.createFromVertexTable(params.vertices);
-    this.texture = params.surface.texture as Texture;
-    this.material = params.surface.material as Material;
+    this.viewIndependentOrigin = viOrigin;
+
+    this.hasFeatures = FeatureIndexType.Empty !== params.vertices.featureIndexType;
+    if (FeatureIndexType.Uniform === params.vertices.featureIndexType)
+      this.uniformFeatureId = params.vertices.uniformFeatureID;
+
+    if (undefined !== params.surface.textureMapping) {
+      this.texture = params.surface.textureMapping.texture as Texture;
+      this._textureAlwaysDisplayed = params.surface.textureMapping.alwaysDisplayed;
+    } else {
+      this.texture = undefined;
+      this._textureAlwaysDisplayed = false;
+    }
+
+    this.materialInfo = createMaterialInfo(params.surface.material);
+
     this.type = params.surface.type;
     this.fillFlags = params.surface.fillFlags;
     this.isPlanar = params.isPlanar;
     this.hasBakedLighting = params.surface.hasBakedLighting;
+    this.hasFixedNormals = params.surface.hasFixedNormals;
     const edges = params.edges;
     this.edgeWidth = undefined !== edges ? edges.weight : 1;
     this.edgeLineCode = LineCode.valueFromLinePixels(undefined !== edges ? edges.linePixels : LinePixels.Solid);
   }
 
-  public static create(params: MeshParams): MeshData | undefined {
+  public static create(params: MeshParams, viOrigin: Point3d | undefined): MeshData | undefined {
     const lut = VertexLUT.createFromVertexTable(params.vertices, params.auxChannels);
-    return undefined !== lut ? new MeshData(lut, params) : undefined;
+    return undefined !== lut ? new MeshData(lut, params, viOrigin) : undefined;
   }
+
+  public get isDisposed(): boolean { return undefined === this.texture && this.lut.isDisposed; }
 
   public dispose() {
     dispose(this.lut);
-    if (undefined !== this.texture && undefined === this.texture.key && !this.texture.isOwned)
-      this.texture.dispose();
+    if (this._ownsTexture)
+      this.texture!.dispose();
+  }
+
+  public get isGlyph() { return undefined !== this.texture && this.texture.isGlyph; }
+  public get isTextureAlwaysDisplayed() { return this.isGlyph || this._textureAlwaysDisplayed; }
+
+  // Returns true if no one else owns this texture. Implies that the texture should be disposed when this object is disposed, and the texture's memory should be tracked as belonging to this object.
+  private get _ownsTexture(): boolean {
+    return undefined !== this.texture && undefined === this.texture.key && !this.texture.isOwned;
+  }
+
+  public collectStatistics(stats: RenderMemory.Statistics): void {
+    stats.addVertexTable(this.lut.bytesUsed);
+    if (this._ownsTexture)
+      stats.addTexture(this.texture!.bytesUsed);
   }
 }
 
@@ -72,12 +111,14 @@ export class MeshGraphic extends Graphic {
   private readonly _primitives: Primitive[] = [];
   private readonly _instances?: InstanceBuffers;
 
-  public static create(params: MeshParams, instances?: InstancedGraphicParams): MeshGraphic | undefined {
+  public static create(params: MeshParams, instancesOrVIOrigin?: InstancedGraphicParams | Point3d): MeshGraphic | undefined {
+    const viOrigin = instancesOrVIOrigin instanceof Point3d ? instancesOrVIOrigin : undefined;
+    const instances = undefined === viOrigin ? instancesOrVIOrigin as InstancedGraphicParams : undefined;
     const buffers = undefined !== instances ? InstanceBuffers.create(instances, true) : undefined;
     if (undefined === buffers && undefined !== instances)
       return undefined;
 
-    const data = MeshData.create(params);
+    const data = MeshData.create(params, viOrigin);
     return undefined !== data ? new MeshGraphic(data, params, buffers) : undefined;
   }
 
@@ -109,6 +150,8 @@ export class MeshGraphic extends Graphic {
       this.addPrimitive(() => PolylineEdgeGeometry.create(this.meshData, edges.polylines!), instances);
   }
 
+  public get isDisposed(): boolean { return this.meshData.isDisposed && 0 === this._primitives.length; }
+
   public dispose() {
     dispose(this.meshData);
     for (const primitive of this._primitives)
@@ -118,7 +161,7 @@ export class MeshGraphic extends Graphic {
   }
 
   public collectStatistics(stats: RenderMemory.Statistics): void {
-    stats.addVertexTable(this.meshData.lut.bytesUsed);
+    this.meshData.collectStatistics(stats);
     this._primitives.forEach((prim) => prim.collectStatistics(stats));
 
     // Only count the shared instance buffers once...
@@ -127,11 +170,8 @@ export class MeshGraphic extends Graphic {
   }
 
   public addCommands(cmds: RenderCommands): void { this._primitives.forEach((prim) => prim.addCommands(cmds)); }
-  public addHiliteCommands(cmds: RenderCommands, batch: Batch, pass: RenderPass): void { this._primitives.forEach((prim) => prim.addHiliteCommands(cmds, batch, pass)); }
+  public addHiliteCommands(cmds: RenderCommands, pass: RenderPass): void { this._primitives.forEach((prim) => prim.addHiliteCommands(cmds, pass)); }
 
-  public setUniformFeatureIndices(id: number): void {
-    this.meshData.features = FeaturesInfo.createUniform(id);
-  }
   public get surfaceType(): SurfaceType { return this.meshData.type; }
 }
 
@@ -148,19 +188,20 @@ export abstract class MeshGeometry extends LUTGeometry {
   // Convenience accessors...
   public get edgeWidth() { return this.mesh.edgeWidth; }
   public get edgeLineCode() { return this.mesh.edgeLineCode; }
-  public get featuresInfo(): FeaturesInfo | undefined { return this.mesh.features; }
+  public get hasFeatures() { return this.mesh.hasFeatures; }
   public get surfaceType() { return this.mesh.type; }
   public get fillFlags() { return this.mesh.fillFlags; }
   public get isPlanar() { return this.mesh.isPlanar; }
   public get colorInfo(): ColorInfo { return this.mesh.lut.colorInfo; }
-  public get uniformColor(): FloatPreMulRgba | undefined { return this.colorInfo.isUniform ? this.colorInfo.uniform : undefined; }
+  public get uniformColor(): FloatRgba | undefined { return this.colorInfo.isUniform ? this.colorInfo.uniform : undefined; }
   public get texture() { return this.mesh.texture; }
   public get hasBakedLighting() { return this.mesh.hasBakedLighting; }
+  public get hasFixedNormals() { return this.mesh.hasFixedNormals; }
   public get lut() { return this.mesh.lut; }
   public get hasScalarAnimation() { return this.mesh.lut.hasScalarAnimation; }
 
   protected constructor(mesh: MeshData, numIndices: number) {
-    super();
+    super(mesh.viewIndependentOrigin);
     this._numIndices = numIndices;
     this.mesh = mesh;
   }
@@ -169,6 +210,9 @@ export abstract class MeshGeometry extends LUTGeometry {
   protected computeEdgeLineCode(params: ShaderProgramParams): number { return params.target.getEdgeLineCode(params, this.edgeLineCode); }
   protected computeEdgeColor(target: Target): ColorInfo { return target.isEdgeColorOverridden ? target.edgeColor : this.colorInfo; }
   protected computeEdgePass(target: Target): RenderPass {
+    if (target.isDrawingShadowMap)
+      return RenderPass.None;
+
     const vf = target.currentViewFlags;
     if (RenderMode.SmoothShade === vf.renderMode && !vf.visibleEdges) {
       return RenderPass.None;
@@ -182,9 +226,11 @@ export abstract class MeshGeometry extends LUTGeometry {
 
 /** @internal */
 export class EdgeGeometry extends MeshGeometry {
+  public readonly buffers: BuffersContainer;
   protected readonly _indices: BufferHandle;
   protected readonly _endPointAndQuadIndices: BufferHandle;
 
+  public get lutBuffers() { return this.buffers; }
   public get asSurface() { return undefined; }
   public get asEdge() { return this; }
   public get asSilhouette(): SilhouetteEdgeGeometry | undefined { return undefined; }
@@ -195,7 +241,14 @@ export class EdgeGeometry extends MeshGeometry {
     return undefined !== indexBuffer && undefined !== endPointBuffer ? new EdgeGeometry(indexBuffer, endPointBuffer, edges.indices.length, mesh) : undefined;
   }
 
+  public get isDisposed(): boolean {
+    return this.buffers.isDisposed
+      && this._indices.isDisposed
+      && this._endPointAndQuadIndices.isDisposed;
+  }
+
   public dispose() {
+    dispose(this.buffers);
     dispose(this._indices);
     dispose(this._endPointAndQuadIndices);
   }
@@ -204,18 +257,17 @@ export class EdgeGeometry extends MeshGeometry {
     stats.addVisibleEdges(this._indices.bytesUsed + this._endPointAndQuadIndices.bytesUsed);
   }
 
-  public bindVertexArray(attr: AttributeHandle): void {
-    attr.enableArray(this._indices, 3, GL.DataType.UnsignedByte, false, 0, 0);
-  }
+  protected _draw(numInstances: number, instanceBuffersContainer?: BuffersContainer): void {
+    const bufs = instanceBuffersContainer !== undefined ? instanceBuffersContainer : this.buffers;
 
-  protected _draw(numInstances: number): void {
-    this._indices.bind(GL.Buffer.Target.ArrayBuffer);
+    bufs.bind();
     System.instance.drawArrays(GL.PrimitiveType.Triangles, 0, this._numIndices, numInstances);
+    bufs.unbind();
   }
 
   protected _wantWoWReversal(_target: Target): boolean { return true; }
   protected _getLineCode(params: ShaderProgramParams): number { return this.computeEdgeLineCode(params); }
-  public getTechniqueId(_target: Target): TechniqueId { return TechniqueId.Edge; }
+  public get techniqueId(): TechniqueId { return TechniqueId.Edge; }
   public getRenderPass(target: Target): RenderPass { return this.computeEdgePass(target); }
   public get renderOrder(): RenderOrder { return this.isPlanar ? RenderOrder.PlanarEdge : RenderOrder.Edge; }
   public getColor(target: Target): ColorInfo { return this.computeEdgeColor(target); }
@@ -223,6 +275,13 @@ export class EdgeGeometry extends MeshGeometry {
 
   protected constructor(indices: BufferHandle, endPointAndQuadsIndices: BufferHandle, numIndices: number, mesh: MeshData) {
     super(mesh, numIndices);
+    this.buffers = BuffersContainer.create();
+    const attrPos = AttributeMap.findAttribute("a_pos", TechniqueId.Edge, false);
+    const attrEndPointAndQuadIndices = AttributeMap.findAttribute("a_endPointAndQuadIndices", TechniqueId.Edge, false);
+    assert(attrPos !== undefined);
+    assert(attrEndPointAndQuadIndices !== undefined);
+    this.buffers.addBuffer(indices, [BufferParameters.create(attrPos!.location, 3, GL.DataType.UnsignedByte, false, 0, 0, false)]);
+    this.buffers.addBuffer(endPointAndQuadsIndices, [BufferParameters.create(attrEndPointAndQuadIndices!.location, 4, GL.DataType.UnsignedByte, false, 0, 0, false)]);
     this._indices = indices;
     this._endPointAndQuadIndices = endPointAndQuadsIndices;
   }
@@ -241,21 +300,26 @@ export class SilhouetteEdgeGeometry extends EdgeGeometry {
     return undefined !== indexBuffer && undefined !== endPointBuffer && undefined !== normalsBuffer ? new SilhouetteEdgeGeometry(indexBuffer, endPointBuffer, normalsBuffer, params.indices.length, mesh) : undefined;
   }
 
+  public get isDisposed(): boolean { return super.isDisposed && this._normalPairs.isDisposed; }
+
   public dispose() {
-    dispose(this._normalPairs);
     super.dispose();
+    dispose(this._normalPairs);
   }
 
   public collectStatistics(stats: RenderMemory.Statistics): void {
     stats.addSilhouetteEdges(this._indices.bytesUsed + this._endPointAndQuadIndices.bytesUsed + this._normalPairs.bytesUsed);
   }
 
-  public getTechniqueId(_target: Target): TechniqueId { return TechniqueId.SilhouetteEdge; }
+  public get techniqueId(): TechniqueId { return TechniqueId.SilhouetteEdge; }
   public get renderOrder(): RenderOrder { return this.isPlanar ? RenderOrder.PlanarSilhouette : RenderOrder.Silhouette; }
   public get normalPairs(): BufferHandle { return this._normalPairs; }
 
   private constructor(indices: BufferHandle, endPointAndQuadsIndices: BufferHandle, normalPairs: BufferHandle, numIndices: number, mesh: MeshData) {
     super(indices, endPointAndQuadsIndices, numIndices, mesh);
+    const attrNormals = AttributeMap.findAttribute("a_normals", TechniqueId.SilhouetteEdge, false);
+    assert(attrNormals !== undefined);
+    this.buffers.addBuffer(normalPairs, [BufferParameters.create(attrNormals!.location, 4, GL.DataType.UnsignedByte, false, 0, 0, false)]);
     this._normalPairs = normalPairs;
   }
 }
@@ -264,10 +328,14 @@ export class SilhouetteEdgeGeometry extends EdgeGeometry {
 export class PolylineEdgeGeometry extends MeshGeometry {
   private _buffers: PolylineBuffers;
 
+  public get lutBuffers() { return this._buffers.buffers; }
+
   public static create(mesh: MeshData, polyline: TesselatedPolyline): PolylineEdgeGeometry | undefined {
     const buffers = PolylineBuffers.create(polyline);
     return undefined !== buffers ? new PolylineEdgeGeometry(polyline.indices.length, buffers, mesh) : undefined;
   }
+
+  public get isDisposed(): boolean { return this._buffers.isDisposed; }
 
   public dispose() {
     dispose(this._buffers);
@@ -280,19 +348,18 @@ export class PolylineEdgeGeometry extends MeshGeometry {
   protected _wantWoWReversal(_target: Target): boolean { return true; }
   protected _getLineWeight(params: ShaderProgramParams): number { return this.computeEdgeWeight(params); }
   protected _getLineCode(params: ShaderProgramParams): number { return this.computeEdgeLineCode(params); }
-  public getTechniqueId(_target: Target): TechniqueId { return TechniqueId.Polyline; }
+  public get techniqueId(): TechniqueId { return TechniqueId.Polyline; }
   public getRenderPass(target: Target): RenderPass { return this.computeEdgePass(target); }
   public get renderOrder(): RenderOrder { return this.isPlanar ? RenderOrder.PlanarEdge : RenderOrder.Edge; }
   public get polylineBuffers(): PolylineBuffers { return this._buffers; }
 
-  public bindVertexArray(attr: AttributeHandle): void {
-    attr.enableArray(this._buffers.indices, 3, GL.DataType.UnsignedByte, false, 0, 0);
-  }
-
-  protected _draw(numInstances: number): void {
+  protected _draw(numInstances: number, instanceBuffersContainer?: BuffersContainer): void {
     const gl = System.instance;
-    this._buffers.indices.bind(GL.Buffer.Target.ArrayBuffer);
+    const bufs = instanceBuffersContainer !== undefined ? instanceBuffersContainer : this._buffers.buffers;
+
+    bufs.bind();
     gl.drawArrays(GL.PrimitiveType.Triangles, 0, this._numIndices, numInstances);
+    bufs.unbind();
   }
 
   private constructor(numIndices: number, buffers: PolylineBuffers, mesh: MeshData) {
@@ -308,14 +375,23 @@ function wantLighting(vf: ViewFlags) {
 
 /** @internal */
 export class SurfaceGeometry extends MeshGeometry {
+  private readonly _buffers: BuffersContainer;
   private readonly _indices: BufferHandle;
+
+  public get lutBuffers() { return this._buffers; }
 
   public static create(mesh: MeshData, indices: VertexIndices): SurfaceGeometry | undefined {
     const indexBuffer = BufferHandle.createArrayBuffer(indices.data);
     return undefined !== indexBuffer ? new SurfaceGeometry(indexBuffer, indices.length, mesh) : undefined;
   }
 
+  public get isDisposed(): boolean {
+    return this._buffers.isDisposed
+      && this._indices.isDisposed;
+  }
+
   public dispose() {
+    dispose(this._buffers);
     dispose(this._indices);
   }
 
@@ -325,7 +401,7 @@ export class SurfaceGeometry extends MeshGeometry {
 
   public get isLit() { return SurfaceType.Lit === this.surfaceType || SurfaceType.TexturedLit === this.surfaceType; }
   public get isTextured() { return SurfaceType.Textured === this.surfaceType || SurfaceType.TexturedLit === this.surfaceType; }
-  public get isGlyph() { return undefined !== this.texture && this.texture.isGlyph; }
+  public get isGlyph() { return this.mesh.isGlyph; }
   public get isTileSection() { return undefined !== this.texture && this.texture.isTileSection; }
   public get isClassifier() { return SurfaceType.VolumeClassifier === this.surfaceType; }
 
@@ -333,77 +409,95 @@ export class SurfaceGeometry extends MeshGeometry {
   public get asEdge() { return undefined; }
   public get asSilhouette() { return undefined; }
 
-  public bindVertexArray(attr: AttributeHandle): void {
-    attr.enableArray(this._indices, 3, GL.DataType.UnsignedByte, false, 0, 0);
-  }
-
-  protected _draw(numInstances: number): void {
+  protected _draw(numInstances: number, instanceBuffersContainer?: BuffersContainer): void {
     const system = System.instance;
     const gl = system.context;
     const offset = RenderOrder.BlankingRegion === this.renderOrder;
+    const bufs = instanceBuffersContainer !== undefined ? instanceBuffersContainer : this._buffers;
+
     if (offset) {
       gl.enable(GL.POLYGON_OFFSET_FILL);
       gl.polygonOffset(1.0, 1.0);
     }
 
-    this._indices.bind(GL.Buffer.Target.ArrayBuffer);
-    system.drawArrays(GL.PrimitiveType.Triangles, 0, this._numIndices, numInstances);
+    bufs.bind();
+    const primType = system.drawSurfacesAsWiremesh ? GL.PrimitiveType.Lines : GL.PrimitiveType.Triangles;
+    system.drawArrays(primType, 0, this._numIndices, numInstances);
+    bufs.unbind();
 
     if (offset) {
       gl.disable(GL.POLYGON_OFFSET_FILL);
     }
   }
 
-  public getTechniqueId(_target: Target) { return TechniqueId.Surface; }
+  public wantMixMonochromeColor(target: Target): boolean {
+    // Text relies on white-on-white reversal.
+    return !this.isGlyph && (this.isLitSurface || this.wantTextures(target, this.isTextured));
+  }
+
+  public get techniqueId(): TechniqueId { return TechniqueId.Surface; }
   public get isLitSurface() { return this.isLit; }
   public get hasBakedLighting() { return this.mesh.hasBakedLighting; }
+  public get hasFixedNormals() { return this.mesh.hasFixedNormals; }
   public get renderOrder(): RenderOrder {
     if (FillFlags.Behind === (this.fillFlags & FillFlags.Behind))
       return RenderOrder.BlankingRegion;
-    else
-      return this.isPlanar ? RenderOrder.PlanarSurface : RenderOrder.Surface;
+
+    let order = this.isLit ? RenderOrder.LitSurface : RenderOrder.UnlitSurface;
+    if (this.isPlanar)
+      order = order | RenderOrder.PlanarBit;
+
+    return order;
   }
 
   public getColor(target: Target) {
     if (FillFlags.Background === (this.fillFlags & FillFlags.Background))
-      return ColorInfo.createUniform(target.bgColor);
+      return target.uniforms.style.backgroundColorInfo;
     else
       return this.colorInfo;
   }
 
   public getRenderPass(target: Target): RenderPass {
+    // Classifiers have a dedicated pass
     if (this.isClassifier)
       return RenderPass.Classification;
 
-    const mat = this.isLit ? this.mesh.material : undefined;
     const opaquePass = this.isPlanar ? RenderPass.OpaquePlanar : RenderPass.OpaqueGeneral;
-    const fillFlags = this.fillFlags;
 
-    if (this.isGlyph && target.isReadPixelsInProgress)
-      return opaquePass;
+    // When reading pixels, glyphs are always opaque. Otherwise always transparent (for anti-aliasing).
+    if (this.isGlyph)
+      return target.isReadPixelsInProgress ? opaquePass : RenderPass.Translucent;
 
     const vf = target.currentViewFlags;
-    if (RenderMode.Wireframe === vf.renderMode) {
+
+    // In wireframe, unless fill is explicitly enabled for planar region, surface does not draw
+    if (RenderMode.Wireframe === vf.renderMode && !this.mesh.isTextureAlwaysDisplayed) {
+      const fillFlags = this.fillFlags;
       const showFill = FillFlags.Always === (fillFlags & FillFlags.Always) || (vf.fill && FillFlags.ByView === (fillFlags & FillFlags.ByView));
-      if (!showFill) {
+      if (!showFill)
         return RenderPass.None;
-      }
-    }
-    if (!this.isGlyph) {
-      if (!vf.transparency || RenderMode.SolidFill === vf.renderMode || RenderMode.HiddenLine === vf.renderMode) {
-        return opaquePass;
-      }
-    }
-    if (undefined !== this.texture && this.wantTextures(target, true)) {
-      if (this.texture.hasTranslucency)
-        return RenderPass.Translucent;
-
-      // material may have texture weight < 1 - if so must account for material or element alpha below
-      if (undefined === mat || (mat.textureMapping !== undefined && mat.textureMapping.params.weight >= 1))
-        return opaquePass;
     }
 
-    const hasAlpha = (undefined !== mat && wantMaterials(vf) && mat.hasTranslucency) || this.getColor(target).hasTranslucency;
+    // If transparency disabled by render mode or view flag, always draw opaque.
+    if (!vf.transparency || RenderMode.SolidFill === vf.renderMode || RenderMode.HiddenLine === vf.renderMode)
+      return opaquePass;
+
+    let hasAlpha = false;
+
+    // If the material overrides alpha (currently, everything except the default - aka "no" - material), alpha comes from the material
+    const mat = this.isLit && wantMaterials(vf) ? this.mesh.materialInfo : undefined;
+    if (undefined !== mat && mat.overridesAlpha)
+      hasAlpha = mat.hasTranslucency;
+
+    // A texture can contain translucent pixels. Its alpha is also always multiplied by the material's alpha
+    const tex = this.wantTextures(target, true) ? this.texture : undefined;
+    if (!hasAlpha && undefined !== tex)
+      hasAlpha = tex.hasTranslucency;
+
+    // If we have a material overriding transparency, OR a texture, transparency comes solely from them. Otherwise, use element transparency.
+    if (undefined === tex && (undefined === mat || !mat.overridesAlpha))
+      hasAlpha = this.getColor(target).hasTranslucency;
+
     return hasAlpha ? RenderPass.Translucent : opaquePass;
   }
 
@@ -425,17 +519,21 @@ export class SurfaceGeometry extends MeshGeometry {
     // Don't invert white pixels of textures...
     return !this.wantTextures(target, this.isTextured);
   }
-  public get material(): Material | undefined { return this.mesh.material; }
+
+  public get materialInfo(): MaterialInfo | undefined { return this.mesh.materialInfo; }
 
   public computeSurfaceFlags(params: ShaderProgramParams): SurfaceFlags {
     const target = params.target;
     const vf = target.currentViewFlags;
 
-    let flags = wantMaterials(vf) ? SurfaceFlags.None : SurfaceFlags.IgnoreMaterial;
+    const useMaterial = wantMaterials(vf);
+    let flags = useMaterial ? SurfaceFlags.None : SurfaceFlags.IgnoreMaterial;
     if (this.isLit) {
       flags |= SurfaceFlags.HasNormals;
       if (wantLighting(vf)) {
         flags |= SurfaceFlags.ApplyLighting;
+        if (this.hasFixedNormals)
+          flags |= SurfaceFlags.NoFaceFront;
       }
 
       // Textured meshes store normal in place of color index.
@@ -448,6 +546,8 @@ export class SurfaceGeometry extends MeshGeometry {
 
     if (this.wantTextures(target, this.isTextured)) {
       flags |= SurfaceFlags.HasTexture;
+      if (useMaterial && undefined !== this.mesh.materialInfo && this.mesh.materialInfo.overridesAlpha && RenderPass.Translucent === params.renderPass)
+        flags |= SurfaceFlags.MultiplyAlpha;
     }
 
     switch (params.renderPass) {
@@ -468,11 +568,18 @@ export class SurfaceGeometry extends MeshGeometry {
       }
     }
 
+    if (params.target.isDrawingShadowMap)
+      flags |= SurfaceFlags.TransparencyThreshold;
+
     return flags;
   }
 
   private constructor(indices: BufferHandle, numIndices: number, mesh: MeshData) {
     super(mesh, numIndices);
+    this._buffers = BuffersContainer.create();
+    const attrPos = AttributeMap.findAttribute("a_pos", TechniqueId.Surface, false);
+    assert(undefined !== attrPos);
+    this._buffers.addBuffer(indices, [BufferParameters.create(attrPos!.location, 3, GL.DataType.UnsignedByte, false, 0, 0, false)]);
     this._indices = indices;
   }
 
@@ -483,17 +590,20 @@ export class SurfaceGeometry extends MeshGeometry {
     if (!surfaceTextureExists)
       return false;
 
-    if (this.isGlyph) {
+    if (this.mesh.isTextureAlwaysDisplayed)
       return true;
-    }
+
     const fill = this.fillFlags;
     const flags = target.currentViewFlags;
 
     // ###TODO need to distinguish between gradient fill and actual textures...
     switch (flags.renderMode) {
-      case RenderMode.SmoothShade: return flags.textures;
-      case RenderMode.Wireframe: return FillFlags.Always === (fill & FillFlags.Always) || (flags.fill && FillFlags.ByView === (fill & FillFlags.ByView));
-      default: return FillFlags.Always === (fill & FillFlags.Always);
+      case RenderMode.SmoothShade:
+        return flags.textures;
+      case RenderMode.Wireframe:
+        return FillFlags.Always === (fill & FillFlags.Always) || (flags.fill && FillFlags.ByView === (fill & FillFlags.ByView));
+      default:
+        return FillFlags.Always === (fill & FillFlags.Always);
     }
   }
 }

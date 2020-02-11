@@ -1,16 +1,18 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module OIDC */
+/** @packageDocumentation
+ * @module OIDC
+ */
 
 import { AuthStatus, BeEvent, BentleyError, ClientRequestContext, Logger, LogLevel, assert } from "@bentley/bentleyjs-core";
-import { AccessToken, IOidcFrontendClient, OidcClient, OidcFrontendClientConfiguration, UserInfo } from "@bentley/imodeljs-clients";
-import { User, UserManager, UserManagerSettings, Log as OidcClientLog, Logger as IOidcClientLogger } from "oidc-client";
+import { AccessToken, IOidcFrontendClient, OidcClient, OidcFrontendClientConfiguration, UserInfo, IncludePrefix } from "@bentley/imodeljs-clients";
+import { User, UserManager, UserManagerSettings, WebStorageStateStore, Log as OidcClientLog, Logger as IOidcClientLogger } from "oidc-client";
 import { FrontendRequestContext } from "../FrontendRequestContext";
 import { FrontendLoggerCategory } from "../FrontendLoggerCategory";
 
-const loggerCategory: string = FrontendLoggerCategory.OidcBrowserClient;
+const loggerCategory: string = FrontendLoggerCategory.Authorization;
 
 /** Utility to forward oidc-client logs to the Bentley logger */
 class OidcClientLogger implements IOidcClientLogger {
@@ -68,12 +70,12 @@ class OidcClientLogger implements IOidcClientLogger {
 }
 
 /**
- * Utility to generate OIDC/OAuth tokens for frontend applications
+ * Utility to generate OIDC/OAuth tokens for Single Page Applications (running in the Browser)
  * @beta
  */
 export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient {
   private _userManager?: UserManager;
-  private _accessToken?: AccessToken;
+  protected _accessToken?: AccessToken;
   private _redirectPath: string;
 
   /** Constructor */
@@ -84,10 +86,9 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
   }
 
   /**
-   * Used to initialize the client - must be awaited before any other methods are called
-   * @throws [[Error]] in some cases of authorization failure
-   * - if the login times out without the user providing the necessary input, or
-   * - if the user hasn't consented to the scopes.
+   * Used to initialize the client - must be awaited before any other methods are called.
+   * Attempts a non-interactive sign in by loading the authenticated state from a previous
+   * sign-in, or through a silent sign in with the authorization provider.
    */
   public async initialize(requestContext: FrontendRequestContext): Promise<void> {
     /*
@@ -130,20 +131,20 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
     if (!this.getIsRedirecting())
       return false;
 
+    let user: User;
+    if (window.parent !== window) {
+      // This is an i-frame, and we are doing a silent signin.
+      await this._userManager!.signinSilentCallback();
+      return true;
+    }
+
     try {
-      let user: User;
-      if (window.parent !== window) {
-        // This is an i-frame, and we are doing a silent signin.
-        await this._userManager!.signinSilentCallback();
-      } else {
-        user = await this._userManager!.signinRedirectCallback();
-        assert(user && !user.expired, "Expected userManager.signinRedirectCallback to always resolve to authorized user");
-        window.location.replace(user.state.successRedirectUrl);
-      }
+      user = await this._userManager!.signinRedirectCallback();
+      assert(user && !user.expired, "Expected userManager.signinRedirectCallback to always resolve to authorized user");
+      window.location.replace(user.state.successRedirectUrl);
     } catch (err) {
       Logger.logError(loggerCategory, "Authentication error - cannot retrieve token after redirection");
     }
-
     return true;
   }
 
@@ -152,7 +153,7 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
    * @return Resolves to authenticated user if the silent sign in succeeded
    * @throws [[Error]] If the silent sign in fails
    */
-  private async signInSilent(requestContext: ClientRequestContext): Promise<User> {
+  protected async signInSilent(requestContext: ClientRequestContext): Promise<User> {
     requestContext.enter();
     assert(!!this._userManager, "OidcBrowserClient not initialized");
 
@@ -184,13 +185,13 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
     // Load user from session/local storage
     const user = await this.getUser(requestContext);
     if (user && !user.expired) {
-      this._onUserLoaded(user); // Call only because getUser() doesn't call any events
+      this._onUserLoaded(user); // Need an explicit broadcast of events because getUser() does not do that internally
       return true;
     }
 
     // Attempt a silent sign-in
     try {
-      await this.signInSilent(requestContext); // calls events
+      await this.signInSilent(requestContext); // internally broadcasts events on successful signin
     } catch (err) {
       Logger.logInfo(loggerCategory, "Silent sign-in failed");
       return false;
@@ -203,8 +204,13 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
    * Start the sign-in process
    * - calls the onUserStateChanged() call back after the authorization completes
    * or if there is an error.
-   * - redirects application to the redirectUri specified in the configuration and then
-   * redirects back to root when sign-in is complete.
+   * - will attempt in order:
+   *   (i) load any existing authorized user from local storage,
+   *   (ii) a silent sign in with the authorization provider, and if all else fails,
+   *   (iii) an interactive signin that requires user input.
+   * - if an interactive or silent signin is required with the authorization provider, it will
+   * redirect application to the redirectUri specified in the configuration, and then redirect
+   * back to specified successRedirectUri when the sign-in is complete.
    */
   public async signIn(requestContext: ClientRequestContext, successRedirectUrl?: string): Promise<void> {
     requestContext.enter();
@@ -221,7 +227,7 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
       data: {
         successRedirectUrl: successRedirectUrl || window.location.href,
       },
-    }); // tslint:disable-line:no-floating-promises
+    });
   }
 
   /**
@@ -233,7 +239,7 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
    */
   public async signOut(requestContext: ClientRequestContext): Promise<void> {
     requestContext.enter();
-    await this._userManager!.signoutRedirect(); // tslint:disable-line:no-floating-promises
+    await this._userManager!.signoutRedirect();
   }
 
   /** Event called when the user's sign-in state changes - this may be due to calls to signIn(), signOut() or simply because the token expired */
@@ -253,16 +259,16 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
   }
 
   /**
-   * Set to true if there's a current authorized user or client (in the case of agent applications).
-   * Set to true if signed in and the access token has not expired, and false otherwise.
+   * Set to true if there's a current authorized user. i.e., the user has signed in,
+   * and the access token has not expired.
    */
   public get isAuthorized(): boolean {
-    return !!this._accessToken;
+    return !!this._accessToken; // Note: The accessToken maintained by this client is always silently refreshed if possible.
   }
 
   /** Set to true if the user has signed in, but the token has expired and requires a refresh */
   public get hasExpired(): boolean {
-    return !!this._accessToken; // Always silently refreshed
+    return !this._accessToken; // Note: the token in this client is always silently refreshed if possible.
   }
 
   /** Set to true if signed in - the accessToken may be active or may have expired and require a refresh */
@@ -298,18 +304,29 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
     return this._userManager;
   }
 
-  private async getUserManagerSettings(requestContext: FrontendRequestContext): Promise<UserManagerSettings> {
+  /**
+   * Override to customize the user manager settings used by the underlying oidc-client-js.
+   * This allows setting additional fields that are not exposed by [[OidcFrontendClientConfiguration]] or customizing the defaults.
+   * @internal
+   */
+  protected async getUserManagerSettings(requestContext: FrontendRequestContext): Promise<UserManagerSettings> {
     const userManagerSettings: UserManagerSettings = {
-      authority: await this.getUrl(requestContext),
+      authority: this._configuration.authority || await this.getUrl(requestContext),
       client_id: this._configuration.clientId,
       redirect_uri: this._configuration.redirectUri,
       silent_redirect_uri: this._configuration.redirectUri,
       post_logout_redirect_uri: this._configuration.postSignoutRedirectUri,
       automaticSilentRenew: true,
-      response_type: "id_token token",
-      query_status_response_type: "id_token token",
+      response_type: this._configuration.responseType || "id_token token",
+      query_status_response_type: this._configuration.responseType || "id_token token",
       scope: this._configuration.scope,
       loadUserInfo: true,
+      userStore: new WebStorageStateStore({ store: window.localStorage }),
+      clockSkew: this._configuration.clockSkew,
+      metadata: this._configuration.metadata,
+      accessTokenExpiringNotificationTime: 60, // 60 seconds before expiry
+      monitorSession: false,
+      silentRequestTimeout: 20000,
     };
     return userManagerSettings;
   }
@@ -384,5 +401,25 @@ export class OidcBrowserClient extends OidcClient implements IOidcFrontendClient
    */
   private _onUserSignedOut = () => {
     this._onUserStateChanged(undefined);
+  }
+
+}
+
+/**
+ * Utility to get the legacy SAML token at the frontend of SPA/Electron applications
+ * @internal
+ * @deprecated  Will be removed in iModel.js 2.0.
+ */
+export class OidcBrowserSamlClient extends OidcBrowserClient {
+
+  /**
+   * Gets the legacy SAML token
+   * @throws If error with fetching the SAML token
+   * @internal
+   */
+  public async getSamlToken(requestContext: ClientRequestContext): Promise<AccessToken> {
+    const user = await this.signInSilent(requestContext);
+    this._accessToken = AccessToken.fromSamlTokenString(user.access_token, IncludePrefix.No);
+    return this._accessToken;
   }
 }

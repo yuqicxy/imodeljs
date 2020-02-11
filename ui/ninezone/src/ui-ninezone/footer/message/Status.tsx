@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Message */
+/** @packageDocumentation
+ * @module Message
+ */
 
 /** Available status types of status message.
  * @beta
@@ -11,6 +13,7 @@ export enum Status {
   Information,
   Success,
   Error,
+  Warning,
 }
 
 /** Helpers for [[Status]].
@@ -23,6 +26,8 @@ export class StatusHelpers {
   public static readonly SUCCESS_CLASS_NAME = "nz-status-success";
   /** Class name of [[Status.Error]] */
   public static readonly ERROR_CLASS_NAME = "nz-status-error";
+  /** Class name of [[Status.Warning]] */
+  public static readonly WARNING_CLASS_NAME = "nz-status-warning";
 
   /** @returns Class name of specified [[Status]] */
   public static getCssClassName(status: Status): string {
@@ -33,6 +38,8 @@ export class StatusHelpers {
         return StatusHelpers.SUCCESS_CLASS_NAME;
       case Status.Error:
         return StatusHelpers.ERROR_CLASS_NAME;
+      case Status.Warning:
+        return StatusHelpers.WARNING_CLASS_NAME;
     }
   }
 }

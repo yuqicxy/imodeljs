@@ -1,16 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { assert } from "chai";
 import { Logger, OpenMode, Id64, Id64String, IDisposable, BeEvent, LogLevel, BentleyLoggerCategory } from "@bentley/bentleyjs-core";
-import { AccessToken, Config, ChangeSet, AuthorizedClientRequestContext, ImsUserCredentials, ClientsLoggerCategory } from "@bentley/imodeljs-clients";
-import { Code, ElementProps, RpcManager, GeometricElementProps, IModel, IModelReadRpcInterface, RelatedElement, RpcConfiguration, CodeProps } from "@bentley/imodeljs-common";
+import { AccessToken, Config, ChangeSet, AuthorizedClientRequestContext, ClientsLoggerCategory } from "@bentley/imodeljs-clients";
+import { Code, ElementProps, RpcManager, GeometricElement3dProps, IModel, IModelReadRpcInterface, RelatedElement, RpcConfiguration, CodeProps } from "@bentley/imodeljs-common";
 import {
   IModelHostConfiguration, IModelHost, BriefcaseManager, IModelDb, Model, Element,
   InformationPartitionElement, SpatialCategory, IModelJsFs, PhysicalPartition, PhysicalModel, SubjectOwnsPartitionElements,
+  IModelJsNative, NativeLoggerCategory,
 } from "../imodeljs-backend";
-import { IModelJsNative, NativeLoggerCategory } from "../IModelJsNative";
 import { BackendLoggerCategory as BackendLoggerCategory } from "../BackendLoggerCategory";
 import { KnownTestLocations } from "./KnownTestLocations";
 import { HubUtility } from "./integration/HubUtility";
@@ -21,19 +21,25 @@ import { PhysicalElement } from "../Element";
 import { ClassRegistry } from "../ClassRegistry";
 import { IModelJsConfig } from "@bentley/config-loader/lib/IModelJsConfig";
 import { AuthorizedBackendRequestContext } from "../BackendRequestContext";
-import { TestUsers } from "./TestUsers";
+
+import { TestUsers, UserCredentials } from "./TestUsers";
+import { getToken } from "@bentley/oidc-signin-tool";
 
 /** Class for simple test timing */
 export class Timer {
   private _label: string;
+  private _start: Date;
   constructor(label: string) {
-    // tslint:disable-next-line:no-console
-    console.time(this._label = "\t" + label);
+    this._label = "\t" + label;
+    this._start = new Date();
   }
 
   public end() {
+
+    const stop = new Date();
+    const elapsed = stop.getTime() - this._start.getTime();
     // tslint:disable-next-line:no-console
-    console.timeEnd(this._label);
+    console.log(`${this._label}: ${elapsed}ms`);
   }
 }
 
@@ -114,7 +120,7 @@ export class TestElementDrivesElement extends ElementDrivesElement implements Te
   public static onValidateOutput(props: RelationshipProps, imodel: IModelDb): void { this.validateOutput.raiseEvent(props, imodel); }
   public static onDeletedDependency(props: RelationshipProps, imodel: IModelDb): void { this.deletedDependency.raiseEvent(props, imodel); }
 }
-export interface TestPhysicalObjectProps extends GeometricElementProps {
+export interface TestPhysicalObjectProps extends GeometricElement3dProps {
   intProperty: number;
 }
 export class TestPhysicalObject extends PhysicalElement implements TestPhysicalObjectProps {
@@ -139,8 +145,34 @@ export class IModelTestUtils {
     return iModelInfo;
   }
 
-  public static async getTestUserRequestContext(userCredentials: ImsUserCredentials = TestUsers.regular): Promise<AuthorizedBackendRequestContext> {
-    const accessToken: AccessToken = await HubUtility.login(userCredentials);
+  // Cache the users and access token so each call doesn't need to sign-in again
+  private static _testUsers: Map<string, AccessToken> = new Map<string, AccessToken>();
+
+  public static async getTestUserRequestContext(userCredentials: UserCredentials = TestUsers.regular): Promise<AuthorizedBackendRequestContext> {
+    // TODO: This caching won't work if the current token times out.  Need to implement some kind of refresh or purge it from the cache when it expires
+    // to trigger another signin cycle.
+    let accessToken: AccessToken;
+    if (IModelTestUtils._testUsers.has(userCredentials.email))
+      accessToken = IModelTestUtils._testUsers.get(userCredentials.email)!;
+    else {
+      accessToken = await getToken(userCredentials.email, userCredentials.password, TestUsers.scopes, TestUsers.oidcConfig, Config.App.getNumber("imjs_buddi_resolve_url_using_region", 0));
+      IModelTestUtils._testUsers.set(userCredentials.email, accessToken);
+    }
+
+    return new AuthorizedBackendRequestContext(accessToken);
+  }
+
+  public static async getUlasTestUserRequestContext(userCredentials: UserCredentials = TestUsers.regular): Promise<AuthorizedBackendRequestContext> {
+    // TODO: This caching won't work if the current token times out.  Need to implement some kind of refresh or purge it from the cache when it expires
+    // to trigger another signin cycle.
+    let accessToken: AccessToken;
+    if (IModelTestUtils._testUsers.has(userCredentials.email))
+      accessToken = IModelTestUtils._testUsers.get(userCredentials.email)!;
+    else {
+      accessToken = await getToken(userCredentials.email, userCredentials.password, TestUsers.ulasScopes, TestUsers.ulasOidcConfig, Config.App.getNumber("imjs_buddi_resolve_url_using_region", 0));
+      IModelTestUtils._testUsers.set(userCredentials.email, accessToken);
+    }
+
     return new AuthorizedBackendRequestContext(accessToken);
   }
 
@@ -198,7 +230,6 @@ export class IModelTestUtils {
   public static createAndInsertPhysicalPartition(testImodel: IModelDb, newModelCode: CodeProps): Id64String {
     const modeledElementProps: ElementProps = {
       classFullName: PhysicalPartition.classFullName,
-      iModel: testImodel,
       parent: new SubjectOwnsPartitionElements(IModel.rootSubjectId),
       model: IModel.repositoryModelId,
       code: newModelCode,
@@ -209,14 +240,11 @@ export class IModelTestUtils {
 
   // Create and insert a PhysicalPartition element (in the repositoryModel) and an associated PhysicalModel.
   public static createAndInsertPhysicalModel(testImodel: IModelDb, modeledElementRef: RelatedElement, privateModel: boolean = false): Id64String {
-
     const newModel = testImodel.models.createModel({ modeledElement: modeledElementRef, classFullName: PhysicalModel.classFullName, isPrivate: privateModel });
     const newModelId = testImodel.models.insertModel(newModel);
-
     assert.isTrue(Id64.isValidId64(newModelId));
     assert.isTrue(Id64.isValidId64(newModel.id));
     assert.deepEqual(newModelId, newModel.id);
-
     return newModelId;
   }
 
@@ -245,9 +273,8 @@ export class IModelTestUtils {
 
   // Create a PhysicalObject. (Does not insert it.)
   public static createPhysicalObject(testImodel: IModelDb, modelId: Id64String, categoryId: Id64String, elemCode?: Code): Element {
-    const elementProps: GeometricElementProps = {
+    const elementProps: GeometricElement3dProps = {
       classFullName: "Generic:PhysicalObject",
-      iModel: testImodel,
       model: modelId,
       category: categoryId,
       code: elemCode ? elemCode : Code.createEmpty(),

@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Base */
+/** @packageDocumentation
+ * @module Base
+ */
 
 import * as React from "react";
+import { RectangleProps, Rectangle } from "@bentley/ui-core";
 import { Css } from "../utilities/Css";
-import { Rectangle, RectangleProps } from "../utilities/Rectangle";
 
 /** Properties of [[withContainIn]] HOC.
  * @alpha
@@ -15,7 +17,7 @@ export interface WithContainInProps {
   /** Function called to determine the actual bounds of wrapped component. See: [[contain]], [[containHorizontally]], [containVertically]. */
   containFn?: (componentBounds: RectangleProps, containerBounds: RectangleProps) => RectangleProps;
   /** Container in which the wrapped component is contained. By default contains component in viewport. */
-  container?: React.RefObject<HTMLElement>;
+  container?: HTMLElement | null;
 }
 
 /** Contains the component bounds both vertically and horizontally. This is default containment method for [[withContainIn]].
@@ -59,10 +61,10 @@ export const withContainIn = <ComponentProps extends {}>(
 
     /** @internal */
     public getContainerBounds(): Rectangle {
-      if (!this.props.container || !this.props.container.current)
+      if (!this.props.container)
         return new Rectangle(0, 0, window.innerWidth, window.innerHeight);
 
-      const containerBounds = this.props.container.current.getBoundingClientRect();
+      const containerBounds = this.props.container.getBoundingClientRect();
       return new Rectangle(containerBounds.left, containerBounds.top, containerBounds.right, containerBounds.bottom);
     }
 

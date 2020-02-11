@@ -1,14 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Content */
+/** @packageDocumentation
+ * @module Content
+ */
 
 import {
   ClassInfo, ClassInfoJSON,
-  RelatedClassInfo, RelationshipPath, RelationshipPathJSON,
+  RelatedClassInfo, RelationshipPath, RelationshipPathJSON, RelatedClassInfoJSON,
 } from "../EC";
-import { Field, FieldJSON } from "./Fields";
+import { Field, FieldJSON, getFieldByName } from "./Fields";
 
 /**
  * Data structure that describes an ECClass in content [[Descriptor]].
@@ -19,10 +21,14 @@ export interface SelectClassInfo {
   selectClassInfo: ClassInfo;
   /** Is the class handled polymorphically */
   isSelectPolymorphic: boolean;
-  /** Relationship path to the [Primary class]($docs/learning/content/Terminology#primary-class) */
+  /** Relationship path to the [Primary class]($docs/learning/presentation/Content/Terminology#primary-class) */
   pathToPrimaryClass: RelationshipPath;
-  /** Relationship paths to [Related property]($docs/learning/content/Terminology#related-properties) classes */
+  /** Relationship paths to [Related property]($docs/learning/presentation/Content/Terminology#related-properties) classes */
   relatedPropertyPaths: RelationshipPath[];
+  /** Relationship paths to navigation property classes */
+  navigationPropertyClasses: RelatedClassInfo[];
+  /** Relationship paths to [Related instance]($docs/learning/presentation/Content/Terminology#related-instance) classes */
+  relatedInstanceClasses: RelatedClassInfo[];
 }
 
 /**
@@ -34,6 +40,8 @@ export interface SelectClassInfoJSON {
   isSelectPolymorphic: boolean;
   pathToPrimaryClass: RelationshipPathJSON;
   relatedPropertyPaths: RelationshipPathJSON[];
+  navigationPropertyClasses: RelatedClassInfoJSON[];
+  relatedInstanceClasses: RelatedClassInfoJSON[];
 }
 
 const selectClassInfoFromJSON = (json: SelectClassInfoJSON): SelectClassInfo => {
@@ -42,6 +50,8 @@ const selectClassInfoFromJSON = (json: SelectClassInfoJSON): SelectClassInfo => 
     selectClassInfo: ClassInfo.fromJSON(json.selectClassInfo),
     pathToPrimaryClass: json.pathToPrimaryClass.map((p) => RelatedClassInfo.fromJSON(p)),
     relatedPropertyPaths: json.relatedPropertyPaths.map((rp) => (rp.map((p) => RelatedClassInfo.fromJSON(p)))),
+    navigationPropertyClasses: json.navigationPropertyClasses.map((p) => RelatedClassInfo.fromJSON(p)),
+    relatedInstanceClasses: json.relatedInstanceClasses.map((p) => RelatedClassInfo.fromJSON(p)),
   };
 };
 
@@ -59,7 +69,7 @@ export enum ContentFlags {
   /** Each content record additionally has a display label */
   ShowLabels = 1 << 2,
 
-  /** All content records are merged into a single record (see [Merging values]($docs/learning/content/Terminology#value-merging)) */
+  /** All content records are merged into a single record (see [Merging values]($docs/learning/terminology#value-merging)) */
   MergeResults = 1 << 3,
 
   /** Content has only distinct values */
@@ -126,7 +136,7 @@ export interface DescriptorOverrides {
   sortingFieldName?: string;
   /** Sort direction. Defaults to [[SortDirection.Ascending]] */
   sortDirection?: SortDirection;
-  /** [ECExpression]($docs/learning/ECExpressions.md) for filtering content */
+  /** [ECExpression]($docs/learning/presentation/ECExpressions.md) for filtering content */
   filterExpression?: string;
 }
 
@@ -149,7 +159,7 @@ export interface DescriptorSource {
   sortingField?: Field;
   /** Sorting direction */
   sortDirection?: SortDirection;
-  /** Content filtering [ECExpression]($docs/learning/ECExpressions) */
+  /** Content filtering [ECExpression]($docs/learning/presentation/ECExpressions) */
   filterExpression?: string;
 }
 
@@ -180,7 +190,7 @@ export class Descriptor implements DescriptorSource {
   public sortingField?: Field;
   /** Sorting direction */
   public sortDirection?: SortDirection;
-  /** Content filtering [ECExpression]($docs/learning/ECExpressions) */
+  /** Content filtering [ECExpression]($docs/learning/presentation/ECExpressions) */
   public filterExpression?: string;
 
   /** Construct a new Descriptor using a `DescriptorSource` */
@@ -238,7 +248,7 @@ export class Descriptor implements DescriptorSource {
    * @param recurse Recurse into nested fields
    */
   public getFieldByName(name: string, recurse?: boolean): Field | undefined {
-    return findField(this.fields, name, recurse);
+    return getFieldByName(this.fields, name, recurse);
   }
 
   /** @internal */
@@ -262,17 +272,3 @@ export class Descriptor implements DescriptorSource {
     });
   }
 }
-
-const findField = (fields: Field[], name: string, recurse?: boolean): Field | undefined => {
-  for (const field of fields) {
-    if (field.name === name)
-      return field;
-
-    if (recurse && field.isNestedContentField()) {
-      const nested = findField(field.nestedFields, name, recurse);
-      if (nested)
-        return nested;
-    }
-  }
-  return undefined;
-};

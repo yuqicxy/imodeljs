@@ -1,10 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tools */
+/** @packageDocumentation
+ * @module Tools
+ */
 
-import { BeButtonEvent, InteractiveTool, BeButton, CoordinateLockOverrides } from "./Tool";
+import { BeButtonEvent, InteractiveTool, BeButton, CoordinateLockOverrides, CoreTools } from "./Tool";
 import { Viewport } from "../Viewport";
 import { IModelConnection } from "../IModelConnection";
 import { IModelApp } from "../IModelApp";
@@ -21,13 +23,13 @@ export abstract class PrimitiveTool extends InteractiveTool {
   public targetIsLocked: boolean = false; // If target model is known, set this to true in constructor and override getTargetModel.
 
   /** Get the iModel the tool is operating against. */
-  public get iModel(): IModelConnection { return this.targetView!.view!.iModel; }
+  public get iModel(): IModelConnection { return this.targetView!.view.iModel; }
 
   /**
    * Establish this tool as the active PrimitiveTool.
    * @return true if this tool was installed (though it may have exited too)
    */
-  public run(): boolean {
+  public run(..._args: any[]): boolean {
     const { toolAdmin, viewManager } = IModelApp;
     if (!this.isCompatibleViewport(viewManager.selectedView, false) || !toolAdmin.onInstallTool(this))
       return false;
@@ -50,22 +52,24 @@ export abstract class PrimitiveTool extends InteractiveTool {
     if (this.requireWriteableTarget() && iModel.isReadonly)
       return false; // Tool can't be used when iModel is read only.
 
-    if (undefined === this.targetView)
-      this.targetView = vp; // Update target to newly selected view.
+    if (undefined === this.targetView || (!this.targetIsLocked && isSelectedViewChange))
+      this.targetView = vp; // Update target to new view if undefined or still free to change.
 
-    if (!this.targetIsLocked) {
-      if (isSelectedViewChange)
-        this.targetView = vp; // Update target to newly selected view.
-      return true; // Any type of model/view is still ok and target is still free to change.
-    }
+    if (undefined === this.targetModelId && (!this.targetIsLocked || vp === this.targetView))
+      return true; // Accept if this view is current target or any type of model/view is still ok as target is still free to change.
 
     if (iModel !== this.iModel)
       return false; // Once a ViewState has been established, only accept viewport showing the same iModel.
 
-    if (this.targetModelId && !view.viewsModel(this.targetModelId))
-      return false; // Only allow view where target is being viewed.
+    if (this.targetModelId)
+      return view.viewsModel(this.targetModelId); // If a specific target model is specified, only allow view that shows it.
 
-    return true;
+    if (view.isSpatialView() && this.targetView.view.isSpatialView())
+      return true; // No specific target, two spatial views are considered compatible.
+
+    let allowView = false;
+    view.forEachModel((model) => { if (!allowView && this.targetView!.view.viewsModel(model.id)) allowView = true; });
+    return allowView; // Accept if this view shares a model in common with target.
   }
 
   /**
@@ -99,7 +103,7 @@ export abstract class PrimitiveTool extends InteractiveTool {
       return true;
 
     if (isButtonEvent && ev.isDown)
-      IModelApp.notifications.outputMessage(new NotifyMessageDetails(OutputMessagePriority.Error, IModelApp.i18n.translate("CoreTools:tools.ElementSet.Error.ProjectExtents")));
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(OutputMessagePriority.Error, CoreTools.translate("ElementSet.Error.ProjectExtents")));
 
     return false;
   }

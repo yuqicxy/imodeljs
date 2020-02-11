@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { assert } from "chai";
 import { OpenMode, Logger, ClientRequestContext, GuidString, BeDuration } from "@bentley/bentleyjs-core";
@@ -37,6 +37,7 @@ describe("Opening IModelConnection (#integration)", () => {
   });
 
   after(async () => {
+    await TestUtility.purgeAcquiredBriefcases(testIModelId);
     MockRender.App.shutdown();
   });
 
@@ -47,7 +48,7 @@ describe("Opening IModelConnection (#integration)", () => {
     let n = 0;
     while (++n < 100) {
       const openPromise = IModelConnection.open(testProjectId, testIModelId, openMode, IModelVersion.asOfChangeSet(testChangeSetId));
-      const waitPromise = BeDuration.wait(10000); // 10 seconds
+      const waitPromise = BeDuration.wait(5000); // 5 seconds
       const racePromise = Promise.race([openPromise, waitPromise]).then(() => Promise.resolve());
 
       promiseArray.push(openPromise);

@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Topology */
+/** @packageDocumentation
+ * @module Topology
+ */
 
 import { Geometry } from "../Geometry";
 import { Point3d, Vector3d } from "../geometry3d/Point3dVector3d";
@@ -11,6 +13,7 @@ import { HalfEdge, HalfEdgeGraph, HalfEdgeMask } from "./Graph";
 import { HalfEdgeGraphOps } from "./Merging";
 import { LineString3d } from "../curve/LineString3d";
 import { LineSegment3d } from "../curve/LineSegment3d";
+import { GrowableXYZArray } from "../geometry3d/GrowableXYZArray";
 /**
  * interface containing various options appropriate to merging lines segments into chains.
  */
@@ -33,7 +36,7 @@ class ChainMergeContextValidatedOptions {
   /**
    * Tolerance for declaring points equal.
    */
-  public tolerance: number = Geometry.smallMetricDistance;
+  public tolerance: number;
   /** UNNORMALIZED base vector for sorting.
    * * Actual vector hoisted into an instance is normalized.
    */
@@ -188,7 +191,7 @@ export class ChainMergeContext {
    * @param chains growing array of chains.
    * @param node0 start node for search.
    */
-  private  collectMaximalChainFromStartNode(chains: LineString3d[], node0: HalfEdge, visitMask: HalfEdgeMask) {
+  private collectMaximalLineString3dFromStartNode(chains: LineString3d[], node0: HalfEdge, visitMask: HalfEdgeMask) {
     if (!node0.isMaskSet(visitMask)) {
       const ls = LineString3d.create();
       ls.addPointXYZ(node0.x, node0.y, node0.z);
@@ -203,6 +206,28 @@ export class ChainMergeContext {
       chains.push(ls);
     }
   }
+  /**
+   * If node0 is not visited, creating a linestring with that starting edge and all successive edges along a chain.
+   * @param chains growing array of chains.
+   * @param node0 start node for search.
+   */
+  private collectMaximalGrowableXYXArrayFromStartNode(result: GrowableXYZArray[], node0: HalfEdge, visitMask: HalfEdgeMask) {
+    if (!node0.isMaskSet(visitMask)) {
+      const points = new GrowableXYZArray();
+      points.pushXYZ(node0.x, node0.y, node0.z);
+      for (; ;) {
+        node0.setMask(visitMask);
+        node0.edgeMate.setMask(visitMask);
+        node0 = node0.faceSuccessor;
+        points.pushXYZ(node0.x, node0.y, node0.z);
+        if (node0.isMaskSet(visitMask) || !ChainMergeContext.isChainInteriorVertex(node0))
+          break;
+      }
+      if (points.length > 0)
+        result.push(points);
+    }
+  }
+
   /**
    * * find edges with start, end in same vertex loop.
    * * pinch them away from the loop
@@ -237,12 +262,31 @@ export class ChainMergeContext {
     // (Note that collectMaximalChain checks the visit mask.)
     for (const node0 of this._graph.allHalfEdges) {
       if (!ChainMergeContext.isChainInteriorVertex(node0)) {
-        this.collectMaximalChainFromStartNode(result, node0, visitMask);
+        this.collectMaximalLineString3dFromStartNode(result, node0, visitMask);
       }
     }
     // Pass 2: start anywhere in an unvisited loop.
     for (const node0 of this._graph.allHalfEdges) {
-      this.collectMaximalChainFromStartNode(result, node0, visitMask);
+      this.collectMaximalLineString3dFromStartNode(result, node0, visitMask);
+    }
+    return result;
+  }
+  public collectMaximalGrowableXYZArrays(): GrowableXYZArray[] {
+    const result: GrowableXYZArray[] = [];
+    const visitMask = HalfEdgeMask.VISITED;
+    // Pass 0: excise and mark zero-length edges.
+    this.exciseAndMarkSlingEdges(visitMask);
+    this._graph.clearMask(visitMask);
+    // Pass 1: only start at non-interior edges -- vertices with one edge or more than 2 edges.
+    // (Note that collectMaximalChain checks the visit mask.)
+    for (const node0 of this._graph.allHalfEdges) {
+      if (!ChainMergeContext.isChainInteriorVertex(node0)) {
+        this.collectMaximalGrowableXYXArrayFromStartNode(result, node0, visitMask);
+      }
+    }
+    // Pass 2: start anywhere in an unvisited loop.
+    for (const node0 of this._graph.allHalfEdges) {
+      this.collectMaximalGrowableXYXArrayFromStartNode(result, node0, visitMask);
     }
     return result;
   }

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 
@@ -19,9 +19,10 @@ import {
   ContentGroup,
   ContentLayoutDef,
   ActionItemButton,
+  CoreTools,
 } from "@bentley/ui-framework";
 
-import { AppStatusBarWidgetControl } from "../statusbars/AppStatusBar";
+import { SmallStatusBarWidgetControl } from "../statusbars/SmallStatusBar";
 import { NavigationTreeWidgetControl } from "../widgets/NavigationTreeWidget";
 import { VerticalPropertyGridWidgetControl, HorizontalPropertyGridWidgetControl, HorizontalPropertyGridContentControl } from "../widgets/PropertyGridDemoWidget";
 import { TreeExampleContentControl } from "../contentviews/TreeExampleContent";
@@ -38,8 +39,9 @@ export class Frontstage2 extends FrontstageProvider {
         descriptionKey: "SampleApp:ContentLayoutDef.FourQuadrants",
         verticalSplit: {
           percentage: 0.50,
-          left: { horizontalSplit: { percentage: 0.50, top: 0, bottom: 1 } },
-          right: { horizontalSplit: { percentage: 0.50, top: 2, bottom: 3 } },
+          minSizeLeft: 100, minSizeRight: 100,
+          left: { horizontalSplit: { percentage: 0.50, top: 0, bottom: 1, minSizeTop: 100, minSizeBottom: 100 } },
+          right: { horizontalSplit: { percentage: 0.50, top: 2, bottom: 3, minSizeTop: 100, minSizeBottom: 100 } },
         },
       },
     );
@@ -48,7 +50,7 @@ export class Frontstage2 extends FrontstageProvider {
       {
         contents: [
           {
-            classId: "IModelViewport",
+            classId: "UiFramework.IModelViewportControl",
             applicationData: { label: "Content 1a", bgColor: "black" },
           },
           {
@@ -56,7 +58,7 @@ export class Frontstage2 extends FrontstageProvider {
             applicationData: { label: "Content 2a", bgColor: "black" },
           },
           {
-            classId: "IModelViewport",
+            classId: "TestApp.IModelViewport",
             applicationData: { label: "Content 3a", bgColor: "black" },
           },
           {
@@ -69,7 +71,7 @@ export class Frontstage2 extends FrontstageProvider {
 
     return (
       <Frontstage id="Test2"
-        defaultTool={AppTools.appSelectElementCommand}
+        defaultTool={CoreTools.selectElementCommand}
         defaultLayout={contentLayoutDef} contentGroup={myContentGroup}
         isInFooterMode={false} applicationData={{ key: "value" }}
 
@@ -111,7 +113,7 @@ export class Frontstage2 extends FrontstageProvider {
         bottomCenter={
           <Zone defaultState={ZoneState.Open}
             widgets={[
-              <Widget isStatusBar={true} iconSpec="icon-placeholder" labelKey="SampleApp:widgets.StatusBar" control={AppStatusBarWidgetControl} />,
+              <Widget isStatusBar={true} control={SmallStatusBarWidgetControl} />,
             ]}
           />
         }
@@ -158,7 +160,7 @@ class FrontstageToolWidget extends React.Component {
             labelKey="SampleApp:buttons.anotherGroup"
             iconSpec="icon-placeholder"
             items={[AppTools.item3, AppTools.item4, AppTools.item5,
-            AppTools.item6, AppTools.item7, AppTools.item8]}
+              AppTools.item6, AppTools.item7, AppTools.item8]}
           />
         </>
       }

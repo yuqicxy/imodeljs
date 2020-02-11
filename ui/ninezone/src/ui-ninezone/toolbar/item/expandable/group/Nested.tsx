@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Toolbar */
+/** @packageDocumentation
+ * @module Toolbar
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
@@ -19,6 +21,8 @@ import "./Nested.scss";
 export interface NestedGroupProps extends GroupProps {
   /** Function called when the back arrow is clicked. */
   onBack?: () => void;
+  /** Function called when pointer up event is received for back arrow. */
+  onBackPointerUp?: () => void;
 }
 
 /** Nested tool group component. Used in [[ExpandableItem]] component.
@@ -32,12 +36,11 @@ export class NestedGroup extends React.PureComponent<NestedGroupProps> {
 
     return (
       <Panel className={className} style={this.props.style}>
-        <div
-          className="nz-back-arrow-container"
+        <BackArrow
+          className="nz-back"
           onClick={this.props.onBack}
-        >
-          <BackArrow />
-        </div>
+          onPointerUp={this.props.onBackPointerUp}
+        />
         <Title>
           {this.props.title}
         </Title>

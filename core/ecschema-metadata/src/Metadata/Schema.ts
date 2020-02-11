@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { ECClass, StructClass } from "./Class";
@@ -26,9 +26,11 @@ import { SchemaProps } from "./../Deserialization/JsonProps";
 import { ECClassModifier, PrimitiveType } from "./../ECObjects";
 import { ECObjectsError, ECObjectsStatus } from "./../Exception";
 import { AnyClass, AnySchemaItem } from "./../Interfaces";
-import { SchemaKey, ECVersion, SchemaItemKey } from "./../SchemaKey";
+import { SchemaKey, ECVersion, SchemaItemKey, ECName } from "./../SchemaKey";
+import { XmlSerializationUtils } from "../Deserialization/XmlSerializationUtils";
 
-const SCHEMAURL3_2 = "https://dev.bentley.com/json_schemas/ec/32/ecschema";
+const SCHEMAURL3_2_JSON = "https://dev.bentley.com/json_schemas/ec/32/ecschema";
+const SCHEMAURL3_2_XML = "http://www.bentley.com/schemas/Bentley.ECXML.3.2";
 
 /**
  * @beta
@@ -50,13 +52,13 @@ export class Schema implements CustomAttributeContainerProps {
    * @param writeVersion The integer write version of the schema
    * @param minorVersion The integer minor version of the schema
    */
-  constructor(context: SchemaContext, name: string, readVersion: number, writeVersion: number, minorVersion: number);
+  constructor(context: SchemaContext, name: string, alias: string, readVersion: number, writeVersion: number, minorVersion: number);
   /**
    * Constructs an empty Schema with the given key in the provided context.
    * @param context The SchemaContext that will control the lifetime of the schema
    * @param key A SchemaKey that uniquely identifies the schema
    */
-  constructor(context: SchemaContext, key: SchemaKey);  // tslint:disable-line:unified-signatures
+  constructor(context: SchemaContext, key: SchemaKey, alias: string);  // tslint:disable-line:unified-signatures
   /**
    * Constructs an empty Schema (without a SchemaKey) in the provided context.
    * This should only be used when the schema name and version will be deserialized (via `fromJson()`) immediately after this Schema is instantiated.
@@ -64,11 +66,18 @@ export class Schema implements CustomAttributeContainerProps {
    * @internal
    */
   constructor(context: SchemaContext);
-  constructor(context: SchemaContext, nameOrKey?: SchemaKey | string, readVer?: SchemaContext | number, writeVer?: number, minorVer?: number) {
+  /** @internal */
+  constructor(context: SchemaContext, nameOrKey?: SchemaKey | string, alias?: string, readVer?: number, writeVer?: number, minorVer?: number) {
     this._schemaKey = (typeof (nameOrKey) === "string") ? new SchemaKey(nameOrKey, new ECVersion(readVer as number, writeVer, minorVer)) : nameOrKey;
     this._context = context;
     this.references = [];
     this._items = new Map<string, SchemaItem>();
+
+    if (alias !== undefined && ECName.validate(alias)) {
+      this._alias = alias;
+    } else if (nameOrKey !== undefined) {
+      throw new ECObjectsError(ECObjectsStatus.InvalidECJson, `The Schema ${this.name} does not have the required 'alias' attribute.`);
+    }
   }
 
   get schemaKey() {
@@ -85,8 +94,14 @@ export class Schema implements CustomAttributeContainerProps {
 
   get minorVersion() { return this.schemaKey.minorVersion; }
 
-  get alias() { return this._alias; }
+  get alias() {
+    if (this._alias === undefined || this._alias === null) {
+      throw new ECObjectsError(ECObjectsStatus.InvalidECJson, `The Schema ${this.name} does not have the required 'alias' attribute.`);
+    } else { return this._alias; }
+  }
+
   get label() { return this._label; }
+
   get description() { return this._description; }
 
   get customAttributes(): CustomAttributeSet | undefined { return this._customAttributes; }
@@ -102,7 +117,7 @@ export class Schema implements CustomAttributeContainerProps {
 
   /**
    * Returns a SchemaItemKey given the item name and the schema it belongs to
-   * @param fullName: fully qualified name {Schema name}.{Item Name}
+   * @param fullName fully qualified name {Schema name}.{Item Name}
    */
   public getSchemaItemKey(fullName: string): SchemaItemKey {
     const [schemaName, itemName] = SchemaItem.parseFullName(fullName);
@@ -406,6 +421,14 @@ export class Schema implements CustomAttributeContainerProps {
     return this.references.find((ref) => ref.name.toLowerCase() === refSchemaName.toLowerCase()) as T;
   }
 
+  public getReferenceNameByAlias(alias: string): string | undefined {
+    if (this.references.length === 0)
+      return undefined;
+
+    const schema = this.references.find((ref) => ref.alias ? ref.alias.toLowerCase() === alias.toLowerCase() : false);
+    return schema ? schema.name : undefined;
+  }
+
   public getReferenceSync<T extends Schema>(refSchemaName: string): T | undefined {
     if (this.references.length === 0)
       return undefined;
@@ -415,7 +438,7 @@ export class Schema implements CustomAttributeContainerProps {
 
   public toJson() {
     const schemaJson: { [value: string]: any } = {};
-    schemaJson.$schema = SCHEMAURL3_2; // $schema is required
+    schemaJson.$schema = SCHEMAURL3_2_JSON; // $schema is required
     schemaJson.name = this.name; // name is required
     schemaJson.version = this.schemaKey.version.toString(true);
     schemaJson.alias = this.alias; // alias is required
@@ -438,6 +461,51 @@ export class Schema implements CustomAttributeContainerProps {
     return schemaJson;
   }
 
+  /**
+   * Converts the schema to a DOM XML Document.
+   * @param schemaXml An empty DOM document to which the schema will be written
+   */
+  public async toXml(schemaXml: Document): Promise<Document> {
+    const schemaMetadata = schemaXml.createElement("ECSchema");
+    schemaMetadata.setAttribute("xmlns", SCHEMAURL3_2_XML);
+    schemaMetadata.setAttribute("version", this.schemaKey.version.toString());
+    schemaMetadata.setAttribute("schemaName", this.name);
+    schemaMetadata.setAttribute("alias", this.alias ? this.alias : "");
+    if (undefined !== this.label)
+      schemaMetadata.setAttribute("displayLabel", this.label);
+    if (undefined !== this.description)
+      schemaMetadata.setAttribute("description", this.description);
+
+    // Map used for CA serialization
+    const refSchemaMap = new Map<string, string>();
+
+    this.references.forEach(({ name, schemaKey, alias }) => {
+      const schemaRef = schemaXml.createElement("ECSchemaReference");
+      schemaRef.setAttribute("name", name);
+      schemaRef.setAttribute("version", schemaKey.version.toString());
+      schemaRef.setAttribute("alias", alias ? alias : "");
+      schemaMetadata.appendChild(schemaRef);
+      refSchemaMap.set(name, schemaKey.version.toString());
+    });
+
+    if (this._customAttributes) {
+      const parentElem = schemaXml.createElement("ECCustomAttributes");
+      for (const [name, attribute] of this._customAttributes) {
+        const caElem = await XmlSerializationUtils.writeCustomAttribute(name, attribute, schemaXml, this);
+        parentElem.appendChild(caElem);
+      }
+      schemaMetadata.appendChild(parentElem);
+    }
+
+    for (const [, item] of this._items) {
+      const itemXml = await item.toXml(schemaXml);
+      schemaMetadata.appendChild(itemXml);
+    }
+
+    schemaXml.appendChild(schemaMetadata);
+    return schemaXml;
+  }
+
   public deserializeSync(schemaProps: SchemaProps) {
     if (undefined === this._schemaKey) {
       const schemaName = schemaProps.name;
@@ -450,11 +518,14 @@ export class Schema implements CustomAttributeContainerProps {
         throw new ECObjectsError(ECObjectsStatus.InvalidECJson, `The Schema ${this.name} has the version '${this.schemaKey.version}' that does not match the provided version '${schemaProps.version}'.`);
     }
 
-    if (SCHEMAURL3_2 !== schemaProps.$schema) // TODO: Allow for 3.x URI versions to allow the API to read newer specs. (Start at 3.2 though)
+    if (SCHEMAURL3_2_JSON !== schemaProps.$schema && SCHEMAURL3_2_XML !== schemaProps.$schema) // TODO: Allow for 3.x URI versions to allow the API to read newer specs. (Start at 3.2 though)
       throw new ECObjectsError(ECObjectsStatus.MissingSchemaUrl, `The Schema ${this.name} has an unsupported namespace '${schemaProps.$schema}'.`);
 
-    if (undefined !== schemaProps.alias)
+    if (ECName.validate(schemaProps.alias)) {
       this._alias = schemaProps.alias;
+    } else {
+      throw new ECObjectsError(ECObjectsStatus.InvalidECJson, `The Schema ${schemaProps.name} does not have the required 'alias' attribute.`);
+    }
 
     if (undefined !== schemaProps.label)
       this._label = schemaProps.label;
@@ -493,7 +564,6 @@ export class Schema implements CustomAttributeContainerProps {
 
     return schema;
   }
-
 }
 
 /**

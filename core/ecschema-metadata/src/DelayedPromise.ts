@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 /**
@@ -125,5 +125,7 @@ export const DelayedPromiseWithProps = (class <TProps extends NoDelayedPromiseMe
   }
 }) as DelayedPromiseWithPropsConstructor;
 
-// Define the type of a DelayedPromiseWithProps instance
+/** Define the type of a DelayedPromiseWithProps instance
+ * @beta
+ */
 export type DelayedPromiseWithProps<TProps, TPayload> = Readonly<TProps> & DelayedPromise<TPayload>;

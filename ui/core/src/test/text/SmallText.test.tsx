@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { mount, shallow } from "enzyme";
 import * as React from "react";
@@ -19,8 +19,8 @@ describe("<SmallText />", () => {
   });
 
   it("has correct className", () => {
-    const wrapper = shallow(<SmallText />);
-    wrapper.find(".uicore-text-small").should.exist;
+    const wrapper = mount(<SmallText />);
+    wrapper.find(".uicore-text-small").length.should.eq(1);
   });
 
   it("has correct text", () => {

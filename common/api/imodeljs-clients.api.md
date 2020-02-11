@@ -37,10 +37,13 @@ export class AccessToken extends Token {
     // @internal
     static fromTokenString(tokenStr: string): AccessToken;
     // @internal
-    readonly isJwt: boolean;
+    get isJwt(): boolean;
     // @internal
     toTokenString(includePrefix?: IncludePrefix): string;
 }
+
+// @internal
+export function addSelectApplicationData(query: RequestQueryOptions): void;
 
 // @internal
 export function addSelectFileAccessKey(query: RequestQueryOptions): void;
@@ -61,7 +64,7 @@ export class AllLocksDeletedEvent extends BriefcaseEvent {
 // @internal (undocumented)
 export class ArgumentCheck {
     // (undocumented)
-    static defined(argumentName: string, argument?: any): void;
+    static defined(argumentName: string, argument?: any, allowEmpty?: boolean): void;
     // (undocumented)
     static definedNumber(argumentName: string, argument?: number): void;
     // (undocumented)
@@ -70,7 +73,7 @@ export class ArgumentCheck {
     static valid(argumentName: string, argument?: any): void;
     static validBriefcaseId(argumentName: string, argument?: number): void;
     // (undocumented)
-    static validChangeSetId(argumentName: string, argument?: string): void;
+    static validChangeSetId(argumentName: string, argument?: string, allowEmpty?: boolean): void;
     // (undocumented)
     static validGuid(argumentName: string, argument?: string): void;
 }
@@ -112,6 +115,8 @@ export class Briefcase extends WsgInstance {
     // (undocumented)
     accessMode?: BriefcaseAccessMode;
     acquiredDate?: string;
+    applicationId?: string;
+    applicationName?: string;
     briefcaseId?: number;
     downloadUrl?: string;
     fileDescription?: string;
@@ -158,15 +163,18 @@ export class BriefcaseHandler {
     }
 
 // @internal
-export class BriefcaseQuery extends Query {
+export class BriefcaseQuery extends WsgQuery {
     byId(id: number): this;
     getId(): number | undefined;
     ownedByMe(): this;
+    selectApplicationData(): this;
     selectDownloadUrl(): this;
 }
 
 // @beta
 export class ChangeSet extends WsgInstance {
+    applicationId?: string;
+    applicationName?: string;
     briefcaseId?: number;
     changesType?: ChangesType;
     description?: string;
@@ -184,7 +192,7 @@ export class ChangeSet extends WsgInstance {
     userCreated?: string;
 }
 
-// @beta
+// @internal
 export class ChangeSetCreatedEvent extends IModelHubGlobalEvent {
     // (undocumented)
     briefcaseId?: number;
@@ -232,6 +240,7 @@ export class ChangeSetQuery extends StringIdQuery {
     fromId(id: string): this;
     getVersionChangeSets(versionId: GuidString): this;
     latest(): this;
+    selectApplicationData(): this;
     selectDownloadUrl(): this;
 }
 
@@ -264,7 +273,7 @@ export class CheckpointHandler {
     }
 
 // @alpha
-export class CheckpointQuery extends Query {
+export class CheckpointQuery extends WsgQuery {
     byChangeSetId(changeSetId: string): this;
     nearestCheckpoint(targetChangeSetId: string): this;
     precedingCheckpoint(targetChangeSetId: string): this;
@@ -292,7 +301,7 @@ export abstract class Client {
 // @beta
 export enum ClientsLoggerCategory {
     Clients = "imodeljs-clients.Clients",
-    ECJson = "ECJson",
+    ECJson = "imodeljs-clients.ECJson",
     // @internal (undocumented)
     IModelBank = "imodeljs-clients.iModelBank",
     IModelHub = "imodeljs-clients.imodelhub",
@@ -301,7 +310,13 @@ export enum ClientsLoggerCategory {
     // (undocumented)
     Request = "imodeljs-clients.Request",
     // @internal (undocumented)
-    UlasClient = "ulasclient"
+    UlasClient = "imodeljs-clients.ulasclient"
+}
+
+// @beta
+export interface CloneIModelTemplate {
+    changeSetId?: string;
+    imodelId: string;
 }
 
 // @alpha
@@ -330,12 +345,12 @@ export class CodeHandler {
     constructor(handler: IModelBaseHandler);
     deleteAll(requestContext: AuthorizedClientRequestContext, iModelId: GuidString, briefcaseId: number): Promise<void>;
     get(requestContext: AuthorizedClientRequestContext, iModelId: GuidString, query?: CodeQuery): Promise<HubCode[]>;
-    readonly sequences: CodeSequenceHandler;
+    get sequences(): CodeSequenceHandler;
     update(requestContext: AuthorizedClientRequestContext, iModelId: GuidString, codes: HubCode[], updateOptions?: CodeUpdateOptions): Promise<HubCode[]>;
     }
 
 // @alpha
-export class CodeQuery extends Query {
+export class CodeQuery extends WsgQuery {
     constructor();
     byBriefcaseId(briefcaseId: number): this;
     byCodes(codes: HubCode[]): this;
@@ -344,7 +359,7 @@ export class CodeQuery extends Query {
     // @internal
     static defaultPageSize: number;
     // @internal
-    readonly isMultiCodeQuery: boolean;
+    get isMultiCodeQuery(): boolean;
     unavailableCodes(briefcaseId: number): this;
 }
 
@@ -388,10 +403,10 @@ export interface CodeUpdateOptions {
     unlimitedReporting?: boolean;
 }
 
-// @public (undocumented)
+// @public
 export class Config {
-    static readonly App: Config;
-    get(varName: string, defaultVal?: ValueType): any;
+    static get App(): Config;
+    get(varName: string, defaultVal?: boolean | string | number): any;
     getBoolean(name: string, defaultVal?: boolean): boolean;
     getContainer(): any;
     getNumber(name: string, defaultVal?: number): number;
@@ -401,8 +416,8 @@ export class Config {
     merge(source: any): void;
     query(varName: string): any;
     remove(varName: string): void;
-    set(varName: string, value: ValueType): void;
-    }
+    set(varName: string, value: boolean | string | number): void;
+}
 
 // @alpha
 export class ConflictingCodesError extends IModelHubError {
@@ -457,6 +472,8 @@ export class ConnectSettingsClient extends Client implements SettingsAdmin {
     deleteSharedSetting(requestContext: AuthorizedClientRequestContext, settingNamespace: string, settingName: string, applicationSpecific: boolean, projectId: string, iModelId?: string): Promise<SettingsResult>;
     // (undocumented)
     deleteUserSetting(requestContext: AuthorizedClientRequestContext, settingNamespace: string, settingName: string, applicationSpecific: boolean, projectId?: string, iModelId?: string): Promise<SettingsResult>;
+    // (undocumented)
+    formErrorResponse(response: Response): SettingsResult;
     getAccessToken(requestContext: ClientRequestContext, authSamlToken: AuthorizationToken): Promise<AccessToken>;
     // (undocumented)
     getSetting(requestContext: AuthorizedClientRequestContext, settingNamespace: string, settingName: string, applicationSpecific: boolean, projectId?: string, iModelId?: string): Promise<SettingsResult>;
@@ -522,6 +539,15 @@ export class DefaultCodeUpdateOptionsProvider {
 }
 
 // @internal
+export class DefaultIModelCreateOptionsProvider {
+    constructor();
+    assignOptions(options: IModelCreateOptions): Promise<void>;
+    // (undocumented)
+    protected _defaultOptions: IModelCreateOptions;
+    templateToString(options: IModelCreateOptions): string | undefined;
+}
+
+// @internal
 export class DefaultLockUpdateOptionsProvider {
     constructor();
     assignOptions(options: LockUpdateOptions): Promise<void>;
@@ -559,13 +585,16 @@ export class ECJsonTypeMap {
 }
 
 // @beta
+export type EmptyIModelTemplate = "Empty";
+
+// @beta
 export class EventHandler extends EventBaseHandler {
     // @internal
     constructor(handler: IModelBaseHandler);
     createListener(requestContext: ClientRequestContext, authenticationCallback: () => Promise<AccessToken>, subscriptionId: string, iModelId: GuidString, listener: (event: IModelHubEvent) => void): () => void;
     getEvent(requestContext: ClientRequestContext, sasToken: string, baseAddress: string, subscriptionId: string, timeout?: number): Promise<IModelHubEvent | undefined>;
     getSASToken(requestContext: AuthorizedClientRequestContext, iModelId: GuidString): Promise<EventSAS>;
-    readonly subscriptions: EventSubscriptionHandler;
+    get subscriptions(): EventSubscriptionHandler;
 }
 
 // @beta
@@ -586,33 +615,33 @@ export class EventSubscriptionHandler {
 }
 
 // @beta
-export type EventType = 
+export type EventType =
 /** Sent when one or more [[Lock]]s are updated. See [[LockEvent]].
  * @alpha Hide Lock API while focused on readonly viewing scenarios
  */
-"LockEvent" | 
+"LockEvent" |
 /** Sent when all [[Lock]]s for a [[Briefcase]] are deleted. See [[AllLocksDeletedEvent]].
  * @alpha Hide Lock API while focused on readonly viewing scenarios
  */
-"AllLocksDeletedEvent" | 
+"AllLocksDeletedEvent" |
 /** Sent when a [[ChangeSet]] is successfully pushed. See [[ChangeSetPostPushEvent]]. */
-"ChangeSetPostPushEvent" | 
+"ChangeSetPostPushEvent" |
 /** Sent when a [[ChangeSet]] push has started. See [[ChangeSetPrePushEvent]]. */
-"ChangeSetPrePushEvent" | 
+"ChangeSetPrePushEvent" |
 /** Sent when one or more [Code]($common)s are updated. See [[CodeEvent]].
  * @alpha Hide Code API while focused on readonly viewing scenarios
  */
-"CodeEvent" | 
+"CodeEvent" |
 /** Sent when all [Code]($common)s for a [[Briefcase]] are deleted. See [[AllCodesDeletedEvent]].
  * @alpha Hide Code API while focused on readonly viewing scenarios
  */
-"AllCodesDeletedEvent" | 
+"AllCodesDeletedEvent" |
 /** Sent when a [[Briefcase]] is deleted. See [[BriefcaseDeletedEvent]].
  * @internal
  */
-"BriefcaseDeletedEvent" | 
+"BriefcaseDeletedEvent" |
 /** Sent when an iModel is deleted. See [[iModelDeletedEvent]]. */
-"iModelDeletedEvent" | 
+"iModelDeletedEvent" |
 /** Sent when a new named [[Version]] is created. See [[VersionEvent]]. */
 "VersionEvent";
 
@@ -693,7 +722,7 @@ export interface FileHandler {
 // @internal
 export function getArrayBuffer(requestContext: ClientRequestContext, url: string): Promise<any>;
 
-// @beta
+// @internal
 export enum GetEventOperationType {
     Destructive = 0,
     Peek = 1
@@ -702,21 +731,20 @@ export enum GetEventOperationType {
 // @internal
 export function getJson(requestContext: ClientRequestContext, url: string): Promise<any>;
 
-// @beta
+// @internal
 export class GlobalEventHandler extends EventBaseHandler {
-    // @internal
     constructor(handler: IModelBaseHandler);
     createListener(requestContext: AuthorizedClientRequestContext, authenticationCallback: () => Promise<AccessToken>, subscriptionInstanceId: string, listener: (event: IModelHubGlobalEvent) => void): () => void;
     getEvent(requestContext: ClientRequestContext, sasToken: string, baseAddress: string, subscriptionId: string, timeout?: number, getOperation?: GetEventOperationType): Promise<IModelHubGlobalEvent | undefined>;
     getSASToken(requestContext: AuthorizedClientRequestContext): Promise<GlobalEventSAS>;
-    readonly subscriptions: GlobalEventSubscriptionHandler;
+    get subscriptions(): GlobalEventSubscriptionHandler;
 }
 
-// @beta
+// @internal
 export class GlobalEventSAS extends BaseEventSAS {
 }
 
-// @beta
+// @internal
 export class GlobalEventSubscription extends WsgInstance {
     // (undocumented)
     eventTypes?: GlobalEventType[];
@@ -724,35 +752,34 @@ export class GlobalEventSubscription extends WsgInstance {
     subscriptionId?: string;
 }
 
-// @beta
+// @internal
 export class GlobalEventSubscriptionHandler {
-    // @internal
     constructor(handler: IModelBaseHandler);
     create(requestContext: AuthorizedClientRequestContext, subscriptionId: GuidString, globalEvents: GlobalEventType[]): Promise<GlobalEventSubscription>;
     delete(requestContext: AuthorizedClientRequestContext, subscriptionId: string): Promise<void>;
     update(requestContext: AuthorizedClientRequestContext, subscription: GlobalEventSubscription): Promise<GlobalEventSubscription>;
 }
 
-// @beta
-export type GlobalEventType = 
+// @internal
+export type GlobalEventType =
 /** Sent when an iModel is put into the archive. See [[SoftiModelDeleteEvent]].
- * @beta Rename to SoftIModelDeleteEvent
+ * @internal Rename to SoftIModelDeleteEvent
  */
-"SoftiModelDeleteEvent" | 
+"SoftiModelDeleteEvent" |
 /** Sent when an archived iModel is completely deleted from the storage. See [[HardiModelDeleteEvent]].
- * @beta Rename to HardIModelDeleteEvent
+ * @internal Rename to HardIModelDeleteEvent
  */
-"HardiModelDeleteEvent" | 
+"HardiModelDeleteEvent" |
 /** Sent when an iModel is created. See [[IModelCreatedEvent]].
- * @beta Rename to IModelCreatedEvent
+ * @internal Rename to IModelCreatedEvent
  */
-"iModelCreatedEvent" | 
+"iModelCreatedEvent" |
 /** Sent when a [[ChangeSet]] is pushed. See [[ChangeSetCreatedEvent]]. */
-"ChangeSetCreatedEvent" | 
+"ChangeSetCreatedEvent" |
 /** Sent when a named [[Version]] is created. See [[NamedVersionCreatedEvent]]. */
 "NamedVersionCreatedEvent";
 
-// @beta
+// @internal
 export class HardiModelDeleteEvent extends IModelHubGlobalEvent {
 }
 
@@ -765,6 +792,7 @@ export class HubCode extends CodeBase {
 export class HubIModel extends WsgInstance {
     createdDate?: string;
     description?: string;
+    extent?: number[];
     id?: GuidString;
     // @internal
     iModelTemplate?: string;
@@ -779,12 +807,6 @@ export class HubUserInfo extends WsgInstance {
     firstName?: string;
     id?: string;
     lastName?: string;
-}
-
-// @alpha
-export interface IAngularOidcFrontendClient extends IOidcFrontendClient {
-    // (undocumented)
-    handleRedirectCallback(): Promise<boolean>;
 }
 
 // @beta
@@ -862,32 +884,43 @@ export class IModelBaseHandler extends WsgClient {
 export abstract class IModelClient {
     constructor(baseHandler: IModelBaseHandler, fileHandler?: FileHandler);
     // @internal
-    readonly briefcases: BriefcaseHandler;
-    readonly changeSets: ChangeSetHandler;
+    get briefcases(): BriefcaseHandler;
+    get changeSets(): ChangeSetHandler;
     // @alpha
-    readonly checkpoints: CheckpointHandler;
+    get checkpoints(): CheckpointHandler;
     // @alpha
-    readonly codes: CodeHandler;
-    readonly events: EventHandler;
-    readonly globalEvents: GlobalEventHandler;
+    get codes(): CodeHandler;
+    get events(): EventHandler;
+    // @internal
+    get globalEvents(): GlobalEventHandler;
     // (undocumented)
     protected _handler: IModelBaseHandler;
-    readonly iModel: IModelHandler;
-    readonly iModels: IModelsHandler;
+    get iModel(): IModelHandler;
+    get iModels(): IModelsHandler;
     // @alpha
-    readonly locks: LockHandler;
+    get locks(): LockHandler;
     // @internal
-    readonly requestOptions: CustomRequestOptions;
+    get requestOptions(): CustomRequestOptions;
     setFileHandler(fileHandler: FileHandler): void;
     // @alpha
-    readonly thumbnails: ThumbnailHandler;
+    get thumbnails(): ThumbnailHandler;
     // @alpha
-    readonly users: UserInfoHandler;
-    readonly versions: VersionHandler;
+    get users(): UserInfoHandler;
+    get versions(): VersionHandler;
+}
+
+// @internal
+export class IModelCreatedEvent extends IModelHubGlobalEvent {
 }
 
 // @beta
-export class IModelCreatedEvent extends IModelHubGlobalEvent {
+export interface IModelCreateOptions {
+    description?: string;
+    extent?: number[];
+    path?: string;
+    progressCallback?: (progress: ProgressInfo) => void;
+    template?: CloneIModelTemplate | EmptyIModelTemplate;
+    timeOutInMilliseconds?: number;
 }
 
 // @beta
@@ -908,7 +941,7 @@ export interface IModelFileSystemContextProps {
 export class IModelHandler {
     // @internal
     constructor(handler: IModelsHandler);
-    create(requestContext: AuthorizedClientRequestContext, contextId: string, name: string, path?: string, description?: string, progressCallback?: (progress: ProgressInfo) => void, timeOutInMilliseconds?: number): Promise<HubIModel>;
+    create(requestContext: AuthorizedClientRequestContext, contextId: string, name: string, createOptions?: IModelCreateOptions): Promise<HubIModel>;
     delete(requestContext: AuthorizedClientRequestContext, contextId: string): Promise<void>;
     download(requestContext: AuthorizedClientRequestContext, contextId: string, path: string, progressCallback?: (progress: ProgressInfo) => void): Promise<void>;
     get(requestContext: AuthorizedClientRequestContext, contextId: string): Promise<HubIModel>;
@@ -967,11 +1000,10 @@ export abstract class IModelHubEvent extends IModelHubBaseEvent {
     iModelId?: GuidString;
 }
 
-// @beta
+// @internal
 export abstract class IModelHubGlobalEvent extends IModelHubBaseEvent {
     contextId?: string;
     contextTypeId?: ContextType;
-    // @internal
     fromJson(obj: any): void;
     iModelId?: GuidString;
     projectId?: string;
@@ -986,13 +1018,13 @@ export class IModelQuery extends InstanceIdQuery {
 export class IModelsHandler {
     // @internal
     constructor(handler: IModelBaseHandler, fileHandler?: FileHandler);
-    create(requestContext: AuthorizedClientRequestContext, contextId: string, name: string, path?: string, description?: string, progressCallback?: (progress: ProgressInfo) => void, timeOutInMilliseconds?: number): Promise<HubIModel>;
+    create(requestContext: AuthorizedClientRequestContext, contextId: string, name: string, createOptions?: IModelCreateOptions): Promise<HubIModel>;
     delete(requestContext: AuthorizedClientRequestContext, contextId: string, iModelId: GuidString): Promise<void>;
     download(requestContext: AuthorizedClientRequestContext, iModelId: GuidString, path: string, progressCallback?: (progress: ProgressInfo) => void): Promise<void>;
     get(requestContext: AuthorizedClientRequestContext, contextId: string, query?: IModelQuery): Promise<HubIModel[]>;
     getInitializationState(requestContext: AuthorizedClientRequestContext, iModelId: GuidString): Promise<InitializationState>;
     update(requestContext: AuthorizedClientRequestContext, contextId: string, imodel: HubIModel): Promise<HubIModel>;
-}
+    }
 
 // @internal @deprecated
 export class ImsActiveSecureTokenClient extends Client {
@@ -1027,9 +1059,9 @@ export class ImsFederatedAuthenticationClient extends Client {
 // @internal @deprecated
 export class ImsTestAuthorizationClient implements IAuthorizationClient {
     getAccessToken(requestContext?: ClientRequestContext): Promise<AccessToken>;
-    readonly hasExpired: boolean;
-    readonly hasSignedIn: boolean;
-    readonly isAuthorized: boolean;
+    get hasExpired(): boolean;
+    get hasSignedIn(): boolean;
+    get isAuthorized(): boolean;
     // (undocumented)
     signIn(requestContext: ClientRequestContext, userCredentials: ImsUserCredentials, relyingPartyUri?: string): Promise<AccessToken>;
     }
@@ -1062,7 +1094,7 @@ export enum InitializationState {
 }
 
 // @beta
-export class InstanceIdQuery extends Query {
+export class InstanceIdQuery extends WsgQuery {
     byId(id: GuidString): this;
     // @internal (undocumented)
     protected _byId?: GuidString;
@@ -1128,7 +1160,7 @@ export enum LockLevel {
 }
 
 // @alpha
-export class LockQuery extends Query {
+export class LockQuery extends WsgQuery {
     constructor();
     byBriefcaseId(briefcaseId: number): this;
     byLockLevel(lockLevel: LockLevel): this;
@@ -1140,7 +1172,7 @@ export class LockQuery extends Query {
     // @internal
     static defaultPageSize: number;
     // @internal
-    readonly isMultiLockQuery: boolean;
+    get isMultiLockQuery(): boolean;
     unavailableLocks(briefcaseId: number, lastChangeSetIndex: string): this;
 }
 
@@ -1193,7 +1225,7 @@ export class MultiLock extends LockBase {
     objectIds?: Id64String[];
 }
 
-// @beta
+// @internal
 export class NamedVersionCreatedEvent extends IModelHubGlobalEvent {
     // (undocumented)
     changeSetId?: string;
@@ -1214,9 +1246,17 @@ export abstract class OidcClient extends Client {
 
 // @beta
 export interface OidcFrontendClientConfiguration {
+    // @internal
+    authority?: string;
     clientId: string;
+    // @internal
+    clockSkew?: number;
+    // @internal
+    metadata?: any;
     postSignoutRedirectUri?: string;
     redirectUri: string;
+    // @internal
+    responseType?: string;
     scope: string;
 }
 
@@ -1270,24 +1310,100 @@ export class Project extends CommonContext {
     type?: string;
 }
 
-// @beta
-export class Query {
-    // @internal
-    protected addFilter(filter: string, operator?: "and" | "or"): void;
-    // @internal
-    protected addSelect(select: string): this;
-    filter(filter: string): this;
-    // @internal
-    getQueryOptions(): RequestQueryOptions;
-    orderBy(orderBy: string): this;
-    pageSize(n: number): this;
+// @alpha
+export class ProjectShareClient extends WsgClient {
+    constructor();
     // (undocumented)
-    protected _query: RequestQueryOptions;
-    // @internal
-    resetQueryOptions(): void;
-    select(select: string): this;
-    skip(n: number): this;
-    top(n: number): this;
+    static readonly configRegion = "imjs_project_share_client_region";
+    // (undocumented)
+    static readonly configRelyingPartyUri = "imjs_project_share_client_relying_party_uri";
+    // (undocumented)
+    static readonly configURL = "imjs_project_share_client_url";
+    protected getDefaultUrl(): string;
+    getFiles(requestContext: AuthorizedClientRequestContext, contextId: GuidString, query: ProjectShareQuery): Promise<ProjectShareFile[]>;
+    getFolders(requestContext: AuthorizedClientRequestContext, contextId: GuidString, query: ProjectShareQuery): Promise<ProjectShareFolder[]>;
+    // (undocumented)
+    protected getRegion(): number | undefined;
+    // (undocumented)
+    protected getRelyingPartyUrl(): string;
+    getUrl(requestContext: AuthorizedClientRequestContext, excludeApiVersion?: boolean): Promise<string>;
+    protected getUrlSearchKey(): string;
+    readFile(requestContext: AuthorizedClientRequestContext, file: ProjectShareFile, maxByteCount?: number): Promise<Uint8Array>;
+    readFileNodeJs(requestContext: AuthorizedClientRequestContext, file: ProjectShareFile): Promise<Uint8Array>;
+    // (undocumented)
+    static readonly searchKey: string;
+    updateCustomProperties(requestContext: AuthorizedClientRequestContext, contextId: GuidString, file: ProjectShareFile, updateProperties?: Array<{
+        Name: string;
+        Value: string;
+    }>, deleteProperties?: string[]): Promise<ProjectShareFile>;
+}
+
+// @alpha
+export class ProjectShareFile extends WsgInstance {
+    accessUrl?: string;
+    // (undocumented)
+    contentType?: string;
+    // (undocumented)
+    createdBy?: string;
+    // (undocumented)
+    createdTimeStamp?: string;
+    // (undocumented)
+    customProperties?: any;
+    // (undocumented)
+    instanceId?: string;
+    // (undocumented)
+    modifiedBy?: string;
+    // (undocumented)
+    modifiedTimeStamp?: string;
+    // (undocumented)
+    name?: string;
+    // (undocumented)
+    parentFolderWsgId?: string;
+    // (undocumented)
+    path?: string;
+    // (undocumented)
+    size?: number;
+}
+
+// @alpha
+export class ProjectShareFileQuery extends ProjectShareQuery {
+    startsWithPath(contextId: GuidString, path: string): this;
+}
+
+// @alpha
+export class ProjectShareFolder extends WsgInstance {
+    // (undocumented)
+    contentType?: string;
+    // (undocumented)
+    createdBy?: string;
+    // (undocumented)
+    createdTimeStamp?: string;
+    // (undocumented)
+    modifiedBy?: string;
+    // (undocumented)
+    modifiedTimeStamp?: string;
+    // (undocumented)
+    name?: string;
+    // (undocumented)
+    parentFolderId?: string;
+    // (undocumented)
+    path?: string;
+    // (undocumented)
+    size?: number;
+}
+
+// @alpha
+export class ProjectShareFolderQuery extends ProjectShareQuery {
+    inPath(contextId: GuidString, path: string): this;
+}
+
+// @alpha
+export class ProjectShareQuery extends WsgQuery {
+    byWsgIds(...ids: GuidString[]): this;
+    inFolder(folderId: GuidString): this;
+    inFolderWithNameLike(folderId: GuidString, searchName: string): this;
+    inRootFolder(contextId: GuidString): this;
+    startsWithPathAndNameLike(contextId: GuidString, path: string, nameLike?: string): this;
 }
 
 // @internal
@@ -1321,6 +1437,10 @@ export class RealityData extends WsgInstance {
     createdTimestamp?: string;
     // (undocumented)
     creatorId?: string;
+    // (undocumented)
+    dataAcquirer?: string;
+    // (undocumented)
+    dataAcquisitionDate?: string;
     // (undocumented)
     dataLocationGuid?: string;
     // (undocumented)
@@ -1359,6 +1479,8 @@ export class RealityData extends WsgInstance {
     ownerId?: string;
     // (undocumented)
     projectId: undefined | string;
+    // (undocumented)
+    referenceElevation?: number;
     // (undocumented)
     resolutionInMeters?: string;
     // (undocumented)
@@ -1404,22 +1526,30 @@ export class RealityDataServicesClient extends WsgClient {
     constructor();
     // (undocumented)
     static readonly configRelyingPartyUri = "imjs_reality_data_service_relying_party_uri";
-    createRealityData(requestContext: AuthorizedClientRequestContext, projectId: string, realityData: RealityData): Promise<RealityData>;
+    createRealityData(requestContext: AuthorizedClientRequestContext, projectId: string | undefined, realityData: RealityData): Promise<RealityData>;
     createRealityDataRelationship(requestContext: AuthorizedClientRequestContext, projectId: string, relationship: RealityDataRelationship): Promise<RealityDataRelationship>;
-    deleteRealityData(requestContext: AuthorizedClientRequestContext, projectId: string, realityDataId: string): Promise<void>;
+    deleteRealityData(requestContext: AuthorizedClientRequestContext, projectId: string | undefined, realityDataId: string): Promise<void>;
     deleteRealityDataRelationship(requestContext: AuthorizedClientRequestContext, projectId: string, relationshipId: string): Promise<void>;
-    getFileAccessKey(requestContext: AuthorizedClientRequestContext, projectId: string, tilesId: string, writeAccess?: boolean): Promise<FileAccessKey[]>;
-    getRealityData(requestContext: AuthorizedClientRequestContext, projectId: string, tilesId: string): Promise<RealityData>;
+    getFileAccessKey(requestContext: AuthorizedClientRequestContext, projectId: string | undefined, tilesId: string, writeAccess?: boolean): Promise<FileAccessKey[]>;
+    getRealityData(requestContext: AuthorizedClientRequestContext, projectId: string | undefined, tilesId: string): Promise<RealityData>;
     getRealityDataIdFromUrl(url: string): string | undefined;
-    getRealityDataInProject(requestContext: AuthorizedClientRequestContext, projectId: string): Promise<RealityData[]>;
-    getRealityDataInProjectOverlapping(requestContext: AuthorizedClientRequestContext, projectId: string, range: Range2d): Promise<RealityData[]>;
+    getRealityDataInProject(requestContext: AuthorizedClientRequestContext, projectId: string, type?: string): Promise<RealityData[]>;
+    getRealityDataInProjectOverlapping(requestContext: AuthorizedClientRequestContext, projectId: string, range: Range2d, type?: string): Promise<RealityData[]>;
     getRealityDataRelationships(requestContext: AuthorizedClientRequestContext, projectId: string, realityDataId: string): Promise<RealityDataRelationship[]>;
-    getRealityDataUrl(requestContext: ClientRequestContext, projectId: string, tilesId: string): Promise<string>;
+    getRealityDatas(requestContext: AuthorizedClientRequestContext, projectId: string | undefined, queryOptions: RealityDataServicesRequestQueryOptions): Promise<RealityData[]>;
+    getRealityDataUrl(requestContext: ClientRequestContext, projectId: string | undefined, tilesId: string): Promise<string>;
     protected getRelyingPartyUrl(): string;
     protected getUrlSearchKey(): string;
     // (undocumented)
     static readonly searchKey: string;
-    updateRealityData(requestContext: AuthorizedClientRequestContext, projectId: string, realityData: RealityData): Promise<RealityData>;
+    updateRealityData(requestContext: AuthorizedClientRequestContext, projectId: string | undefined, realityData: RealityData): Promise<RealityData>;
+}
+
+// @internal
+export interface RealityDataServicesRequestQueryOptions extends RequestQueryOptions {
+    action?: string;
+    polygon?: string;
+    project?: string;
 }
 
 // @internal
@@ -1518,6 +1648,8 @@ export interface Response {
     header: any;
     // (undocumented)
     status: number;
+    // (undocumented)
+    text: string | undefined;
 }
 
 // @beta
@@ -1630,12 +1762,12 @@ export enum SettingsStatus {
 export class SmallThumbnail extends Thumbnail {
 }
 
-// @beta
+// @internal
 export class SoftiModelDeleteEvent extends IModelHubGlobalEvent {
 }
 
 // @beta
-export class StringIdQuery extends Query {
+export class StringIdQuery extends WsgQuery {
     byId(id: string): this;
     // @internal (undocumented)
     protected _byId?: string;
@@ -1664,7 +1796,7 @@ export class ThumbnailQuery extends InstanceIdQuery {
     byVersionId(versionId: GuidString): this;
 }
 
-// @alpha
+// @beta
 export type ThumbnailSize = "Small" | "Large";
 
 // @alpha
@@ -1706,12 +1838,14 @@ export abstract class Token {
     protected _x509Certificate?: string;
 }
 
-// @internal
+// @internal @deprecated
 export class UlasClient extends Client {
     constructor();
     getAccessToken(requestContext: ClientRequestContext, authorizationToken: AuthorizationToken): Promise<AccessToken>;
     protected getUrlSearchKey(): string;
+    // @deprecated
     logFeature(requestContext: AuthorizedClientRequestContext, ...entries: FeatureLogEntry[]): Promise<LogPostingResponse>;
+    // @deprecated
     logUsage(requestContext: AuthorizedClientRequestContext, entry: UsageLogEntry): Promise<LogPostingResponse>;
     // (undocumented)
     protected setupOptionDefaults(options: RequestOptions): Promise<void>;
@@ -1776,21 +1910,21 @@ export enum UsageType {
 // @beta
 export class UserInfo {
     constructor(
-    id: string, 
+    id: string,
     email?: {
         id: string;
         isVerified?: boolean | undefined;
-    } | undefined, 
+    } | undefined,
     profile?: {
         firstName: string;
         lastName: string;
         name?: string | undefined;
         preferredUserName?: string | undefined;
-    } | undefined, 
+    } | undefined,
     organization?: {
         id: string;
         name: string;
-    } | undefined, 
+    } | undefined,
     featureTracking?: {
         ultimateSite: string;
         usageCountryIso: string;
@@ -1803,7 +1937,6 @@ export class UserInfo {
         ultimateSite: string;
         usageCountryIso: string;
     } | undefined;
-    // (undocumented)
     static fromJson(jsonObj: any): UserInfo | undefined;
     id: string;
     organization?: {
@@ -1823,11 +1956,11 @@ export class UserInfoHandler {
     // @internal
     constructor(handler: IModelBaseHandler);
     get(requestContext: AuthorizedClientRequestContext, iModelId: GuidString, query?: UserInfoQuery): Promise<HubUserInfo[]>;
-    readonly statistics: UserStatisticsHandler;
+    get statistics(): UserStatisticsHandler;
 }
 
 // @alpha
-export class UserInfoQuery extends Query {
+export class UserInfoQuery extends WsgQuery {
     byId(id: string): this;
     // @internal (undocumented)
     protected _byId?: string;
@@ -1835,7 +1968,7 @@ export class UserInfoQuery extends Query {
     // @internal
     getId(): string | undefined;
     // @internal (undocumented)
-    readonly isQueriedByIds: boolean;
+    get isQueriedByIds(): boolean;
     }
 
 // @alpha
@@ -1854,7 +1987,7 @@ export class UserStatisticsHandler {
     }
 
 // @alpha
-export class UserStatisticsQuery extends Query {
+export class UserStatisticsQuery extends WsgQuery {
     // @internal
     constructor();
     byId(id: string): this;
@@ -1864,7 +1997,7 @@ export class UserStatisticsQuery extends Query {
     // @internal
     getId(): string | undefined;
     // @internal
-    readonly isQueriedByIds: boolean;
+    get isQueriedByIds(): boolean;
     selectAll(): this;
     selectBriefcasesCount(): this;
     selectLastChangeSetPushDate(): this;
@@ -1872,7 +2005,7 @@ export class UserStatisticsQuery extends Query {
     selectPushedChangeSetsCount(): this;
     }
 
-// @public (undocumented)
+// @public @deprecated (undocumented)
 export type ValueType = string | boolean | number;
 
 // @beta
@@ -1908,9 +2041,8 @@ export class VersionHandler {
 
 // @beta
 export class VersionQuery extends InstanceIdQuery {
-    byChangeSet(changesetId: string): this;
+    byChangeSet(changeSetId: string): this;
     byName(name: string): this;
-    // @alpha
     selectThumbnailId(...sizes: ThumbnailSize[]): this;
 }
 
@@ -1955,6 +2087,26 @@ export abstract class WsgInstance extends ECInstance {
     eTag?: string;
     // (undocumented)
     wsgId: string;
+}
+
+// @beta
+export class WsgQuery {
+    // @internal
+    protected addFilter(filter: string, operator?: "and" | "or"): void;
+    // @internal
+    protected addSelect(select: string): this;
+    filter(filter: string): this;
+    // @internal
+    getQueryOptions(): RequestQueryOptions;
+    orderBy(orderBy: string): this;
+    pageSize(n: number): this;
+    // (undocumented)
+    protected _query: RequestQueryOptions;
+    // @internal
+    resetQueryOptions(): void;
+    select(select: string): this;
+    skip(n: number): this;
+    top(n: number): this;
 }
 
 // @beta

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { expect } from "chai";
@@ -26,8 +26,8 @@ describe("CustomAttribute Rules Tests", () => {
 
   beforeEach(async () => {
     context = new SchemaContext();
-    schema = new Schema(context, "TestSchema", 1, 0, 0);
-    caSchema = new Schema(context, "TestCASchema", 1, 0, 0);
+    schema = new Schema(context, "TestSchema", "ts", 1, 0, 0);
+    caSchema = new Schema(context, "TestCASchema", "ts", 1, 0, 0);
     await (schema as MutableSchema).addReference(caSchema);
   });
 

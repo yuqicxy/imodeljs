@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Logging */
+/** @packageDocumentation
+ * @module Logging
+ */
 
 import { Writable } from "stream";
 import * as domain from "domain";
@@ -27,8 +29,6 @@ export interface IFluentdConfig {
   fluentdTimeout?: number;
   /** The URL of the seq server to send logs. Defaults to localhost. */
   seqServerUrl?: string;
-  /** The port of the seq server. Defaults to 5341. */
-  seqServerPort?: number;
   /** The API Key to use when sending logs to Seq */
   seqApiKey?: string;
 }
@@ -40,7 +40,6 @@ export class PostFluentd implements GenericPost {
     customHeaders["content-type"] = "application/json";
     customHeaders["seq-server"] = config.seqServerUrl;
     customHeaders["seq-apikey"] = config.seqApiKey;
-    customHeaders["seq-port"] = config.seqServerPort;
     // TODO: Handle SEQ_PORT (on fluentd side as well) and use kabab case instead of snake case.
     return {
       uri: config.fluentdHost + ":" + config.fluentdPort + "/seqlogging",
@@ -120,7 +119,7 @@ export class FluentdLoggerStream extends Writable {
       try {
         packet = JSON.parse(chunk);
         if (packet.hasOwnProperty("level")) {
-          packet.level = this.mapLevelToString(chunk.level);
+          packet.level = this.mapLevelToString(packet.level);
         }
         packet = JSON.stringify(packet);
       } catch (error) {

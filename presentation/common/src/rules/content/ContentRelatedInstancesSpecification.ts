@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 import { ContentSpecificationBase, ContentSpecificationTypes } from "./ContentSpecification";
 import { RelationshipDirection } from "../RelationshipDirection";
@@ -58,7 +60,7 @@ export interface ContentRelatedInstancesSpecification extends ContentSpecificati
   /**
    * Condition for filtering instances of defined related classes.
    *
-   * **See:** [ECExpressions available in instance filter]($docs/learning/content/ECExpressions.md#instance-filter)
+   * **See:** [ECExpressions available in instance filter]($docs/learning/presentation/Content/ECExpressions.md#instance-filter)
    */
   instanceFilter?: string;
 }

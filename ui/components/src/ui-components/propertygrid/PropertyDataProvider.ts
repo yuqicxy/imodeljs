@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PropertyGrid */
+/** @packageDocumentation
+ * @module PropertyGrid
+ */
 
-import { BeEvent } from "@bentley/bentleyjs-core";
-import { PropertyRecord } from "@bentley/imodeljs-frontend";
+import { BeEvent, Id64String } from "@bentley/bentleyjs-core";
+import { PropertyRecord, IModelConnection } from "@bentley/imodeljs-frontend";
 
 /**
  * Contains metadata about a group of Properties.
@@ -22,7 +24,7 @@ export interface PropertyCategory {
  * @public
  */
 export interface PropertyData {
-  label: string;
+  label: string | PropertyRecord;
   description?: string;
   categories: PropertyCategory[];
   records: { [categoryName: string]: PropertyRecord[] };
@@ -48,4 +50,14 @@ export interface IPropertyDataProvider {
   getData: (() => Promise<PropertyData>);
   /** Property data change event. */
   onDataChanged: PropertyDataChangeEvent;
+}
+
+/**
+ * An interface for element property data provider which returns
+ * property data for the provided iModel element
+ * @beta
+ */
+export interface IElementPropertyDataProvider {
+  /** Returns property data. */
+  getData: (imodel: IModelConnection, elementId: Id64String) => Promise<PropertyData>;
 }

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 
@@ -73,8 +73,8 @@ export class ViewportDialog extends React.Component<ViewportDialogProps, Viewpor
     /* Demo values */
     const width = 400;
     const height = 300;
-    const x = window.innerWidth - width - 90;
-    const y = window.innerHeight - height - 90;
+    const x = window.innerWidth - width - 50;
+    const y = window.innerHeight - height - 50;
 
     return (
       <ModelessDialog

@@ -1,7 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Authentication
+ */
 
 import { AccessToken, IncludePrefix } from "@bentley/imodeljs-clients";
 import { GrantParams, TokenSet } from "openid-client";
@@ -16,7 +19,6 @@ export type OidcDelegationClientConfiguration = OidcBackendClientConfiguration;
  */
 export class OidcDelegationClient extends OidcBackendClient {
   /** Creates an instance of OidcBackendClient.
-   * @param deploymentEnv Deployment environment.
    */
   public constructor(configuration: OidcDelegationClientConfiguration) {
     super(configuration);

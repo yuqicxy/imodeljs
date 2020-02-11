@@ -1,21 +1,23 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PropertyGrid */
-
+/** @packageDocumentation
+ * @module PropertyGrid
+ */
 import * as React from "react";
 import classnames from "classnames";
-import ResizeObserver from "resize-observer-polyfill";
+import ReactResizeDetector from "react-resize-detector";
 
 import { DisposeFunc } from "@bentley/bentleyjs-core";
 import { Orientation, Spinner, SpinnerSize, CommonProps } from "@bentley/ui-core";
-import { PropertyRecord, PropertyValueFormat } from "@bentley/imodeljs-frontend";
+import { PropertyRecord, PropertyValueFormat, ArrayValue, StructValue } from "@bentley/imodeljs-frontend";
 import { IPropertyDataProvider, PropertyCategory, PropertyData } from "../PropertyDataProvider";
 import { SelectablePropertyBlock } from "./SelectablePropertyBlock";
 import { PropertyValueRendererManager } from "../../properties/ValueRendererManager";
 import { PropertyUpdatedArgs } from "../../editors/EditorContainer";
-
+import { matchLinks } from "../../common/Links";
+import { ActionButtonRenderer } from "../../properties/renderers/ActionButtonRenderer";
 import "./PropertyGrid.scss";
 
 /** Properties for [[PropertyGrid]] React component
@@ -45,11 +47,20 @@ export interface PropertyGridProps extends CommonProps {
   isPropertyEditingEnabled?: boolean;
   /** Callback for when properties are being edited @beta */
   onPropertyEditing?: (args: PropertyEditingArgs, category: PropertyCategory) => void;
+  /** Callback for when links in properties are being clicked @beta */
+  onPropertyLinkClick?: (property: PropertyRecord, text: string) => void;
   /** Callback for when properties are updated @beta */
   onPropertyUpdated?: (args: PropertyUpdatedArgs, category: PropertyCategory) => Promise<boolean>;
-
   /** Custom property value renderer manager */
   propertyValueRendererManager?: PropertyValueRendererManager;
+
+  /** Indicates whether the orientation is fixed and does not auto-switch to Vertical when the width is too narrow. Defaults to false. @beta */
+  isOrientationFixed?: boolean;
+  /** The minimum width before the auto-switch to Vertical when the width is too narrow. Defaults to 300. @beta */
+  horizontalOrientationMinWidth?: number;
+
+  /** Array of action button renderers for each property record @beta */
+  actionButtonRenderers?: ActionButtonRenderer[];
 }
 
 /** Arguments for the Property Editing event callback
@@ -95,6 +106,8 @@ interface PropertyGridState {
   orientation: Orientation;
   /** If property grid currently loading data, the loading start time  */
   loadStart?: Date;
+  /** Width of PropertyGrid */
+  width: number;
 }
 
 /** PropertyGrid React component.
@@ -105,18 +118,15 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
   private _isMounted = false;
   private _isInDataRequest = false;
   private _hasPendingDataRequest = false;
-  private _gridRef = React.createRef<HTMLDivElement>();
-  private _gridResizeSensor: ResizeObserver;
-
-  public readonly state: Readonly<PropertyGridState> = {
-    categories: [],
-    orientation: this.props.orientation ? this.props.orientation : Orientation.Horizontal,
-  };
 
   /** @internal */
   constructor(props: PropertyGridProps) {
     super(props);
-    this._gridResizeSensor = new ResizeObserver(this._onGridResize);
+    this.state = {
+      categories: [],
+      orientation: this.getPreferredOrientation(),
+      width: 0,
+    };
   }
 
   /** @internal */
@@ -126,51 +136,44 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
 
     // tslint:disable-next-line:no-floating-promises
     this.gatherData();
-
-    this.updateOrientation(this.state.orientation, this.props.orientation);
-
-    if (this._gridRef.current) {
-      this._gridResizeSensor.observe(this._gridRef.current);
-    }
   }
 
   /** @internal */
   public componentWillUnmount() {
+    // istanbul ignore else
     if (this._dataChangesListenerDisposeFunc) {
       this._dataChangesListenerDisposeFunc();
       this._dataChangesListenerDisposeFunc = undefined;
     }
-    this._gridResizeSensor.disconnect();
     this._isMounted = false;
   }
 
   public componentDidUpdate(prevProps: PropertyGridProps) {
     if (this.props.dataProvider !== prevProps.dataProvider) {
+      // istanbul ignore else
       if (this._dataChangesListenerDisposeFunc)
         this._dataChangesListenerDisposeFunc();
       this._dataChangesListenerDisposeFunc = this.props.dataProvider.onDataChanged.addListener(this._onPropertyDataChanged);
     }
 
-    this.updateOrientation(this.state.orientation, this.props.orientation);
+    if (this.props.orientation !== prevProps.orientation
+      || this.props.isOrientationFixed !== prevProps.isOrientationFixed
+      || this.props.horizontalOrientationMinWidth !== prevProps.horizontalOrientationMinWidth)
+      this.updateOrientation(this.state.width);
   }
 
-  private _onGridResize = () => {
-    this.updateOrientation(this.state.orientation, this.props.orientation);
-  }
-
-  private updateOrientation(currentOrientation: Orientation, propOrientation?: Orientation) {
-    if (propOrientation !== undefined) {
-      if (propOrientation !== currentOrientation)
-        this.setState({ orientation: propOrientation });
+  private handleLinkClick(_record: PropertyRecord, text: string) {
+    const linksArray = matchLinks(text);
+    if (linksArray.length <= 0)
       return;
+    const foundLink = linksArray[0];
+    // istanbul ignore else
+    if (foundLink && foundLink.url) {
+      if (foundLink.schema === "mailto:" || foundLink.schema === "pw:")
+        location.href = foundLink.url;
+      else
+        window.open(foundLink.url, "_blank")!.focus();
     }
-
-    let newOrientation = Orientation.Horizontal;
-    if (this._gridRef.current && this._gridRef.current.getBoundingClientRect().width <= 300)
-      newOrientation = Orientation.Vertical;
-
-    if (currentOrientation !== newOrientation)
-      this.setState({ orientation: newOrientation });
   }
 
   private _onPropertyDataChanged = () => {
@@ -179,11 +182,10 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
   }
 
   private _shouldExpandCategory = (category: PropertyCategory): boolean => {
-    if (category.expand)
-      return true;
-    return this.state.categories.some((stateCategory: PropertyGridCategory) => {
-      return stateCategory.propertyCategory.name === category.name && stateCategory.propertyCategory.expand;
-    });
+    const stateCategory = this.state.categories.find((x) => x.propertyCategory.name === category.name);
+    if (stateCategory)
+      return stateCategory.propertyCategory.expand;
+    return category.expand;
   }
 
   private async gatherData(): Promise<void> {
@@ -211,15 +213,27 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
     }
 
     const categories = new Array<PropertyGridCategory>();
-    propertyData.categories.map((category: PropertyCategory, _index: number) => {
-      const gridCategory: PropertyGridCategory = {
+    propertyData.categories.forEach((category: PropertyCategory) => {
+      categories.push({
         propertyCategory: { ...category, expand: this._shouldExpandCategory(category) },
         propertyCount: propertyData.records[category.name].length,
         properties: propertyData.records[category.name],
-      };
-      categories.push(gridCategory);
+      });
+
+      this.assignRecordClickHandlers(propertyData.records[category.name]);
     });
     this.setState({ categories, loadStart: undefined });
+  }
+
+  private assignRecordClickHandlers(records: PropertyRecord[]) {
+    records.forEach((record: PropertyRecord) => {
+      if (record.links)
+        record.links.onClick = this.props.onPropertyLinkClick ? this.props.onPropertyLinkClick : this.handleLinkClick;
+      if (record.value.valueFormat === PropertyValueFormat.Array)
+        this.assignRecordClickHandlers((record.value as ArrayValue).items);
+      if (record.value.valueFormat === PropertyValueFormat.Struct)
+        this.assignRecordClickHandlers(Object.values((record.value as StructValue).members));
+    });
   }
 
   private _onExpansionToggled = (categoryName: string) => {
@@ -250,11 +264,13 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
   }
 
   private _onPropertyRightClicked = (property: PropertyRecord, key?: string) => {
+    // istanbul ignore else
     if (this._isRightClickSupported())
       this._onEnabledPropertyClicked(property, key, true);
   }
 
   private _onPropertyClicked = (property: PropertyRecord, key?: string) => {
+    // istanbul ignore else
     if (this._isClickSupported())
       this._onEnabledPropertyClicked(property, key);
   }
@@ -266,6 +282,7 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
   }
 
   private _onEditCommit = async (args: PropertyUpdatedArgs, category: PropertyCategory) => {
+    // istanbul ignore else
     if (this.props.onPropertyUpdated) {
       await this.props.onPropertyUpdated(args, category);
       this.setState({ editingPropertyKey: undefined });
@@ -309,6 +326,29 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
     this.setState({ selectedPropertyKey, editingPropertyKey });
   }
 
+  private getPreferredOrientation(): Orientation {
+    return (this.props.orientation !== undefined) ? this.props.orientation : Orientation.Horizontal;
+  }
+
+  private _onResize = (width: number, _height: number) => {
+    this.updateOrientation(width);
+  }
+
+  private updateOrientation(width: number): void {
+    const isOrientationFixed = !!this.props.isOrientationFixed;
+    const horizontalOrientationMinWidth = (this.props.horizontalOrientationMinWidth !== undefined) ? this.props.horizontalOrientationMinWidth : 300;
+
+    let orientation = this.getPreferredOrientation();
+    if (!isOrientationFixed) {
+      // Switch to Vertical if width too small
+      if (width < horizontalOrientationMinWidth)
+        orientation = Orientation.Vertical;
+    }
+
+    if (orientation !== this.state.orientation || width !== this.state.width)
+      this.setState({ orientation, width });
+  }
+
   /** @internal */
   public render() {
     if (this.state.loadStart) {
@@ -321,7 +361,7 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
 
     return (
       <div className={classnames("components-property-grid-wrapper", this.props.className)} style={this.props.style}>
-        <div ref={this._gridRef} className="components-property-grid">
+        <div className="components-property-grid">
           {
             this.state.categories.map((gridCategory: PropertyGridCategory) => (
               <SelectablePropertyBlock
@@ -341,10 +381,12 @@ export class PropertyGrid extends React.Component<PropertyGridProps, PropertyGri
                 isPropertyHoverEnabled={this.props.isPropertyHoverEnabled}
                 isPropertySelectionEnabled={this.props.isPropertySelectionEnabled}
                 isPropertyRightClickSelectionEnabled={this.props.isPropertySelectionOnRightClickEnabled}
+                actionButtonRenderers={this.props.actionButtonRenderers}
               />
             ))
           }
         </div>
+        <ReactResizeDetector handleWidth handleHeight onResize={this._onResize} />
       </div>
     );
   }

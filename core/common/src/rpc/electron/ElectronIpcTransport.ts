@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module RpcInterface */
+/** @packageDocumentation
+ * @module RpcInterface
+ */
 
 import { BentleyStatus } from "@bentley/bentleyjs-core";
 import { IModelError } from "../../IModelError";
@@ -14,12 +16,14 @@ import { ElectronRpcProtocol } from "./ElectronRpcProtocol";
 const OBJECTS_CHANNEL = "@bentley/imodeljs-common/ElectronRpcProtocol/objects";
 const DATA_CHANNEL = "@bentley/imodeljs-common/ElectronRpcProtocol/data";
 
+declare var __non_webpack_require__: NodeRequire;
+
 /** @internal */
 export const interop = (() => {
   let electron = null;
   if (typeof (global) !== "undefined" && global && global.process && (global.process as any).type) {
-    // tslint:disable-next-line:no-eval
-    electron = eval("require")("electron");
+    const realRequire = (typeof (__non_webpack_require__) !== "undefined") ? __non_webpack_require__ : require;
+    electron = realRequire("electron");
   }
 
   return electron;
@@ -34,14 +38,16 @@ export interface IpcTransportMessage { id: string; parameters?: RpcSerializedVal
 export abstract class ElectronIpcTransport<TIn extends IpcTransportMessage = IpcTransportMessage, TOut extends IpcTransportMessage = IpcTransportMessage> {
   private _ipc: any;
   private _partials: Map<string, { message: TIn; received: number; } | PartialPayload[]>;
+  protected _protocol: ElectronRpcProtocol;
 
   public sendRequest(request: SerializedRpcRequest) {
     const value = this._extractValue(request);
     this._send(request, value);
   }
 
-  public constructor(ipc: any) {
+  public constructor(ipc: any, protocol: ElectronRpcProtocol) {
     this._ipc = ipc;
+    this._protocol = protocol;
     this._partials = new Map();
     this._setupDataChannel();
     this._setupObjectsChannel();
@@ -142,7 +148,7 @@ export abstract class ElectronIpcTransport<TIn extends IpcTransportMessage = Ipc
 class FrontendIpcTransport extends ElectronIpcTransport<RpcRequestFulfillment> {
   protected async handleComplete(id: string) {
     const message = this.loadMessage(id);
-    const protocol = ElectronRpcProtocol.instances.get(message.interfaceName) as ElectronRpcProtocol;
+    const protocol = this._protocol;
     const request = protocol.requests.get(message.id) as ElectronRpcRequest;
     protocol.requests.delete(message.id);
     request.notifyResponse(message);
@@ -155,25 +161,32 @@ class BackendIpcTransport extends ElectronIpcTransport<SerializedRpcRequest, Rpc
 
     let response: RpcRequestFulfillment;
     try {
-      const protocol = ElectronRpcProtocol.obtainInstance(message);
+      const protocol = this._protocol;
       response = await protocol.fulfill(message);
     } catch (err) {
       response = await RpcRequestFulfillment.forUnknownError(message, err);
     }
 
+    const raw = response.rawResult;
+    response.rawResult = undefined; // Otherwise, it will be serialized in IPC layer and large responses will then crash the app
     this.sendResponse(response, evt);
+    response.rawResult = raw;
   }
 }
 
 let transport: ElectronIpcTransport | undefined;
 
-if (interop) {
-  if (interop.ipcMain) {
-    transport = new BackendIpcTransport(interop.ipcMain);
-  } else if (interop.ipcRenderer) {
-    transport = new FrontendIpcTransport(interop.ipcRenderer);
-  }
-}
-
 /** @internal */
-export const ipcTransport = transport;
+export function initializeIpc(protocol: ElectronRpcProtocol) {
+  if (transport)
+    throw new IModelError(BentleyStatus.ERROR, `Electron IPC already initialized.`);
+
+  if (interop) {
+    if (interop.ipcMain) {
+      transport = new BackendIpcTransport(interop.ipcMain, protocol);
+    } else if (interop.ipcRenderer) {
+      transport = new FrontendIpcTransport(interop.ipcRenderer, protocol);
+    }
+  }
+  return transport;
+}

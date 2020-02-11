@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import * as classnames from "classnames";
@@ -9,7 +9,6 @@ import { IModelReadRpcInterface, ViewDefinitionProps, ViewQueryParams } from "@b
 import { BeEvent } from "@bentley/bentleyjs-core";
 import { CommonProps, LoadingSpinner } from "@bentley/ui-core";
 import ViewItem, { ViewItemProps } from "./ViewItem";
-import { AccessToken } from "@bentley/imodeljs-clients";
 import "./ViewsList.scss";
 
 /** Properties for [[ViewsList]] component
@@ -20,8 +19,6 @@ export interface ViewsListProps extends CommonProps {
   refreshEvent?: BeEvent<(args: any) => void>;
   /** IModelConnection to use to query views */
   iModelConnection?: IModelConnection;
-  /** Access Token to use in the client. Only used for saved views functionality */
-  accessToken?: AccessToken;
   /** Forced view flags when applying view state, will be spread into the view flags */
   forcedViewFlags?: any;
   /** Show views stored in the iModel */
@@ -95,7 +92,7 @@ export class ViewsList extends React.Component<ViewsListProps, ViewsListState> {
     }
   }
 
-  public async componentWillReceiveProps(nextProps: ViewsListProps) {
+  public async componentDidUpdate(nextProps: ViewsListProps) {
     // if no incoming imodel exists or either the incoming imodel's id or changeset id is different from the current imodel then clear cache
     if (!nextProps.iModelConnection || (this.props.iModelConnection && (this.props.iModelConnection.iModelToken.iModelId !== nextProps.iModelConnection.iModelToken.iModelId || this.props.iModelConnection.iModelToken.changeSetId !== nextProps.iModelConnection.iModelToken.changeSetId))) {
       // Clear cache
@@ -193,7 +190,7 @@ export class ViewsList extends React.Component<ViewsListProps, ViewsListState> {
       this.props.onViewsInitialized(_viewDefProps3d);
 
     // Set new state with JSX Elements and the view definition props
-    this.setState({ ...this.state, viewDefinitions: _viewDefProps3d, filteredViewDefinitions: [], initialized: true, selectedViews: [] });
+    this.setState({ viewDefinitions: _viewDefProps3d, filteredViewDefinitions: [], initialized: true, selectedViews: [] });
   }
 
   /** Handle selecting views by changing it in the selected viewport */
@@ -226,7 +223,7 @@ export class ViewsList extends React.Component<ViewsListProps, ViewsListState> {
 
   private async _setFilter(_value: string) {
     if (_value === "") {
-      this.setState({ ...this.state, filter: _value, filteredViewDefinitions: [] });
+      this.setState({ filter: _value, filteredViewDefinitions: [] });
     } else {
       // Filter the definitions by user label
       const filteredDefinitions = this.state.viewDefinitions.filter((viewProps: ViewDefinitionProps) => {
@@ -238,7 +235,7 @@ export class ViewsList extends React.Component<ViewsListProps, ViewsListState> {
         return false;
       });
 
-      this.setState({ ...this.state, filter: _value, filteredViewDefinitions: filteredDefinitions });
+      this.setState({ filter: _value, filteredViewDefinitions: filteredDefinitions });
     }
   }
 

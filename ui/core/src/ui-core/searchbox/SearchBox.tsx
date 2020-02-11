@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module SearchBox */
+/** @packageDocumentation
+ * @module SearchBox
+ */
 
 import * as React from "react";
 import * as classnames from "classnames";
@@ -66,6 +68,7 @@ export class SearchBox extends React.Component<SearchBoxProps, SearchBoxState> {
     return (
       <div className={searchClassName} style={this.props.style}>
         <input
+          defaultValue={this.props.initialValue}
           ref={(el) => { this._inputElement = el; }}
           onChange={this._trackChange}
           onKeyDown={this._handleKeyDown}

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { BentleyStatus, ClientRequestContext, Guid, GuidString, Logger, LogLevel } from "@bentley/bentleyjs-core";
 import { AuthorizedClientRequestContext } from "../AuthorizedClientRequestContext";
@@ -221,6 +221,7 @@ export interface LogPostingResponse {
 /**
  * Client for the Bentley Usage Logging & Analysis Services (ULAS).
  * See also the two `POST` requests on [ULAS Swagger](https://qa-connect-ulastm.bentley.com/Bentley.ULAS.SwaggerUI/SwaggerWebApp/?urls.primaryName=ULAS%20Posting%20Service%20v1)
+ * @deprecated Use [[UlasUtilities]] instead.
  * @internal
  */
 export class UlasClient extends Client {
@@ -270,6 +271,7 @@ export class UlasClient extends Client {
    * @param requestContext The client request context.
    * @param hostName The client host name.
    * @param usageType The client usage type
+   * @deprecated Use [[UlasUtilities]] instead.
    * @returns Response from the service.
    */
   public async logUsage(requestContext: AuthorizedClientRequestContext, entry: UsageLogEntry): Promise<LogPostingResponse> {
@@ -282,6 +284,7 @@ export class UlasClient extends Client {
    * Logs one ore more feature entries via the ULAS service
    * @param requestContext The client request context.
    * @param entries One or more feature log entries.
+   * @deprecated Use [[UlasUtilities]] instead.
    * @returns Response from the service.
    */
   public async logFeature(requestContext: AuthorizedClientRequestContext, ...entries: FeatureLogEntry[]): Promise<LogPostingResponse> {

@@ -1,9 +1,12 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ContentView */
+/** @packageDocumentation
+ * @module ContentView
+ */
 
+import * as React from "react";
 import { UiEvent } from "@bentley/ui-core";
 import { FrontstageManager } from "../frontstage/FrontstageManager";
 import { ContentControl } from "./ContentControl";
@@ -87,7 +90,6 @@ export class ContentViewManager {
     if (this._activeContent !== activeContent || forceEventProcessing) {
       const oldContent = this._activeContent;
       this._activeContent = activeContent;
-      this.onActiveContentChangedEvent.emit({ oldContent, activeContent });
 
       const activeFrontstageDef = FrontstageManager.activeFrontstageDef;
 
@@ -100,9 +102,15 @@ export class ContentViewManager {
           const oldContentControl = oldContent ? activeContentGroup.getControlFromElement(oldContent) : undefined;
           const activeContentControl = activeContentGroup.getControlFromElement(this._activeContent);
 
+          // Only call setActiveView if going to or coming from a non-viewport ContentControl
           // istanbul ignore else
-          if (activeContentControl)
-            activeFrontstageDef.setActiveView(activeContentControl, oldContentControl);
+          if (activeContentControl) {
+            const doSetActiveView = forceEventProcessing || (!activeContentControl.viewport || (oldContentControl && !oldContentControl.viewport));
+            if (doSetActiveView) {
+              this.onActiveContentChangedEvent.emit({ activeContent, oldContent });
+              activeFrontstageDef.setActiveView(activeContentControl, oldContentControl);
+            }
+          }
         }
       }
     }

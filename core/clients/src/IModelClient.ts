@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module iModels */
+/** @packageDocumentation
+ * @module iModelHubClient
+ */
 import { FileHandler } from "./FileHandler";
 import { BriefcaseHandler } from "./imodelhub/Briefcases";
 import { IModelsHandler, IModelHandler } from "./imodelhub/iModels";
@@ -133,6 +135,7 @@ export abstract class IModelClient {
 
   /**
    * Get the handler for [[IModelHubGlobalEvent]]s.
+   * @internal
    */
   public get globalEvents(): GlobalEventHandler {
     return new GlobalEventHandler(this._handler);

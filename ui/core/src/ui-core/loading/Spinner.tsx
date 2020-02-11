@@ -1,12 +1,16 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Loading */
+/** @packageDocumentation
+ * @module Loading
+ */
 
 import * as React from "react";
+
 import "./Spinner.scss";
-import classnames from "classnames";
+
+// cspell:ignore xlarge
 
 /** Size for [[Spinner]] component
  * @public
@@ -35,7 +39,8 @@ export interface SpinnerProps {
 export class Spinner extends React.PureComponent<SpinnerProps> {
 
   public render() {
-    let sizeClass = "core-spinner-medium";
+    let sizeClass: string;
+
     if (this.props.sizeClass)
       sizeClass = this.props.sizeClass;
     else {
@@ -56,16 +61,8 @@ export class Spinner extends React.PureComponent<SpinnerProps> {
       }
     }
 
-    const svgClassName = classnames(
-      "core-spinner",
-      sizeClass,
-    );
-
     return (
-      <svg className={svgClassName} viewBox="0 0 50 50">
-        <circle className="shape" cx="25" cy="25" r="20" fill="none" strokeWidth="4"></circle>
-        <circle className="fill" cx="25" cy="25" r="20" fill="none" strokeWidth="4"></circle>
-      </svg>
+      <div className={sizeClass} />
     );
   }
 }

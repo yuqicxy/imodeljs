@@ -1,6 +1,87 @@
 # Change Log - @bentley/presentation-common
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Added LabelDefinition and changed Node label property type to LabelDefinition
+- Include missing assets directory into package
+- Rename `ContentInstancesOfSpecificClassesSpecification.arePolymorphic` to `handleInstancesPolymorphically` to remove ambiguity
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+*Version update only*
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Fix double quotes not being properly escaped when creating 'find similar' ruleset.
+- Add support for multi-ECInstance nodes
+- Add a way to group same-label ECInstance nodes at post-processing stage
+- Add `NestedContentField.getFieldByName`
+- Update sinon version.
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Add property overrides' rule
+- Deprecate `PropertiesDisplaySpecification` in favor of `PropertyOverrides`
+- Deprecate `PropertyEditorsSpecification` in favor of `PropertyOverrides`
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+*Version update only*
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+*Version update only*
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Add `PresentationStatus.Canceled` member
+- Add ability to force-load all hierarchy with the given imodel and ruleset
+- Added autoExpand property to RelatedPropertiesSpecification and NestedContentField
+- Add module descriptions
+- Added Ruleset and Ruleset variables to request options to support stateless presentation backend
+- Store navigation property classes separate from related property paths
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Escape double quotes when creating intance filter for 'find similar' ruleset
+- Add NodeArtifacts presentation rule
+- Add `hideExpression` attribute to node specifications
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Add special handling for double values when creating 'similar instances' presentantation ruleset
+- Add special handling for point values when creating 'similar instances' presentation ruleset
+- Add special handling for DateTime values when creating 'similar instances' presentation ruleset
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+*Version update only*
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

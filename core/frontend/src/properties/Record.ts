@@ -1,8 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Properties */
+/** @packageDocumentation
+ * @module Properties
+ */
+
 import { PropertyDescription } from "./Description";
 import { PropertyValue } from "./Value";
 
@@ -11,7 +14,7 @@ import { PropertyValue } from "./Value";
  */
 export interface LinkElementsInfo {
   /** Callback to link click event */
-  onClick: (record: PropertyRecord, text: string) => void;
+  onClick?: (record: PropertyRecord, text: string) => void;
   /**
    * Function that specifies which parts of display value need to be clickable.
    *
@@ -33,6 +36,7 @@ export class PropertyRecord {
   public isReadonly?: boolean;
   public isDisabled?: boolean;
   public isMerged?: boolean;
+  public autoExpand?: boolean;
   public extendedData?: { [key: string]: any };
 
   /** Properties for link logic */

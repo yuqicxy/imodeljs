@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 "use strict";
 
@@ -10,7 +10,6 @@ const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const CaseSensitivePathsPlugin = require("case-sensitive-paths-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const InterpolateHtmlPlugin = require("react-dev-utils/InterpolateHtmlPlugin");
-const ModuleScopePlugin = require("react-dev-utils/ModuleScopePlugin");
 const SpriteLoaderPlugin = require("svg-sprite-loader/plugin");
 const getClientEnvironment = require("./env");
 const plugins = require("../scripts/utils/webpackPlugins");
@@ -156,6 +155,8 @@ module.exports = (publicPath) => {
               use: [{
                 loader: require.resolve("svg-sprite-loader"),
                 options: {
+                  // include file hash to ensure uniqueness even if same svg name
+                  symbolId: "[name]-[hash:6]",
                   runtimeCompat: true,
                   spriteFilename: "sprite-[hash:6].svg"
                 },
@@ -209,7 +210,7 @@ module.exports = (publicPath) => {
     plugins: [
       new ForkTsCheckerWebpackPlugin({
         tsconfig: paths.appTsConfig,
-        tslint: paths.appTsLint,
+        tslint: (process.env.NODE_ENV === "development") ? paths.appTsLint : undefined,
         async: false,
         silent: true,
       }),

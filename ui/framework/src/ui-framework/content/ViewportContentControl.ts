@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module ContentView */
+/** @packageDocumentation
+ * @module ContentView
+ */
 
 import { ScreenViewport, IModelApp, IModelConnection, ViewState, SpatialViewState, OrthographicViewState, DrawingViewState, SheetViewState } from "@bentley/imodeljs-frontend";
 import { Id64String } from "@bentley/bentleyjs-core";
@@ -40,9 +42,8 @@ export class ViewportContentControl extends ContentControl implements SupportsVi
 
   /** Returns true if this control is a Viewport control. */
   public get isViewport(): boolean { return true; }
-  /** Gets the ScreenViewport */
+  /** The underlying ScreenViewport */
   public get viewport(): ScreenViewport | undefined { return this._viewport; }
-  /** Sets the ScreenViewport */
   public set viewport(v: ScreenViewport | undefined) {
     this._viewport = v;
     this.setIsReady();
@@ -64,12 +65,6 @@ export class ViewportContentControl extends ContentControl implements SupportsVi
   /** Called when this ContentControl is activated */
   public onActivated(): void {
     super.onActivated();
-
-    const me = this;
-    this.isReady // tslint:disable-line:no-floating-promises
-      .then(() => {
-        IModelApp.viewManager.setSelectedView(me.viewport);
-      });
   }
 
   /** Get the NavigationAidControl associated with this ContentControl */
@@ -77,8 +72,8 @@ export class ViewportContentControl extends ContentControl implements SupportsVi
     let navigationAidId = "";
 
     // istanbul ignore else
-    if (this._viewport) {
-      navigationAidId = this._getNavigationAid(this._viewport.view.classFullName);
+    if (this.viewport) {
+      navigationAidId = this._getNavigationAid(this.viewport.view.classFullName);
     }
 
     return navigationAidId;
@@ -113,10 +108,11 @@ export class ViewportContentControl extends ContentControl implements SupportsVi
   public get supportsViewSelectorChange(): boolean { return true; }
 
   /** Process a ViewSelector change. */
+  // istanbul ignore next
   public async processViewSelectorChange(iModel: IModelConnection, viewDefinitionId: Id64String, viewState: ViewState, name: string): Promise<void> {
-    if (this._viewport) {
-      if (IModelApp.viewManager && this._viewport === IModelApp.viewManager.selectedView)
-        this._viewport.changeView(viewState);
+    if (this.viewport) {
+      if (IModelApp.viewManager && this.viewport === IModelApp.viewManager.selectedView)
+        this.viewport.changeView(viewState);
     } else {
       this.reactElement = this.getReactElementForViewSelectorChange(iModel, viewDefinitionId, viewState, name);
       ContentViewManager.refreshActiveContent(this.reactElement);
@@ -124,5 +120,6 @@ export class ViewportContentControl extends ContentControl implements SupportsVi
   }
 
   /** Get the React.Element for a ViewSelector change. */
+  // istanbul ignore next
   public getReactElementForViewSelectorChange(_iModel: IModelConnection, _viewDefinitionId: Id64String, _viewState: ViewState, _name: string): React.ReactNode { return null; }
 }

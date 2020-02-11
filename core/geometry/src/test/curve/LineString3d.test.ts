@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { Point3d, Vector3d } from "../../geometry3d/Point3dVector3d";
@@ -87,10 +87,12 @@ describe("LineString3d", () => {
 
   it("createXY", () => {
     const ck = new Checker();
-    const xyArray = [Point2d.create(1, 1),
-    Point2d.create(4, 1),
-    Point2d.create(4, 2),
-    Point2d.create(0, 2)];
+    const xyArray = [
+      Point2d.create(1, 1),
+      Point2d.create(4, 1),
+      Point2d.create(4, 2),
+      Point2d.create(0, 2),
+    ];
     const jsArrayXY = [];
     const jsArrayXYZ = [];
     const dz = 10.0;
@@ -130,7 +132,7 @@ describe("LineString3d", () => {
 
   it("addResolvedPoint", () => {
     const ck = new Checker();
-    // addResovledPoint is private -- tricky tricky...
+    // addResolvedPoint is private -- tricky tricky...
     const a = 10.0;
     const ls = LineString3d.createXY([Point2d.create(0, 1), Point2d.create(0.5 * a, 1), Point2d.create(a, 1)], 0);
     const lsZ = ls as any;
@@ -213,7 +215,7 @@ describe("LineString3d", () => {
  * Class to act as an iterator over points in a linestring.
  * * Internal data is:
  *   * pointer to the parent linestring
- *   * index of index of the next ponit to read.
+ *   * index of index of the next point to read.
  * * the parent LineString class
  */
 class IterableLineStringPoint3dIterator implements Iterator<Point3d> {

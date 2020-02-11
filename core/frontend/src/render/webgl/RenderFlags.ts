@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 // tslint:disable:no-const-enum
 
 /** Ordered list of render passes which produce a rendered frame.
@@ -26,6 +28,7 @@ export const enum RenderPass {
   ClassificationByIndex, // Stencil volumes for processing classification one classifier at a time (used for generating pick data Ids and flashing a single classifier).
   HilitePlanarClassification,
   PlanarClassification,
+  VolumeClassifiedRealityData,
   COUNT,
 }
 
@@ -61,10 +64,12 @@ export enum TextureUnit {
   PickDepthAndOrder = Four,
 
   VertexLUT = Five,
+
+  // Texture unit 6 is overloaded. Therefore classification, hilite classification, and aux channel are all mutually exclusive.
   AuxChannelLUT = Six,
-  PlanarClassification = Six,               // classification or aux channel - not both.
-  PlanarClassificationHilite = Six,         // hilite or color, not both.
-  ShadowMap = Seven,                        // shadows or classification - not both.
+  PlanarClassification = Six,
+  PlanarClassificationHilite = Six,
+  ShadowMap = Seven,
 }
 
 /**
@@ -81,14 +86,16 @@ export enum TextureUnit {
 export const enum RenderOrder {
   None = 0,
   BlankingRegion = 1,
-  Surface = 2,
-  Linear = 3,
-  Edge = 4,
-  Silhouette = 5,
+  UnlitSurface = 2, // Distinction only made for whether or not to apply ambient occlusion.
+  LitSurface = 3,
+  Linear = 4,
+  Edge = 5,
+  Silhouette = 6,
 
   PlanarBit = 8,
 
-  PlanarSurface = Surface | PlanarBit,
+  PlanarUnlitSurface = UnlitSurface | PlanarBit,
+  PlanarLitSurface = LitSurface | PlanarBit,
   PlanarLinear = Linear | PlanarBit,
   PlanarEdge = Edge | PlanarBit,
   PlanarSilhouette = Silhouette | PlanarBit,
@@ -96,9 +103,6 @@ export const enum RenderOrder {
 
 /** @internal */
 export function isPlanar(order: RenderOrder): boolean { return order >= RenderOrder.PlanarBit; }
-
-/** @internal */
-export function isSurface(order: RenderOrder): boolean { return order <= RenderOrder.Surface || order === RenderOrder.PlanarSurface; }
 
 /** Flags indicating operations to be performed by the post-process composite step.
  * @internal
@@ -132,22 +136,42 @@ export const enum SurfaceFlags {
   // For textured meshes, the color index in the vertex LUT is unused - we place the normal there instead.
   // For untextured lit meshes, the normal is placed after the feature ID.
   HasColorAndNormal = 1 << 6,
+  // For textured meshes, use alpha from v_color instead of from texture. Takes precedence over MultiplyAlpha if both are set.
+  OverrideAlpha = 1 << 7,
+  // For textured meshes, use rgb from v_color instead of from texture.
+  OverrideRgb = 1 << 8,
+  // For geometry with fixed normals (terrain meshes) we must avoid front facing normal reversal or skirts will be incorrectly lit.
+  NoFaceFront = 1 << 9,
+  // For textured meshes, multiplied the texture alpha by v_color's alpha. OverrideAlpha takes precedence if both are set.
+  MultiplyAlpha = 1 << 10,
+  // MultiplyAlpha must be last -- add additional flags above it, not here.
 }
 
 /** @internal */
+/** 16-bit flags indicating what aspects of a feature's symbology are overridden.
+ * @internal
+ */
 export const enum OvrFlags {
   None = 0,
   Visibility = 1 << 0,
   Rgb = 1 << 1,
   Alpha = 1 << 2,
-  Weight = 1 << 3,
+  IgnoreMaterial = 1 << 3, // ignore material color, specular properties, and texture.
   Flashed = 1 << 4,
-  Hilited = 1 << 5,
+  NonLocatable = 1 << 5, // do not draw during pick - allows geometry beneath to be picked.
   LineCode = 1 << 6,
-  IgnoreMaterial = 1 << 7, // ignore material color, specular properties, and texture
+  Weight = 1 << 7,
+  Hilited = 1 << 8,
+  Emphasized = 1 << 9, // rendered with "emphasis" hilite settings (silhouette etc).
 
   Rgba = Rgb | Alpha,
 }
 
 /** @internal */
 export const enum IsTranslucent { No, Yes, Maybe }
+
+/** @internal */
+export const enum FlashMode {
+  MixHiliteColor,
+  Brighten,
+}

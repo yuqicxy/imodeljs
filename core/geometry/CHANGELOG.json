@@ -2,6 +2,264 @@
   "name": "@bentley/geometry-core",
   "entries": [
     {
+      "version": "1.11.0",
+      "tag": "@bentley/geometry-core_v1.11.0",
+      "date": "Wed, 22 Jan 2020 19:24:12 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Detect \"end to end\" connection of colinear line segments during curve-curve intersection methods."
+          },
+          {
+            "comment": "RegionOps planar subdivision support."
+          },
+          {
+            "comment": "#1.11.0-dev.5_4384: XY linework and Region cleanup methods"
+          },
+          {
+            "comment": "Upgrade to TypeScript 3.7.2."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.10.0",
+      "tag": "@bentley/geometry-core_v1.10.0",
+      "date": "Tue, 07 Jan 2020 19:44:01 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "`CurveCurve.intersectionPairsXY` returns details of line-line and arc-arc coincident geometry"
+          },
+          {
+            "comment": "Add method for mesh orientation fixup."
+          },
+          {
+            "comment": "Path-on-Ellipsoid support"
+          },
+          {
+            "comment": "New method RegionOps.sortOuterAndHoleLoopsXY"
+          },
+          {
+            "comment": "BUG: Fix inverseState management in MatrixMatrix multliplies with preallocated result and/or aliasing"
+          },
+          {
+            "comment": "Added Matrix4d.isExactEqual()"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.9.0",
+      "tag": "@bentley/geometry-core_v1.9.0",
+      "date": "Tue, 10 Dec 2019 18:08:56 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "EllipsoidPatch support:  patch.projectPointToSurface, ellipsoid.constantLatitudeArc, ellipsoid.constantLongitudeArc"
+          },
+          {
+            "comment": "Great Circle extraction on Ellipsoid"
+          },
+          {
+            "comment": "Correct bug in z part of Vector3d spherical construction.   New method to split mesh by eyevector"
+          },
+          {
+            "comment": "BUG#220063 linearSystem3d z term"
+          },
+          {
+            "comment": "Code cleanup from codeQL hits"
+          },
+          {
+            "comment": "Ellipsoid and EllipsoidPatch classes with range and intersectRay support"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.8.0",
+      "tag": "@bentley/geometry-core_v1.8.0",
+      "date": "Fri, 22 Nov 2019 14:03:34 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "PolyfaceQuery services: PolyfaceQuery.markAllEdgeVisibility PolyfaceQuery.markPairedEdgesInvisible PolyfaceQuery.setSingleEdgeVisibility PolyfaceQuery.computeFacetUnitNormal "
+          },
+          {
+            "comment": "BUG#211602 Correct sectioning of meshes with (a) nonconvex facets and (b) multicomponent plane intersections"
+          },
+          {
+            "comment": "Feature#211247 Intersect Ray with Sphere"
+          },
+          {
+            "comment": "Spherical patch range; optional result in range3d.corners()"
+          },
+          {
+            "comment": "Refactor analysis of range of a+b sin(theta) + c sin(theta)"
+          },
+          {
+            "comment": "Added missing topic descriptions"
+          },
+          {
+            "comment": "Added earthRadiusWGS84 constants"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.7.0",
+      "tag": "@bentley/geometry-core_v1.7.0",
+      "date": "Fri, 01 Nov 2019 13:28:37 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "#193588 bugs in PolygonOffsetContext"
+          },
+          {
+            "comment": "Mesh support: TVertexFixup and ColinearEdgeFixup"
+          },
+          {
+            "comment": "Lightweight iterator over Point3ds contained in an IndexedXYZCollection; Transform.multiplyRange() returns a null range if input is a null range."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.6.0",
+      "tag": "@bentley/geometry-core_v1.6.0",
+      "date": "Wed, 09 Oct 2019 20:28:42 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "BUG#184729 and BUG#185436"
+          },
+          {
+            "comment": "(TASK#175760 Triangulate between linestrings) (TASK#184495 consolidateAdjacentPrimitives) (TASK#184489 Test if points are a rectangle)"
+          },
+          {
+            "comment": "BUG#184729 General matrix4d inverse"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.5.0",
+      "tag": "@bentley/geometry-core_v1.5.0",
+      "date": "Mon, 30 Sep 2019 22:28:48 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Eliminate use of Math.hypot"
+          },
+          {
+            "comment": "add copyright headers to recent new files"
+          },
+          {
+            "comment": "Task#175760 and Task#175773"
+          },
+          {
+            "comment": "Polyface mesh \"split to components\""
+          },
+          {
+            "comment": "Fast range filtering for cutFill (and other) searches"
+          },
+          {
+            "comment": "Incremental Edge Flipping, optimize Delauney circle test"
+          },
+          {
+            "comment": "Explicit undefined initialization for HalfEdge"
+          },
+          {
+            "comment": "upgrade to TypeScript 3.6.2"
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.4.0",
+      "tag": "@bentley/geometry-core_v1.4.0",
+      "date": "Tue, 10 Sep 2019 12:09:49 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Region \"in/on/out\" tests"
+          },
+          {
+            "comment": "Triangulation of isolated point array"
+          },
+          {
+            "comment": "RegionOps methods to split curve sets"
+          },
+          {
+            "comment": "PolyfaceClip.computeCutFill method"
+          },
+          {
+            "comment": "New method ray3d.intersectionWithRange3d"
+          },
+          {
+            "comment": "Added AnyGeometryQuery and AnySolidPrimitive union types; added type discriminator fields to GeometryQuery, SolidPrimitive, CurvePrimitive, and CurveCollection; tightened `any` return types for IModelJson.Reader methods."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.3.0",
+      "tag": "@bentley/geometry-core_v1.3.0",
+      "date": "Tue, 13 Aug 2019 20:25:53 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "WireMoment computation; polyline filters for short edge, small triangle, perpendicular projection"
+          },
+          {
+            "comment": "Triangulate cut faces in polyface clip.  Variant point data parse.  Bilinear Patch ray intersection\""
+          },
+          {
+            "comment": "Construct offset from path with curves."
+          },
+          {
+            "comment": "Mesh principal axis computation."
+          },
+          {
+            "comment": "Document unit length rows/cols requirement of Matrix3d.toQuaternion"
+          },
+          {
+            "comment": "Correct point4d normalization to handle small w values (NPC)"
+          },
+          {
+            "comment": "#151464 Improved grid display performance."
+          }
+        ]
+      }
+    },
+    {
+      "version": "1.2.0",
+      "tag": "@bentley/geometry-core_v1.2.0",
+      "date": "Wed, 24 Jul 2019 11:47:26 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "When compressing linestrings, detect first/last segment colinear case."
+          },
+          {
+            "comment": "Consistent stroke counts on BezierCurve3d, BezierCurve3dH"
+          },
+          {
+            "comment": "Full 3d intersection CurveCurve.intersectionXYZ (no bsplines)"
+          },
+          {
+            "comment": "New method for polyline wire offset."
+          },
+          {
+            "comment": "WIP (1) improve duplicated edge handling in polygon booleans (2) improve variant point array handling"
+          },
+          {
+            "comment": "Polyline simplification by Puecker-Douglas (chord distance)"
+          }
+        ]
+      }
+    },
+    {
       "version": "1.1.0",
       "tag": "@bentley/geometry-core_v1.1.0",
       "date": "Mon, 01 Jul 2019 19:04:29 GMT",

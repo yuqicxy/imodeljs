@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PropertyEditors */
+/** @packageDocumentation
+ * @module PropertyEditors
+ */
 
 import * as React from "react";
 import classnames from "classnames";
@@ -146,6 +148,7 @@ export class ColorEditor extends React.PureComponent<PropertyEditorProps, ColorE
           colorDefs={this._availableColors.length > 0 ? this._availableColors : undefined}
           numColumns={this._numColumns}
           disabled={this.state.isDisabled ? true : false}
+          readonly={this.state.readonly}
           onColorPick={this._onColorPick}
           data-testid="components-color-editor" />
       </div>

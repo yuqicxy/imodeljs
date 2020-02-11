@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import * as moq from "typemoq";
@@ -11,6 +11,7 @@ import { IModelHost, IModelDb, IModelJsNative } from "@bentley/imodeljs-backend"
 import { PresentationError, VariableValueTypes } from "@bentley/presentation-common";
 import "./IModelHostSetup";
 import { NativePlatformDefinition, createDefaultNativePlatform } from "../NativePlatform";
+import { PresentationManagerMode } from "../PresentationManager";
 
 describe("default NativePlatform", () => {
 
@@ -32,7 +33,12 @@ describe("default NativePlatform", () => {
     }
     addonMock.reset();
     // tslint:disable-next-line:variable-name naming-convention
-    const TNativePlatform = createDefaultNativePlatform();
+    const TNativePlatform = createDefaultNativePlatform({
+      id: faker.random.uuid(),
+      localeDirectories: [],
+      taskAllocationsMap: {},
+      mode: PresentationManagerMode.ReadOnly,
+    });
     nativePlatform = new TNativePlatform();
     // we're replacing the native addon with our mock - make sure the original
     // one gets terminated
@@ -83,6 +89,13 @@ describe("default NativePlatform", () => {
     await expect(nativePlatform.handleRequest(ClientRequestContext.current, undefined, "")).to.be.rejectedWith(PresentationError);
   });
 
+  it("throws on handleRequest cancelation response", async () => {
+    addonMock
+      .setup((x) => x.handleRequest(moq.It.isAny(), "", moq.It.isAny()))
+      .callback((_db, _options, cb) => { cb({ error: { status: IModelJsNative.ECPresentationStatus.Canceled, message: "test" } }); });
+    await expect(nativePlatform.handleRequest(ClientRequestContext.current, undefined, "")).to.be.rejectedWith(PresentationError, "test");
+  });
+
   it("throws on handleRequest error response", async () => {
     addonMock
       .setup((x) => x.handleRequest(moq.It.isAny(), "", moq.It.isAny()))
@@ -106,9 +119,12 @@ describe("default NativePlatform", () => {
     addonMock.verifyAll();
   });
 
-  it("calls addon's setupLocaleDirectories", async () => {
-    addonMock.setup((x) => x.setupLocaleDirectories(moq.It.isAny())).returns(() => ({})).verifiable();
-    nativePlatform.setupLocaleDirectories([]);
+  it("calls addon's setupSupplementalRulesetDirectories", async () => {
+    addonMock
+      .setup((x) => x.setupSupplementalRulesetDirectories(moq.It.isAny()))
+      .returns(() => ({}))
+      .verifiable();
+    nativePlatform.setupSupplementalRulesetDirectories([]);
     addonMock.verifyAll();
   });
 
@@ -131,7 +147,7 @@ describe("default NativePlatform", () => {
     const hash = faker.random.uuid();
     const serializedResult = JSON.stringify([{ ruleset, hash }]);
     addonMock.setup((x) => x.getRulesets(ruleset.id)).returns(() => ({ result: serializedResult })).verifiable();
-    const result = await nativePlatform.getRulesets(ruleset.id);
+    const result = nativePlatform.getRulesets(ruleset.id);
     expect(result).to.eq(serializedResult);
     addonMock.verifyAll();
   });
@@ -141,21 +157,21 @@ describe("default NativePlatform", () => {
     const hash = faker.random.uuid();
     const serializedRuleset = JSON.stringify(ruleset);
     addonMock.setup((x) => x.addRuleset(serializedRuleset)).returns(() => ({ result: hash })).verifiable();
-    const result = await nativePlatform.addRuleset(serializedRuleset);
+    const result = nativePlatform.addRuleset(serializedRuleset);
     addonMock.verifyAll();
     expect(result).to.eq(hash);
   });
 
   it("calls addon's removeRuleset", async () => {
     addonMock.setup((x) => x.removeRuleset("test id", "test hash")).returns(() => ({ result: true })).verifiable();
-    const result = await nativePlatform.removeRuleset("test id", "test hash");
+    const result = nativePlatform.removeRuleset("test id", "test hash");
     addonMock.verifyAll();
     expect(result).to.be.true;
   });
 
   it("calls addon's clearRulesets", async () => {
     addonMock.setup((x) => x.clearRulesets()).returns(() => ({})).verifiable();
-    await nativePlatform.clearRulesets();
+    nativePlatform.clearRulesets();
     addonMock.verifyAll();
   });
 
@@ -166,7 +182,7 @@ describe("default NativePlatform", () => {
     addonMock.setup((x) => x.setRulesetVariableValue(rulesetId, variableId, VariableValueTypes.String, value))
       .returns(() => ({}))
       .verifiable();
-    await nativePlatform.setRulesetVariableValue(rulesetId, variableId, VariableValueTypes.String, value);
+    nativePlatform.setRulesetVariableValue(rulesetId, variableId, VariableValueTypes.String, value);
     addonMock.verifyAll();
   });
 
@@ -177,7 +193,7 @@ describe("default NativePlatform", () => {
     addonMock.setup((x) => x.getRulesetVariableValue(rulesetId, variableId, VariableValueTypes.String))
       .returns(() => ({ result: value }))
       .verifiable();
-    const result = await nativePlatform.getRulesetVariableValue(rulesetId, variableId, VariableValueTypes.String);
+    const result = nativePlatform.getRulesetVariableValue(rulesetId, variableId, VariableValueTypes.String);
     addonMock.verifyAll();
     expect(result).to.equal(value);
   });

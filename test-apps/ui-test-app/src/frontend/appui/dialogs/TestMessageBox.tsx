@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import { DialogButtonType, DialogButtonStyle, MessageBox, MessageSeverity, Button, ButtonType } from "@bentley/ui-core";
@@ -31,6 +31,7 @@ export class TestMessageBox extends React.Component<TestMessageBoxProps, TestMes
   // tslint:disable:no-floating-promises (flagged at openMessageBox)
 
   public render(): JSX.Element {
+    // cspell:disable
     return (
       <MessageBox
         opened={this.state.opened}
@@ -50,21 +51,18 @@ export class TestMessageBox extends React.Component<TestMessageBoxProps, TestMes
         </div>
       </MessageBox>
     );
+    // cspell:enable
   }
 
-  public componentWillReceiveProps(newProps: TestMessageBoxProps) {
-    if (newProps !== this.props) {
-      this.setState((_prevState) => {
-        return {
-          opened: newProps.opened,
-        };
-      });
+  public componentDidUpdate(prevProps: TestMessageBoxProps) {
+    if (prevProps !== this.props) {
+      this.setState((_, props) => ({ opened: props.opened }));
     }
   }
 
   private _toggleOpened = () => {
-    this.setState((_prevState) => ({
-      opened: !this.state.opened,
+    this.setState((prevState) => ({
+      opened: !prevState.opened,
     }), () => {
       if (!this.state.opened)
         ModalDialogManager.closeDialog();

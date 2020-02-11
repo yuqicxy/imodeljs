@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { JsonUtils, Id64String } from "@bentley/bentleyjs-core";
 import { StandardViewIndex, Range3d, Vector3d, Point3d, Transform, Matrix3d } from "@bentley/geometry-core";
@@ -88,12 +88,13 @@ function parseDisplayMode(defaultDisplay: SpatialClassificationProps.Display, op
       return defaultDisplay;
   }
 }
-export async function insertClassifiedRealityModel(url: string, classifierModelId: Id64String, classifierCategoryId: Id64String, iModelDb: IModelDb, viewFlags: ViewFlags, backgroundMap?: BackgroundMapProps, inputName?: string, inside?: string, outside?: string): Promise<void> {
+export async function insertClassifiedRealityModel(url: string, classifierModelId: Id64String, classifierCategoryId: Id64String, iModelDb: IModelDb, viewFlags: ViewFlags, isPlanar: boolean, backgroundMap?: BackgroundMapProps, inputName?: string, inside?: string, outside?: string): Promise<void> {
 
   const name = inputName ? inputName : url;
   const classificationFlags = new SpatialClassificationProps.Flags();
   classificationFlags.inside = parseDisplayMode(SpatialClassificationProps.Display.ElementColor, inside);
   classificationFlags.outside = parseDisplayMode(SpatialClassificationProps.Display.Dimmed, outside);
+  classificationFlags.isVolumeClassifier = !isPlanar;
 
   const classifier = { modelId: classifierModelId, name, flags: classificationFlags, isActive: true, expand: 1.0 };
 

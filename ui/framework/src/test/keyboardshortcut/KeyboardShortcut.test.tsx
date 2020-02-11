@@ -1,10 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
 import * as sinon from "sinon";
+
 import TestUtils from "../TestUtils";
+
+import { Point } from "@bentley/ui-core";
 import {
   KeyboardShortcutProps,
   CommandItemDef,
@@ -13,8 +16,11 @@ import {
   SpecialKey,
   KeyboardShortcutContainer,
   ConfigurableUiManager,
+  KeyboardShortcut,
 } from "../../ui-framework";
+
 import { KeyboardShortcutMenu } from "../../ui-framework/keyboardshortcut/KeyboardShortcutMenu";
+import { CursorInformation } from "../../ui-framework/cursor/CursorInformation";
 
 describe("KeyboardShortcut", () => {
 
@@ -52,6 +58,18 @@ describe("KeyboardShortcut", () => {
   describe("KeyboardShortcut", () => {
     it("Providing no item or shortcuts should throw Error", () => {
       expect(() => KeyboardShortcutManager.loadKeyboardShortcut({ key: "a" })).to.throw(Error);
+    });
+
+    it("should support function keys", () => {
+      const keyboardShortcut = new KeyboardShortcut({ key: FunctionKey.F7, item: testCommand });
+      expect(keyboardShortcut.isFunctionKey).to.be.true;
+      expect(keyboardShortcut.isSpecialKey).to.be.false;
+    });
+
+    it("should support special keys", () => {
+      const keyboardShortcut = new KeyboardShortcut({ key: SpecialKey.ArrowDown, item: testCommand });
+      expect(keyboardShortcut.isSpecialKey).to.be.true;
+      expect(keyboardShortcut.isFunctionKey).to.be.false;
     });
 
     it("Should provide and execute item", async () => {
@@ -208,8 +226,7 @@ describe("KeyboardShortcut", () => {
     });
 
     it("Should maintain cursor X & Y", () => {
-      KeyboardShortcutManager.cursorX = 100;
-      KeyboardShortcutManager.cursorY = 200;
+      CursorInformation.cursorPosition = new Point(100, 200);
 
       expect(KeyboardShortcutManager.cursorX).to.eq(100);
       expect(KeyboardShortcutManager.cursorY).to.eq(200);

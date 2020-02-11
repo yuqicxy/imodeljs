@@ -13,11 +13,72 @@
   "tileProps": {
     "enableInstancing": true
   },
+  "testType": "both",
   "testSet": [
+    {
+      "testName": "Logarithmic Depth Buffer",
+      "tests": [
+        {
+          "iModelName": "TimingTest_01.bim",
+          "viewName": "V0",
+          "renderOptions": {
+            "logarithmicZBuffer": true
+          }
+        },
+        {
+          "iModelName": "TimingTest_01.bim",
+          "viewName": "V3",
+          "renderOptions": {
+            "logarithmicZBuffer": true
+          }
+        },
+        {
+          "iModelName": "TimingTest_02_TranslucencyOne.bim",
+          "viewName": "W0",
+          "renderOptions": {
+            "logarithmicZBuffer": true
+          }
+        },
+        {
+          "iModelName": "DepthTest-50k.bim",
+          "viewName": "W1A",
+          "renderOptions": {
+            "logarithmicZBuffer": true
+          }
+        },
+        {
+          "iModelName": "TimingTest_01.bim",
+          "viewName": "V0",
+          "renderOptions": {
+            "logarithmicZBuffer": false
+          }
+        },
+        {
+          "iModelName": "TimingTest_01.bim",
+          "viewName": "V3",
+          "renderOptions": {
+            "logarithmicZBuffer": false
+          }
+        },
+        {
+          "iModelName": "TimingTest_02_TranslucencyOne.bim",
+          "viewName": "W0",
+          "renderOptions": {
+            "logarithmicZBuffer": false
+          }
+        },
+        {
+          "iModelName": "DepthTest-50k.bim",
+          "viewName": "W1A",
+          "renderOptions": {
+            "logarithmicZBuffer": false
+          }
+        }
+      ]
+    },
     {
       "iModelName": "TimingTest_01.bim",
       "testName": "Render Mode Images",
-      "testType": "both",
       "viewName": "V0",
       "tests": [
         {
@@ -194,7 +255,6 @@
     },
     {
       "testName": "Light Images",
-      "testType": "both",
       "iModelName": "TimingTest_01.bim",
       "viewFlags": {
         "renderMode": "SmoothShade",
@@ -345,7 +405,6 @@
     },
     {
       "testName": "Edge Images",
-      "testType": "both",
       "tests": [
         {
           "iModelName": "TimingTest_01.bim",
@@ -675,7 +734,6 @@
     },
     {
       "testName": "Text",
-      "testType": "both",
       "tests": [
         {
           "iModelName": "SmallTextTest.bim",
@@ -769,7 +827,6 @@
     },
     {
       "testName": "Lines",
-      "testType": "both",
       "iModelName": "LinesTest.bim",
       "tests": [
         {
@@ -834,7 +891,6 @@
     {
       "testName": "Wraith Tests",
       "iModelName": "Wraith2.bim",
-      "testType": "both",
       "tests": [
         {
           "iModelName": "Wraith2.bim",
@@ -931,7 +987,6 @@
     {
       "iModelName": "TimingTest_01.bim",
       "testName": "Ambient Occlusion",
-      "testType": "both",
       "viewName": "V0",
       "tests": [
         {
@@ -994,7 +1049,6 @@
     },
     {
       "testName": "Shadows",
-      "testType": "both",
       "tests": [
         {
           "iModelName": "04_plant_Larger.bim",
@@ -1080,7 +1134,6 @@
     },
     {
       "testName": "Instanced vs Uninstanced Geometry",
-      "testType": "both",
       "tests": [
         {
           "iModelName": "TimingTest_02_TranslucencyNone.bim",
@@ -1134,7 +1187,6 @@
     },
     {
       "testName": "Force Multi-Pass Rendering",
-      "testType": "both",
       "renderOptions": {
         "disabledExtensions": [
           "WEBGL_draw_buffers"
@@ -1181,7 +1233,6 @@
     },
     {
       "testName": "Select/Hilite Testing",
-      "testType": "both",
       "tests": [
         {
           "iModelName": "TimingTest_01.bim",

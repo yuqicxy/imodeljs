@@ -1,12 +1,15 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module PresentationRules */
+/** @packageDocumentation
+ * @module PresentationRules
+ */
 
 /**
  * Sub-specification to hide / display specified ECInstance properties.
  * @public
+ * @deprecated Use `PropertySpecification` instead
  */
 export interface PropertiesDisplaySpecification {
   /** List of ECProperty names which should be hidden or shown */

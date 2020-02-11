@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Notification */
+/** @packageDocumentation
+ * @module Notification
+ */
 
 import * as React from "react";
 import * as classnames from "classnames";
@@ -17,6 +19,7 @@ import {
   MessageBoxValue,
   OutputMessageType,
   OutputMessageAlert,
+  ToolAssistanceInstructions,
 } from "@bentley/imodeljs-frontend";
 import { UiEvent, MessageContainer, MessageSeverity } from "@bentley/ui-core";
 import { UiFramework } from "../UiFramework";
@@ -43,7 +46,7 @@ export interface MessageAddedEventArgs {
   message: NotifyMessageDetails;
 }
 
-/** Activity Message Event Args class.
+/** Activity Message Event arguments.
  * @public
  */
 export interface ActivityMessageEventArgs {
@@ -53,7 +56,7 @@ export interface ActivityMessageEventArgs {
   restored?: boolean;
 }
 
-/** Input Field Message Event Args class.
+/** Input Field Message Event arguments.
  * @public
  */
 export interface InputFieldMessageEventArgs {
@@ -61,6 +64,13 @@ export interface InputFieldMessageEventArgs {
   messageText: HTMLElement | string;
   detailedMessage: HTMLElement | string;
   priority: OutputMessagePriority;
+}
+
+/** Tool Assistance Changed event arguments.
+ * @alpha
+ */
+export interface ToolAssistanceChangedEventArgs {
+  instructions: ToolAssistanceInstructions | undefined;
 }
 
 /** Message Added Event class.
@@ -87,6 +97,11 @@ export class InputFieldMessageAddedEvent extends UiEvent<InputFieldMessageEventA
  * @public
  */
 export class InputFieldMessageRemovedEvent extends UiEvent<{}> { }
+
+/** Tool Assistance Changed event class
+ * @alpha
+ */
+export class ToolAssistanceChangedEvent extends UiEvent<ToolAssistanceChangedEventArgs> { }
 
 /**
  * Keeps track of the current activity message, and updates whenever
@@ -124,6 +139,11 @@ export class MessageManager {
 
   public static readonly onInputFieldMessageAddedEvent = new InputFieldMessageAddedEvent();
   public static readonly onInputFieldMessageRemovedEvent = new InputFieldMessageRemovedEvent();
+
+  /** The ToolAssistanceChangedEvent is fired when a tool calls IModelApp.notifications.setToolAssistance().
+   * @alpha
+   */
+  public static readonly onToolAssistanceChangedEvent = new ToolAssistanceChangedEvent();
 
   /** List of messages as NotifyMessageDetails. */
   public static get messages(): Readonly<NotifyMessageDetails[]> { return this._messages; }
@@ -276,6 +296,9 @@ export class MessageManager {
     let severity = MessageSeverity.None;
 
     switch (details.priority) {
+      case OutputMessagePriority.None:
+        severity = MessageSeverity.None;
+        break;
       case OutputMessagePriority.Info:
         severity = MessageSeverity.Information;
         break;
@@ -298,6 +321,9 @@ export class MessageManager {
     let iconType = MessageBoxIconType.NoSymbol;
 
     switch (details.priority) {
+      case OutputMessagePriority.None:
+        iconType = MessageBoxIconType.NoSymbol;
+        break;
       case OutputMessagePriority.Info:
         iconType = MessageBoxIconType.Information;
         break;
@@ -331,7 +357,8 @@ export class MessageManager {
     });
   }
 
-  private static showAlertMessageBox(messageDetails: NotifyMessageDetails): void {
+  /** @internal */
+  public static showAlertMessageBox(messageDetails: NotifyMessageDetails): void {
     const title = UiFramework.translate("general.alert");
     const iconType = this.getIconType(messageDetails);
     const content = (
@@ -362,6 +389,14 @@ export class MessageManager {
         {messageElement}
       </StandardMessageBox>
     );
+  }
+
+  /** Setup tool assistance instructions for a tool. The instructions include the main instruction, which includes the current prompt.
+   * @param instructions The tool assistance instructions.
+   * @alpha
+   */
+  public static setToolAssistance(instructions: ToolAssistanceInstructions | undefined) {
+    MessageManager.onToolAssistanceChangedEvent.emit({ instructions });
   }
 
 }

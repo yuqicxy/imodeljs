@@ -1,17 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Views */
+/** @packageDocumentation
+ * @module Views
+ */
 import { ContextRealityModelProps, CartographicRange } from "@bentley/imodeljs-common";
 import { IModelConnection } from "./IModelConnection";
 import { IModelApp } from "./IModelApp";
 import { AuthorizedFrontendRequestContext } from "./FrontendRequestContext";
 import { SpatialModelState } from "./ModelState";
-import { TileTree } from "./tile/TileTree";
-import { createRealityTileTreeReference, RealityModelTileClient, RealityModelTileUtils } from "./tile/RealityModelTileTree";
+import { TileTreeReference } from "./tile/TileTree";
+import { createRealityTileTreeReference, RealityModelTileClient, RealityModelTileUtils, RealityModelTileTree } from "./tile/RealityModelTileTree";
 import { RealityDataServicesClient, RealityData, AccessToken } from "@bentley/imodeljs-clients";
 import { SpatialClassifiers } from "./SpatialClassification";
+import { DisplayStyleState } from "./DisplayStyleState";
 
 async function getAccessToken(): Promise<AccessToken | undefined> {
   if (!IModelApp.authorizationClient || !IModelApp.authorizationClient.hasSignedIn)
@@ -29,25 +32,29 @@ async function getAccessToken(): Promise<AccessToken | undefined> {
  * @internal
  */
 export class ContextRealityModelState {
-  public readonly treeRef: TileTree.Reference;
+  private readonly _treeRef: RealityModelTileTree.Reference;
   public readonly name: string;
   public readonly url: string;
   public readonly description: string;
   public readonly iModel: IModelConnection;
 
-  public constructor(props: ContextRealityModelProps, iModel: IModelConnection) {
+  public constructor(props: ContextRealityModelProps, iModel: IModelConnection, displayStyle: DisplayStyleState) {
     this.url = props.tilesetUrl;
     this.name = undefined !== props.name ? props.name : "";
     this.description = undefined !== props.description ? props.description : "";
     this.iModel = iModel;
 
-    this.treeRef = createRealityTileTreeReference({
+    this._treeRef = createRealityTileTreeReference({
       iModel,
+      source: displayStyle,
       url: props.tilesetUrl,
       name: props.name,
       classifiers: new SpatialClassifiers(props),
     });
   }
+
+  public get treeRef(): TileTreeReference { return this._treeRef; }
+  public get classifiers(): SpatialClassifiers | undefined { return this._treeRef.classifiers; }
 
   public toJSON(): ContextRealityModelProps {
     return {
@@ -153,7 +160,7 @@ export async function findAvailableUnattachedRealityModels(projectid: string, iM
       realityDataName = currentRealityData.name as string;
     } else if (currentRealityData.rootDocument) {
       // In case root document contains a relative path we only keep the filename
-      const rootDocParts = (currentRealityData.rootDocumentb as string).split("/");
+      const rootDocParts = (currentRealityData.rootDocument as string).split("/");
       realityDataName = rootDocParts[rootDocParts.length - 1];
     } else {
       // This case would not occur normally but if it does the RD is considered invalid

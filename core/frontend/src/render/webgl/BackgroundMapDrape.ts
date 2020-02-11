@@ -1,57 +1,49 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 import { GL } from "./GL";
-import { dispose, BeTimePoint, assert } from "@bentley/bentleyjs-core";
+import { dispose, assert } from "@bentley/bentleyjs-core";
 import { FrameBuffer } from "./FrameBuffer";
-import { RenderClipVolume, RenderGraphic } from "../System";
+import { RenderGraphic } from "../System";
 import { Texture, TextureHandle } from "./Texture";
 import { Target } from "./Target";
 import { SceneContext } from "../../ViewContext";
 import { TileTree } from "../../tile/TileTree";
-import { Tile } from "../../tile/Tile";
 import { Frustum, FrustumPlanes, RenderTexture, ColorDef } from "@bentley/imodeljs-common";
-import { Transform, Matrix4d } from "@bentley/geometry-core";
+import { Matrix4d } from "@bentley/geometry-core";
 import { System } from "./System";
 import { BatchState, BranchStack } from "./BranchState";
-import { RenderCommands } from "./DrawCommand";
+import { RenderCommands } from "./RenderCommands";
 import { RenderPass } from "./RenderFlags";
-import { FloatRgba } from "./FloatRGBA";
 import { ViewState3d } from "../../ViewState";
 import { PlanarTextureProjection } from "./PlanarTextureProjection";
 import { TextureDrape } from "./TextureDrape";
 import { BackgroundMapTileTreeReference } from "../../tile/WebMapTileTree";
-
-class BackgroundMapDrapeDrawArgs extends Tile.DrawArgs {
-  constructor(private _drapePlanes: FrustumPlanes, private _terrainDrape: BackgroundMapDrape, context: SceneContext, location: Transform, root: TileTree, now: BeTimePoint, purgeOlderThan: BeTimePoint, clip?: RenderClipVolume) {
-    super(context, location, root, now, purgeOlderThan, clip);
-  }
-  public get frustumPlanes(): FrustumPlanes { return this._drapePlanes; }
-  public drawGraphics(): void {
-    if (!this.graphics.isEmpty) {
-      this._terrainDrape.addGraphic(this.context.createBranch(this.graphics, this.location));
-    }
-  }
-
-  public static create(context: SceneContext, texture: BackgroundMapDrape, tileTree: TileTree, planes: FrustumPlanes) {
-    const now = BeTimePoint.now();
-    const purgeOlderThan = now.minus(tileTree.expirationTime);
-    return new BackgroundMapDrapeDrawArgs(planes, texture, context, tileTree.location.clone(), tileTree, now, purgeOlderThan, tileTree.clipVolume);
-  }
-}
+import { GraphicsCollectorDrawArgs } from "./PlanarClassifier";
+import { FeatureSymbology } from "../FeatureSymbology";
 
 /** @internal */
 export class BackgroundMapDrape extends TextureDrape {
   private _fbo?: FrameBuffer;
-  private _graphics?: RenderGraphic[];
+  private readonly _graphics: RenderGraphic[] = [];
   private _frustum?: Frustum;
   private _width = 0;
   private _height = 0;
   private _mapTree: BackgroundMapTileTreeReference;
   private _drapedTree: TileTree;
-  private static _postProjectionMatrix = Matrix4d.createRowValues(/* Row 1 */ 0, 1, 0, 0, /* Row 1 */ 0, 0, -1, 0, /* Row 3 */ 1, 0, 0, 0, /* Row 4 */ 0, 0, 0, 1);
+  private static _postProjectionMatrix = Matrix4d.createRowValues(
+    0, 1, 0, 0,
+    0, 0, -1, 0,
+    1, 0, 0, 0,
+    0, 0, 0, 1);
+  private _debugFrustum?: Frustum;
+  private _debugFrustumGraphic?: RenderGraphic = undefined;
+  private readonly _symbologyOverrides = new FeatureSymbology.Overrides();
+  private readonly _bgColor = ColorDef.from(0, 0, 0, 255);
 
   private constructor(drapedTree: TileTree, mapTree: BackgroundMapTileTreeReference) {
     super();
@@ -59,23 +51,27 @@ export class BackgroundMapDrape extends TextureDrape {
     this._mapTree = mapTree;
   }
 
+  public get isDisposed(): boolean { return super.isDisposed && undefined === this._fbo; }
+
   public dispose() {
     super.dispose();
     this._fbo = dispose(this._fbo);
   }
 
-  public addGraphic(graphic: RenderGraphic) { this._graphics!.push(graphic); }
+  public addGraphic(graphic: RenderGraphic) {
+    this._graphics.push(graphic);
+  }
 
   public static create(draped: TileTree, map: BackgroundMapTileTreeReference): BackgroundMapDrape {
     return new BackgroundMapDrape(draped, map);
   }
 
   public collectGraphics(context: SceneContext) {
-    this._graphics = [];
-    if (undefined === context.viewFrustum)
+    this._graphics.length = 0;
+    if (undefined === context.viewingSpace)
       return;
 
-    const viewState = context.viewFrustum!.view as ViewState3d;
+    const viewState = context.viewingSpace!.view as ViewState3d;
     if (undefined === viewState)
       return;
 
@@ -83,30 +79,46 @@ export class BackgroundMapDrape extends TextureDrape {
     if (undefined === tileTree)
       return;
 
-    const plane = this._mapTree.plane;
-    const projection = PlanarTextureProjection.computePlanarTextureProjection(plane!, context.viewFrustum, this._drapedTree, viewState);
-    if (!projection.textureFrustum || !projection.projectionMatrix)
-      return;
-
-    this._frustum = projection.textureFrustum;
-    this._projectionMatrix = projection.projectionMatrix;
-
-    const drawArgs = BackgroundMapDrapeDrawArgs.create(context, this, tileTree, new FrustumPlanes(this._frustum));
-    tileTree.draw(drawArgs);
-  }
-
-  public draw(target: Target) {
-    if (undefined === this._frustum || undefined === this._graphics || this._graphics.length === 0)
-      return;
-
-    const requiredHeight = 2 * Math.max(target.viewRect.width, target.viewRect.height);     // TBD - Size to textured area.
-    const requiredWidth = requiredHeight;
+    const requiredWidth = 2 * Math.max(context.target.viewRect.width, context.target.viewRect.height);     // TBD - Size to textured area.
+    const requiredHeight = requiredWidth;
 
     if (requiredWidth !== this._width || requiredHeight !== this._height)
       this.dispose();
 
     this._width = requiredWidth;
     this._height = requiredHeight;
+
+    const plane = this._mapTree.plane;
+    const projection = PlanarTextureProjection.computePlanarTextureProjection(plane!, context.viewingSpace, this._drapedTree, tileTree, viewState, this._width, this._height);
+    if (!projection.textureFrustum || !projection.projectionMatrix || !projection.worldToViewMap)
+      return;
+
+    this._frustum = projection.textureFrustum;
+    this._debugFrustum = projection.debugFrustum;
+    this._projectionMatrix = projection.projectionMatrix;
+
+    const drawArgs = GraphicsCollectorDrawArgs.create(context, this, tileTree, new FrustumPlanes(this._frustum), projection.worldToViewMap);
+    tileTree.draw(drawArgs);
+
+    if (context.target.debugControl && context.target.debugControl.displayDrapeFrustum) {
+      this._debugFrustumGraphic = dispose(this._debugFrustumGraphic);
+      const builder = context.createSceneGraphicBuilder();
+      builder.setSymbology(ColorDef.green, ColorDef.green, 1);
+      builder.addFrustum(context.viewingSpace.getFrustum());
+      builder.setSymbology(ColorDef.red, ColorDef.red, 1);
+      builder.addFrustum(this._debugFrustum!);
+      builder.setSymbology(ColorDef.white, ColorDef.white, 1);
+      builder.addFrustum(this._frustum);
+      this._debugFrustumGraphic = builder.finish();
+    }
+  }
+
+  public draw(target: Target) {
+    if (undefined !== this._debugFrustumGraphic)
+      target.scene.push(this._debugFrustumGraphic);
+
+    if (undefined === this._frustum || this._graphics.length === 0)
+      return;
 
     if (undefined === this._fbo) {
       const colorTextureHandle = TextureHandle.createForAttachment(this._width, this._height, GL.Texture.Format.Rgba, GL.Texture.DataType.UnsignedByte);
@@ -122,23 +134,30 @@ export class BackgroundMapDrape extends TextureDrape {
       return;
     }
 
+    System.instance.glTimer.beginOperation("Terrain Projection");
+
     const prevState = System.instance.currentRenderState.clone();
     System.instance.context.viewport(0, 0, this._width, this._height);
 
     const drawingParams = PlanarTextureProjection.getTextureDrawingParams(target);
-    const batchState = new BatchState();
+    const stack = new BranchStack();
+    stack.setViewFlags(drawingParams.viewFlags);
+    stack.setSymbologyOverrides(this._symbologyOverrides);
+
+    const batchState = new BatchState(stack);
     System.instance.applyRenderState(drawingParams.state);
     const prevPlan = target.plan;
-    const prevBgColor = FloatRgba.fromColorDef(ColorDef.white);
-    prevBgColor.setFromFloatRgba(target.bgColor);
 
-    target.bgColor.setFromColorDef(ColorDef.from(0, 0, 0, 255)); // Avoid white on white reversal.
+    target.uniforms.style.changeBackgroundColor(this._bgColor); // Avoid white on white reversal. Will be reset below in changeRenderPlan().
     target.changeFrustum(this._frustum, this._frustum.getFraction(), true);
-    target.projectionMatrix.setFrom(BackgroundMapDrape._postProjectionMatrix.multiplyMatrixMatrix(target.projectionMatrix));
-    target.branchStack.setViewFlags(drawingParams.viewFlags);
 
-    const renderCommands = new RenderCommands(target, new BranchStack(), batchState);
-    renderCommands.addGraphics(this._graphics);
+    const prevProjMatrix = target.uniforms.frustum.projectionMatrix;
+    target.uniforms.frustum.changeProjectionMatrix(BackgroundMapDrape._postProjectionMatrix.multiplyMatrixMatrix(prevProjMatrix));
+
+    target.uniforms.branch.pushState(stack.top);
+
+    const renderCommands = new RenderCommands(target, stack, batchState);
+    renderCommands.addGraphics(this._graphics, RenderPass.OpaqueGeneral);
 
     const system = System.instance;
     const gl = system.context;
@@ -151,12 +170,13 @@ export class BackgroundMapDrape extends TextureDrape {
       target.techniques.execute(target, renderCommands.getCommands(RenderPass.OpaqueGeneral), RenderPass.PlanarClassification);    // Draw these with RenderPass.PlanarClassification (rather than Opaque...) so that the pick ordering is avoided.
     });
 
+    target.uniforms.branch.pop();
+
     batchState.reset();   // Reset the batch Ids...
-    target.bgColor.setFromFloatRgba(prevBgColor);
-    if (prevPlan)
-      target.changeRenderPlan(prevPlan);
+    target.changeRenderPlan(prevPlan);
 
     system.applyRenderState(prevState);
     gl.viewport(0, 0, target.viewRect.width, target.viewRect.height); // Restore viewport
+    system.glTimer.endOperation();
   }
 }

@@ -1,22 +1,22 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Item */
+/** @packageDocumentation
+ * @module Item
+ */
 
 import * as React from "react";
 
-import { Icon } from "../shared/IconComponent";
+import { CommonProps, SizeProps, Icon, BadgeUtilities } from "@bentley/ui-core";
+import { Item } from "@bentley/ui-ninezone";
+
 import { FrontstageManager } from "../frontstage/FrontstageManager";
 import { ActionButtonItemDef } from "../shared/ActionButtonItemDef";
 import { BaseItemState } from "../shared/ItemDefBase";
 import { SyncUiEventDispatcher, SyncUiEventArgs, SyncUiEventId } from "../syncui/SyncUiEventDispatcher";
 import { PropsHelper } from "../utils/PropsHelper";
-
-import { Item, Size } from "@bentley/ui-ninezone";
 import { KeyboardShortcutManager } from "../keyboardshortcut/KeyboardShortcut";
-import { CommonProps } from "@bentley/ui-core";
-import { BetaBadge } from "../betabadge/BetaBadge";
 
 /** Properties that must be specified for a ActionItemButton component
  * @public
@@ -24,7 +24,7 @@ import { BetaBadge } from "../betabadge/BetaBadge";
 export interface ActionItemButtonProps extends CommonProps {
   actionItem: ActionButtonItemDef;
   isEnabled?: boolean;
-  onSizeKnown?: (size: Size) => void;
+  onSizeKnown?: (size: SizeProps) => void;
 }
 
 /** Helper method to set state from props */
@@ -69,28 +69,38 @@ export class ActionItemButton extends React.Component<ActionItemButtonProps, Bas
 
     if (!refreshState && this.props.actionItem.stateSyncIds && this.props.actionItem.stateSyncIds.length > 0)
       refreshState = this.props.actionItem.stateSyncIds.some((value: string): boolean => args.eventIds.has(value));
+
     if (refreshState) {
       if (this.props.actionItem.stateFunc)
         newState = this.props.actionItem.stateFunc(newState);
+
       if ((this.state.isActive !== newState.isActive) || (this.state.isEnabled !== newState.isEnabled) || (this.state.isVisible !== newState.isVisible)) {
         // update actionItem as it hold the 'truth' for all state
         /* istanbul ignore else */
         if (undefined !== newState.isVisible)
           this.props.actionItem.isVisible = newState.isVisible;
+
         /* istanbul ignore else */
         if (undefined !== newState.isActive)
           this.props.actionItem.isActive = newState.isActive;
 
-        this.setState((_prevState) => ({ isActive: newState.isActive, isEnabled: newState.isEnabled, isVisible: newState.isVisible }));
+        this.setState({
+          isActive: newState.isActive,
+          isEnabled: newState.isEnabled,
+          isVisible: newState.isVisible,
+        });
       }
     }
   }
 
-  public componentWillReceiveProps(nextProps: ActionItemButtonProps) {
-    const updatedState = getItemStateFromProps(nextProps);
+  /** @internal */
+  public static getDerivedStateFromProps(props: ActionItemButtonProps, state: BaseItemState) {
+    const updatedState = getItemStateFromProps(props);
     // istanbul ignore else
-    if (!PropsHelper.isShallowEqual(updatedState, this.state))
-      this.setState((_prevState) => updatedState);
+    if (!PropsHelper.isShallowEqual(updatedState, state))
+      return updatedState;
+
+    return null;
   }
 
   public componentDidMount() {
@@ -122,6 +132,7 @@ export class ActionItemButton extends React.Component<ActionItemButtonProps, Bas
 
     const { actionItem, ...props } = this.props;
     const icon = <Icon iconSpec={actionItem.iconSpec} />;
+    const badge = BadgeUtilities.getComponentForBadge(actionItem.badgeType, actionItem.betaBadge);  // tslint:disable-line: deprecation
 
     return (
       <Item
@@ -134,7 +145,7 @@ export class ActionItemButton extends React.Component<ActionItemButtonProps, Bas
         onKeyDown={this._handleKeyDown}
         icon={icon}
         onSizeKnown={this.props.onSizeKnown}
-        betaBadge={actionItem.betaBadge && <BetaBadge />}
+        badge={badge}
       />
     );
   }

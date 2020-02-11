@@ -1,55 +1,17 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-import { expect } from "chai";
-import * as fs from "fs";
-import * as path from "path";
-import { Logger, LogLevel, GuidString, ClientRequestContext } from "@bentley/bentleyjs-core";
+import { GuidString } from "@bentley/bentleyjs-core";
 import { IModelJsConfig } from "@bentley/config-loader/lib/IModelJsConfig";
 import {
-  ImsActiveSecureTokenClient, ImsDelegationSecureTokenClient, AuthorizationToken, AccessToken, HubIModel,
+  AccessToken, HubIModel,
   IModelHubClient, IModelClient, ConnectClient, Project, Config, IModelQuery, AuthorizedClientRequestContext,
-  ImsUserCredentials, ClientsLoggerCategory,
 } from "@bentley/imodeljs-clients";
-import { TestUsers } from "./TestUsers";
+import { TestUsers, UserCredentials } from "./TestUsers";
+import { getToken } from "@bentley/oidc-signin-tool";
 
 IModelJsConfig.init(true /* suppress exception */, false /* suppress error message */, Config.App);
-
-const logFilePath = path.join(__dirname, "./iModelClientsTests.log");
-const logFileStream = fs.createWriteStream(logFilePath, { flags: "a" });
-console.log("Log File created at: " + logFilePath);
-
-// The Request URLs are captured separate. The log file is used by the Hub URL whitelist validation.
-export const urlLogPath = path.join(__dirname, "./requesturls.log");
-const urlLogFileStream = fs.createWriteStream(urlLogPath, { flags: "a" });
-console.log("URL Log file created at: " + urlLogPath);
-
-function logFunction(logLevel: string, category: string, message: string) {
-  if (category === ClientsLoggerCategory.Request)
-    urlLogFileStream.write(message + "\n");
-  else
-    logFileStream.write(logLevel + "|" + category + "|" + message + "\n");
-}
-
-// Initialize logger to file
-Logger.initialize(
-  (category: string, message: string): void => { logFunction("Error", category, message); },
-  (category: string, message: string): void => { logFunction("Warning", category, message); },
-  (category: string, message: string): void => { logFunction("Info", category, message); },
-  (category: string, message: string): void => { logFunction("Trace", category, message); });
-
-// Note: Turn this off unless really necessary - it causes Error messages on the
-// console with the existing suite of tests, and this is quite misleading,
-// especially when diagnosing CI job failures.
-const loggingConfigFile: string = Config.App.get("imjs_test_logging_config", "");
-if (!!loggingConfigFile) {
-  // tslint:disable-next-line:no-var-requires
-  Logger.configureLevels(require(loggingConfigFile));
-}
-
-// log all request URLs as this will be the input to the Hub URL whitelist test
-Logger.setLevel(ClientsLoggerCategory.Request, LogLevel.Trace);
 
 function isOfflineSet(): boolean {
   const index = process.argv.indexOf("--offline");
@@ -63,22 +25,19 @@ export class TestConfig {
   public static readonly projectName: string = Config.App.get("imjs_test_project_name", "iModelJsTest");
   public static readonly assetName: string = Config.App.get("imjs_test_asset_name", "iModelJsAssetTest");
   public static readonly enableMocks: boolean = isOfflineSet();
-  public static readonly enableIModelBank: boolean = Config.App.has("imjs_test_imodel_bank_run_orchestrator");
+  public static readonly enableIModelBank: boolean = Config.App.has("imjs_test_imodel_bank") && !!JSON.parse(Config.App.get("imjs_test_imodel_bank"));
 
-  /** Login the specified user and return the AuthorizationToken */
-  public static async login(user: ImsUserCredentials = TestUsers.regular): Promise<AuthorizationToken> {
-    if (Config.App.getNumber("imjs_buddi_resolve_url_using_region") !== 0)
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // Dev requires that SSL certificate checks be bypassed
-    const authToken: AuthorizationToken = await (new ImsActiveSecureTokenClient()).getToken(new ClientRequestContext(), user);
-    expect(authToken);
-    return authToken;
-  }
+  private static _testUsers: Map<string, AccessToken> = new Map<string, AccessToken>();
 
   /** Login the specified user and return the AccessToken */
-  public static async getAccessToken(user: ImsUserCredentials = TestUsers.regular): Promise<AccessToken> {
-    const authToken: AuthorizationToken = await TestConfig.login(user);
-    const accessToken: AccessToken = await (new ImsDelegationSecureTokenClient()).getToken(new ClientRequestContext(), authToken);
-    expect(accessToken);
+  public static async getAccessToken(user: UserCredentials = TestUsers.regular): Promise<AccessToken> {
+    let accessToken: AccessToken;
+    if (TestConfig._testUsers.has(user.email))
+      accessToken = TestConfig._testUsers.get(user.email)!;
+    else {
+      accessToken = await getToken(user.email, user.password, TestUsers.scopes, TestUsers.oidcConfig, Config.App.getNumber("imjs_buddi_resolve_url_using_region", 0));
+      TestConfig._testUsers.set(user.email, accessToken);
+    }
     return accessToken;
   }
 

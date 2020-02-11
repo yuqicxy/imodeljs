@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 
@@ -25,7 +25,7 @@ import {
   StagePanel,
 } from "@bentley/ui-framework";
 
-import { AppStatusBarWidgetControl } from "../statusbars/AppStatusBar";
+import { SmallStatusBarWidgetControl } from "../statusbars/SmallStatusBar";
 // import { NavigationTreeWidgetControl } from "../widgets/NavigationTreeWidget";
 import { VerticalPropertyGridWidgetControl, HorizontalPropertyGridWidgetControl } from "../widgets/PropertyGridDemoWidget";
 
@@ -35,11 +35,46 @@ import { NestedFrontstage1 } from "./NestedFrontstage1";
 import { TableDemoWidgetControl } from "../widgets/TableDemoWidget";
 
 export class Frontstage1 extends FrontstageProvider {
+  private _topMostPanel = {
+    widgets: [
+      <Widget element={<h2>TopMost panel</h2>} />,
+    ],
+  };
+
+  private _topPanel = {
+    widgets: [
+      <Widget element={<h2>Top panel</h2>} />,
+    ],
+  };
+
+  private _leftPanel = {
+    allowedZones: [2, 4, 7, 9],
+  };
+
+  private _rightPanel = {
+    allowedZones: [2, 9],
+    widgets: [
+      <Widget element={<h2>Right panel</h2>} />,
+    ],
+  };
+
+  private _bottomPanel = {
+    widgets: [
+      <Widget element={<h2>Bottom panel</h2>} />,
+    ],
+  };
+
+  private _bottomMostPanel = {
+    allowedZones: [2, 4, 9],
+    widgets: [
+      <Widget element={<h2>BottomMost panel</h2>} />,
+    ],
+  };
 
   public get frontstage(): React.ReactElement<FrontstageProps> {
     return (
       <Frontstage id="Test1"
-        defaultTool={AppTools.appSelectElementCommand}
+        defaultTool={CoreTools.selectElementCommand}
         defaultLayout="TwoHalvesVertical"
         contentGroup="TestContentGroup1"
         defaultContentId="TestContent1"
@@ -54,6 +89,7 @@ export class Frontstage1 extends FrontstageProvider {
         }
         topCenter={
           <Zone
+            allowsMerging
             widgets={[
               <Widget isToolSettings={true} />,
             ]}
@@ -94,7 +130,7 @@ export class Frontstage1 extends FrontstageProvider {
         bottomCenter={
           <Zone defaultState={ZoneState.Open}
             widgets={[
-              <Widget isStatusBar={true} iconSpec="icon-placeholder" labelKey="SampleApp:widgets.StatusBar" control={AppStatusBarWidgetControl} />,
+              <Widget isStatusBar={true} control={SmallStatusBarWidgetControl} />,
             ]}
           />
         }
@@ -109,47 +145,37 @@ export class Frontstage1 extends FrontstageProvider {
 
         topMostPanel={
           <StagePanel
-            widgets={[
-              <Widget element={<h2>TopMost panel</h2>} />,
-            ]}
+            widgets={this._topMostPanel.widgets}
           />
         }
         topPanel={
           <StagePanel
             resizable={false}
-            widgets={[
-              <Widget element={<h2>Top panel</h2>} />,
-            ]}
+            widgets={this._topPanel.widgets}
           />
         }
         leftPanel={
           <StagePanel
-            allowedZones={[9, 4, 7]}
+            allowedZones={this._leftPanel.allowedZones}
           />
         }
         rightPanel={
           <StagePanel
-            allowedZones={[9]}
+            allowedZones={this._rightPanel.allowedZones}
             resizable={false}
-            widgets={[
-              <Widget element={<h2>Right panel</h2>} />,
-            ]}
+            widgets={this._rightPanel.widgets}
           />
         }
         bottomPanel={
           <StagePanel
-            widgets={[
-              <Widget element={<h2>Bottom panel</h2>} />,
-            ]}
+            widgets={this._bottomPanel.widgets}
           />
         }
         bottomMostPanel={
           <StagePanel
-            allowedZones={[9, 4]}
+            allowedZones={this._bottomMostPanel.allowedZones}
             size={100}
-            widgets={[
-              <Widget element={<h2>BottomMost panel</h2>} />,
-            ]}
+            widgets={this._bottomMostPanel.widgets}
           />
         }
       />
@@ -195,7 +221,7 @@ class FrontstageToolWidget extends React.Component {
       expandsTo={Direction.Bottom}
       items={
         <>
-          <ActionItemButton actionItem={AppTools.appSelectElementCommand} />
+          <ActionItemButton actionItem={CoreTools.selectElementCommand} />
           <ActionItemButton actionItem={AppTools.item1} />
           <ActionItemButton actionItem={AppTools.item2} />
           <ActionItemButton actionItem={this._openNestedFrontstage1} />
@@ -216,7 +242,7 @@ class FrontstageToolWidget extends React.Component {
             labelKey="SampleApp:buttons.anotherGroup"
             iconSpec="icon-placeholder"
             items={[AppTools.tool1, AppTools.tool2, AppTools.item3, AppTools.item4, AppTools.item5,
-            AppTools.item6, AppTools.item7, AppTools.item8]}
+              AppTools.item6, AppTools.item7, AppTools.item8]}
           />
         </>
       }

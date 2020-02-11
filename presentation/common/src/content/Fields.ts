@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Content */
+/** @packageDocumentation
+ * @module Content
+ */
 
 import { ClassInfo, ClassInfoJSON, RelatedClassInfo, RelationshipPath, RelationshipPathJSON } from "../EC";
 import { CategoryDescription } from "./Category";
@@ -39,6 +41,7 @@ export interface PropertiesFieldJSON extends BaseFieldJSON {
 export interface NestedContentFieldJSON extends BaseFieldJSON {
   contentClassInfo: ClassInfoJSON;
   pathToPrimaryClass: RelationshipPathJSON;
+  autoExpand?: boolean;
   nestedFields: FieldJSON[];
 }
 
@@ -230,17 +233,19 @@ export class PropertiesField extends Field {
 }
 
 /**
- * Describes a content field that contains [Nested content]($docs/learning/content/Terminology#nested-content).
+ * Describes a content field that contains [Nested content]($docs/learning/presentation/Content/Terminology#nested-content).
  *
  * @public
  */
 export class NestedContentField extends Field {
   /** Information about an ECClass whose properties are nested inside this field */
   public contentClassInfo: ClassInfo;
-  /** Relationship path to [Primary class]($docs/learning/content/Terminology#primary-class) */
+  /** Relationship path to [Primary class]($docs/learning/presentation/Content/Terminology#primary-class) */
   public pathToPrimaryClass: RelationshipPath;
   /** Contained nested fields */
   public nestedFields: Field[];
+  /** Flag specifying whether field should be expanded */
+  public autoExpand?: boolean;
 
   /**
    * Creates an instance of NestedContentField.
@@ -251,17 +256,28 @@ export class NestedContentField extends Field {
    * @param isReadonly Are values in this field read-only
    * @param priority Priority of the field
    * @param contentClassInfo Information about an ECClass whose properties are nested inside this field
-   * @param pathToPrimaryClass Relationship path to [Primary class]($docs/learning/content/Terminology#primary-class)
+   * @param pathToPrimaryClass Relationship path to [Primary class]($docs/learning/presentation/Content/Terminology#primary-class)
    * @param nestedFields Contained nested fields
+   * @param autoExpand Flag specifying whether field should be expanded
    * @param editor Property editor used to edit values of this field
    */
   public constructor(category: CategoryDescription, name: string, label: string, description: TypeDescription,
     isReadonly: boolean, priority: number, contentClassInfo: ClassInfo, pathToPrimaryClass: RelationshipPath,
-    nestedFields: Field[], editor?: EditorDescription) {
+    nestedFields: Field[], editor?: EditorDescription, autoExpand?: boolean) {
     super(category, name, label, description, isReadonly, priority, editor);
     this.contentClassInfo = contentClassInfo;
     this.pathToPrimaryClass = pathToPrimaryClass;
     this.nestedFields = nestedFields;
+    this.autoExpand = autoExpand;
+  }
+
+  /**
+   * Get field by its name
+   * @param name Name of the field to find
+   * @param recurse Recurse into nested fields
+   */
+  public getFieldByName(name: string, recurse?: boolean): Field | undefined {
+    return getFieldByName(this.nestedFields, name, recurse);
   }
 
   /** @internal */
@@ -271,6 +287,7 @@ export class NestedContentField extends Field {
       contentClassInfo: this.contentClassInfo,
       pathToPrimaryClass: this.pathToPrimaryClass,
       nestedFields: this.nestedFields.map((field: Field) => field.toJSON()),
+      autoExpand: this.autoExpand,
     };
   }
 
@@ -291,6 +308,7 @@ export class NestedContentField extends Field {
       nestedFields: json.nestedFields.map((nestedFieldJson: FieldJSON) => Field.fromJSON(nestedFieldJson)).filter((nestedField) => (undefined !== nestedField)),
       contentClassInfo: ClassInfo.fromJSON(json.contentClassInfo),
       pathToPrimaryClass: json.pathToPrimaryClass.map((p) => RelatedClassInfo.fromJSON(p)),
+      autoExpand: json.autoExpand,
     } as Partial<NestedContentField>);
   }
 
@@ -308,3 +326,18 @@ export class NestedContentField extends Field {
       nestedField.rebuildParentship(this);
   }
 }
+
+/** @internal */
+export const getFieldByName = (fields: Field[], name: string, recurse?: boolean): Field | undefined => {
+  for (const field of fields) {
+    if (field.name === name)
+      return field;
+
+    if (recurse && field.isNestedContentField()) {
+      const nested = getFieldByName(field.nestedFields, name, recurse);
+      if (nested)
+        return nested;
+    }
+  }
+  return undefined;
+};

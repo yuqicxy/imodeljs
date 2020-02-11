@@ -1,31 +1,20 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as path from "path";
 
 import { ElectronRpcManager } from "@bentley/imodeljs-common";
 import { initializeBackend, getRpcInterfaces } from "./backend";
-import { Logger, LogLevel } from "@bentley/bentleyjs-core";
 import { IModelJsElectronManager } from "@bentley/electron-manager";
 
 import * as electron from "electron";
 
-// --------------------------------------------------------------------------------------
-// ------- Initialization and setup of host and tools before starting app ---------------
-
 // Start the backend
 initializeBackend();
 
-// Set up logging (by default, no logging is enabled)
-const logLevelEnv = process.env.SVT_LOG_LEVEL as string;
-const logLevel = undefined !== logLevelEnv ? Logger.parseLogLevel(logLevelEnv) : LogLevel.None;
-Logger.setLevelDefault(logLevel);
-
-// --------------------------------------------------------------------------------------
-// ---------------- This part copied from protogist ElectronMain.ts ---------------------
 const autoOpenDevTools = (undefined === process.env.SVT_NO_DEV_TOOLS);
-const maximizeWindow = (undefined !== process.env.SVT_MAXIMIZE_WINDOW);
+const maximizeWindow = (undefined === process.env.SVT_NO_MAXIMIZE_WINDOW);
 
 (async () => { // tslint:disable-line:no-floating-promises
   const manager = new IModelJsElectronManager(path.join(__dirname, "..", "webresources"));
@@ -47,6 +36,7 @@ const maximizeWindow = (undefined !== process.env.SVT_MAXIMIZE_WINDOW);
     width: 1280,
     height: 800,
     webPreferences: {
+      nodeIntegration: true,
       experimentalFeatures: true, // Needed for CSS Grid support
     },
     autoHideMenuBar: true,

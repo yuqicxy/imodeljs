@@ -1,17 +1,18 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
-import { QParams3d, RenderMode, PolylineTypeFlags } from "@bentley/imodeljs-common";
+import { Point3d } from "@bentley/geometry-core";
+import { FeatureIndexType, QParams3d, RenderMode, PolylineTypeFlags } from "@bentley/imodeljs-common";
 import { PolylineParams } from "../primitives/VertexTable";
 import { Target } from "./Target";
 import { LUTGeometry, PolylineBuffers } from "./CachedGeometry";
 import { RenderPass, RenderOrder } from "./RenderFlags";
 import { TechniqueId } from "./TechniqueId";
-import { AttributeHandle } from "./Handle";
-import { FeaturesInfo } from "./FeaturesInfo";
 import { LineCode } from "./EdgeOverrides";
 import { VertexLUT } from "./VertexLUT";
 import { ColorInfo } from "./ColorInfo";
@@ -20,11 +21,12 @@ import { System } from "./System";
 import { ShaderProgramParams } from "./DrawCommand";
 import { dispose } from "@bentley/bentleyjs-core";
 import { RenderMemory } from "../System";
+import { BuffersContainer } from "./Handle";
 
 /** @internal */
 export class PolylineGeometry extends LUTGeometry {
   public vertexParams: QParams3d;
-  public features?: FeaturesInfo;
+  private readonly _hasFeatures: boolean;
   public lineWeight: number;
   public lineCode: number;
   public type: PolylineTypeFlags;
@@ -33,10 +35,12 @@ export class PolylineGeometry extends LUTGeometry {
   public numIndices: number;
   private _buffers: PolylineBuffers;
 
-  private constructor(lut: VertexLUT, buffers: PolylineBuffers, params: PolylineParams) {
-    super();
+  public get lutBuffers() { return this._buffers.buffers; }
+
+  private constructor(lut: VertexLUT, buffers: PolylineBuffers, params: PolylineParams, viOrigin: Point3d | undefined) {
+    super(viOrigin);
     this.vertexParams = params.vertices.qparams;
-    this.features = FeaturesInfo.createFromVertexTable(params.vertices);
+    this._hasFeatures = FeatureIndexType.Empty !== params.vertices.featureIndexType;
     this.lineWeight = params.weight;
     this.lineCode = LineCode.valueFromLinePixels(params.linePixels);
     this.type = params.type;
@@ -45,6 +49,8 @@ export class PolylineGeometry extends LUTGeometry {
     this.numIndices = params.polyline.indices.length;
     this._buffers = buffers;
   }
+
+  public get isDisposed(): boolean { return this._buffers.isDisposed && this.lut.isDisposed; }
 
   public dispose() {
     dispose(this.lut);
@@ -94,13 +100,13 @@ export class PolylineGeometry extends LUTGeometry {
     return isTranslucent ? RenderPass.Translucent : RenderPass.OpaqueLinear;
   }
 
-  public getTechniqueId(_target: Target): TechniqueId { return TechniqueId.Polyline; }
+  public get techniqueId(): TechniqueId { return TechniqueId.Polyline; }
   public get isPlanar(): boolean { return this._isPlanar; }
   public get isEdge(): boolean { return this.isAnyEdge; }
   public get qOrigin(): Float32Array { return this.lut.qOrigin; }
   public get qScale(): Float32Array { return this.lut.qScale; }
   public get numRgbaPerVertex(): number { return this.lut.numRgbaPerVertex; }
-  public get featuresInfo(): FeaturesInfo | undefined { return this.features; }
+  public get hasFeatures() { return this._hasFeatures; }
 
   protected _getLineWeight(params: ShaderProgramParams): number {
     return this.isEdge ? params.target.getEdgeWeight(params, this.lineWeight) : this.lineWeight;
@@ -110,17 +116,16 @@ export class PolylineGeometry extends LUTGeometry {
   }
   public getColor(target: Target): ColorInfo { return this.isEdge && target.isEdgeColorOverridden ? target.edgeColor : this.lut.colorInfo; }
 
-  public bindVertexArray(attr: AttributeHandle): void {
-    attr.enableArray(this._buffers!.indices, 3, GL.DataType.UnsignedByte, false, 0, 0);
-  }
-
-  protected _draw(numInstances: number): void {
+  protected _draw(numInstances: number, instanceBuffersContainer?: BuffersContainer): void {
     const gl = System.instance;
-    this._buffers!.indices.bind(GL.Buffer.Target.ArrayBuffer);
+    const bufs = instanceBuffersContainer !== undefined ? instanceBuffersContainer : this._buffers.buffers;
+
+    bufs.bind();
     gl.drawArrays(GL.PrimitiveType.Triangles, 0, this.numIndices, numInstances);
+    bufs.unbind();
   }
 
-  public static create(params: PolylineParams): PolylineGeometry | undefined {
+  public static create(params: PolylineParams, viewIndependentOrigin: Point3d | undefined): PolylineGeometry | undefined {
     const lut = VertexLUT.createFromVertexTable(params.vertices);
     if (undefined === lut)
       return undefined;
@@ -129,6 +134,6 @@ export class PolylineGeometry extends LUTGeometry {
     if (undefined === buffers)
       return undefined;
 
-    return new PolylineGeometry(lut, buffers, params);
+    return new PolylineGeometry(lut, buffers, params, viewIndependentOrigin);
   }
 }

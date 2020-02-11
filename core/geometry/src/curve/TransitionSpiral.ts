@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 
 import { Geometry, AxisOrder } from "../Geometry";
 import { AngleSweep } from "../geometry3d/AngleSweep";
@@ -167,6 +169,9 @@ export class TransitionConditionalProperties {
  * @alpha
  */
 export class TransitionSpiral3d extends CurvePrimitive {
+  /** String name for schema properties */
+  public readonly curvePrimitiveType = "transitionSpiral";
+
   /** Return 1/r with convention that if true zero is given as radius it represents infinite radius (0 curvature, straight line) */
   public static radiusToCurvature(radius: number): number { return (radius === 0.0) ? 0.0 : 1.0 / radius; }
 
@@ -484,7 +489,7 @@ export class TransitionSpiral3d extends CurvePrimitive {
    * @param options StrokeOptions that determine count
    */
   public computeStrokeCountForOptions(options?: StrokeOptions): number {
-    let numStroke = 1;
+    let numStroke;
     if (options) {
       const rMin = Math.min(Math.abs(this.radius01.x0), Math.abs(this.radius01.x1));
       numStroke = options.applyTolerancesToArc(rMin, this.bearing01.sweepRadians);

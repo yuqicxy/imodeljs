@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { Point3d } from "../../geometry3d/Point3dVector3d";
 import { Transform } from "../../geometry3d/Transform";
@@ -9,11 +9,32 @@ import { RangeBase, Range1d, Range2d, Range3d } from "../../geometry3d/Range";
 import { Checker } from "../Checker";
 import { Sample } from "../../serialization/GeometrySamples";
 import { expect, assert } from "chai";
+import { prettyPrint } from "../testFunctions";
+import { GrowableXYZArray } from "../../geometry3d/GrowableXYZArray";
+import { Point2d } from "../../geometry3d/Point2dVector2d";
 
 /* tslint:disable:no-console */
 // (assume points are distinct ...)
-function exericseWithTransformedPoints(ck: Checker, frame: Transform, points: Point3d[]) {
+function exerciseWithTransformedPoints(ck: Checker, frame: Transform, points: Point3d[]) {
   const rangeA = Range3d.createTransformedArray(frame, points);
+  const transformedPoints = frame.multiplyPoint3dArray(points)!;
+  const inverseFrame = frame.inverse();
+  if (inverseFrame) {
+    const rangeQ = Range3d.createArray(points);
+    const rangeQRoundTrip = Range3d.create();
+    rangeQRoundTrip.extendInverseTransformedArray(transformedPoints, frame);
+    ck.testRange3d(rangeQ, rangeQRoundTrip, prettyPrint(frame),
+      prettyPrint(points.slice(0, 3)),
+      prettyPrint(
+        transformedPoints.slice(0, 3)));
+    // const gPoints = GrowableXYZArray.create(points);
+    const hPoints = GrowableXYZArray.create(transformedPoints);
+    const gRangeRoundTrip = Range3d.createInverseTransformedArray(frame, hPoints);
+    const gRangeInverse = Range3d.createTransformedArray(inverseFrame, hPoints);
+    ck.testRange3d(rangeQ, gRangeRoundTrip);
+    ck.testRange3d(rangeQ, gRangeInverse);
+
+  }
   const rangeA1 = Range3d.create();
   const rangeB = Range3d.create();
   rangeB.extendArray(points, frame);
@@ -32,7 +53,7 @@ function exericseWithTransformedPoints(ck: Checker, frame: Transform, points: Po
   ck.testPoint3d(rangeA.high, rangeB.high);
 
   const rangeC = Range3d.create();
-  ck.testFalse(rangeC.isSinglePoint, "Empty range is not singlepoint");
+  ck.testFalse(rangeC.isSinglePoint, "Empty range is not single point");
   if (points.length > 0) {
     rangeC.extend(points[0]);
     ck.testTrue(rangeC.isSinglePoint, "Single point range");
@@ -76,7 +97,7 @@ function exericseWithTransformedPoints(ck: Checker, frame: Transform, points: Po
   ck.testCoordinate(rangeA.zLength(), diagonal.z);
 }
 
-function exericseWithPoints(ck: Checker, points: Point3d[]) {
+function exerciseWithPoints(ck: Checker, points: Point3d[]) {
   const range = Range3d.createArray(points);
   const range1 = range.clone();
   const range2 = range.clone(Range3d.createNull());
@@ -124,9 +145,9 @@ describe("Range3d", () => {
     const ck = new Checker();
     const lattice1 = Sample.createPoint3dLattice(-1, 1.3, 4);
     const frames = Sample.createRigidTransforms();
-    exericseWithPoints(ck, lattice1);
+    exerciseWithPoints(ck, lattice1);
     for (const frame of frames) {
-      exericseWithTransformedPoints(ck, frame, lattice1);
+      exerciseWithTransformedPoints(ck, frame, lattice1);
     }
 
     for (let i = 0; i + 1 < frames.length; i++) {
@@ -192,10 +213,10 @@ describe("Range3d", () => {
     expect(ck.getNumErrors()).equals(0);
   });
 
-  it("Vargs", () => {
+  it("VariableArgs", () => {
     const ck = new Checker();
     const frames = Sample.createRigidTransforms();
-    // number of points here is limited -- need to enumerate them in vargs tests.
+    // number of points here is limited -- need to enumerate them in VariableArgs tests.
     const points = [
       Point3d.create(1, 2, 3),
       Point3d.create(4, 2, 9),
@@ -208,7 +229,7 @@ describe("Range3d", () => {
       ck.testRange3d(rangeA, rangeB);
     }
 
-    ck.checkpoint("Range3d.Vargs");
+    ck.checkpoint("Range3d.VariableArgs");
     expect(ck.getNumErrors()).equals(0);
   });
 
@@ -222,7 +243,7 @@ describe("Range3d", () => {
     const rangeZ = Range1d.createXX(range.low.z, range.high.z);
     for (const xyz of lattice1) {
       const d = range.distanceToPoint(xyz);
-      ck.testBoolean(range.containsPoint(xyz), d === 0.0, "distanceToRange agrees wtih containment");
+      ck.testBoolean(range.containsPoint(xyz), d === 0.0, "distanceToRange agrees with containment");
       ck.testCoordinate(d,
         Geometry.hypotenuseXYZ(rangeX.distanceToX(xyz.x),
           rangeY.distanceToX(xyz.y),
@@ -409,7 +430,7 @@ describe("Range3d", () => {
 
       let d1 = rangeA.distanceToRange(rangeB);
       let d2 = rangeB.distanceToRange(rangeA);
-      ck.testCoordinate(d1, d2, "distnace between ranges is symmetric");
+      ck.testCoordinate(d1, d2, "distance between ranges is symmetric");
       d1 = rangeA.distanceToRange(rangeB);
       d2 = rangeB.distanceToRange(rangeA);
       ck.testBoolean(
@@ -456,6 +477,7 @@ describe("Range3d", () => {
     ck.testFalse(rangeA.containsX(rangeA.fractionToPoint(10.4)), "fractionToPoint, exterior case");
 
     ck.checkpoint("Range3d.MiscRange1d");
+
     expect(ck.getNumErrors()).equals(0);
   });
 
@@ -491,8 +513,51 @@ describe("Range3d", () => {
     expect(ck.getNumErrors()).equals(0);
   });
 
+  it("Misc3d", () => {
+    const ck = new Checker();
+    const range0 = Range3d.createXYZXYZ(1, 2, 3, 6, 3, 2);
+    const nullRange = Range3d.createNull();
+    const unionA = range0.union(nullRange);
+    const unionB = nullRange.union(range0);
+    ck.testRange3d(range0, unionA);
+    ck.testRange3d(range0, unionB);
+
+    const range1 = Range3d.fromJSON([Point3d.create(1, 2, 3), Point3d.create(6, 3, 2)]);
+    ck.testRange3d(range0, range1);
+
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("Misc2d", () => {
+    const ck = new Checker();
+    const range0 = Range2d.createXYXY(1, 2, 3, 6);
+    const nullRange = Range2d.createNull();
+    const unionA = range0.union(nullRange);
+    const unionB = nullRange.union(range0);
+    ck.testRange2d(range0, unionA);
+    ck.testRange2d(range0, unionB);
+
+    const range1 = Range2d.fromJSON({ low: [1, 2], high: [3, 6] });
+    ck.testRange2d(range0, range1);
+    expect(ck.getNumErrors()).equals(0);
+  });
+
+  it("Misc1d", () => {
+    const ck = new Checker();
+    const range0 = Range1d.createXX(1, 2);
+    const nullRange = Range1d.createNull();
+    const unionA = range0.union(nullRange);
+    const unionB = nullRange.union(range0);
+    ck.testRange1d(range0, unionA);
+    ck.testRange1d(range0, unionB);
+
+    const range1 = Range1d.fromJSON({ low: 1, high: 2 });
+    ck.testRange1d(range0, range1);
+    expect(ck.getNumErrors()).equals(0);
+  });
   it("WorldToLocal3d", () => {
     const ck = new Checker();
+
     const a = 10000.0;
     const b = 1313131;
     const rangeA = Range3d.createXYZXYZ(1, 2, 4, 10, 21, 31);
@@ -527,6 +592,10 @@ describe("Range3d", () => {
     const npcToWorld = rangeA.getNpcToWorldRangeTransform();
     const centerA = npcToWorld.multiplyXYZ(0.5, 0.5, 0.5);
     ck.testPoint3d(centerA, rangeA.center);
+    // For single point range, transform (of degenerate range images) is identity . .
+    const singlePointRange = Range3d.createXYZ(1, 2, 3);
+    const singlePointNpcToWorld = singlePointRange.getNpcToWorldRangeTransform();
+    ck.testTrue(singlePointNpcToWorld.matrix.isIdentity, "npcToWorld for single point has identity scales");
     expect(ck.getNumErrors()).equals(0);
   });
 
@@ -556,6 +625,58 @@ describe("Range3d", () => {
   it("ZeroCases", () => {
     const ck = new Checker();
     ck.testTrue(RangeBase.isExtremeValue(RangeBase.coordinateToRangeAbsoluteDistance(0, 10, 1)));
+    expect(ck.getNumErrors()).equals(0);
+  });
+  it("DistanceToNullRange", () => {
+    const ck = new Checker();
+    const null1 = Range1d.createNull();
+    const null2 = Range2d.createNull();
+    const null3 = Range3d.createNull();
+    const q = Math.abs(null1.high); // All dimensions should use the same extreme positive
+    ck.testExactNumber(q, null1.distanceToX(100), "null Range1d distance to X");
+    ck.testExactNumber(q, null2.distanceToPoint(Point2d.create(1, 2)), "null Range1d distance to X");
+    ck.testExactNumber(q, null3.distanceToPoint(Point3d.create(1, 2, 3)), "null Range1d distance to X");
+
+    ck.testExactNumber(0, null3.maxAbs(), "Range3d.null maxAbs is 0");
+    ck.testTrue(RangeBase.isExtremeValue(RangeBase.coordinateToRangeAbsoluteDistance(0, 10, 1)));
+    expect(ck.getNumErrors()).equals(0);
+  });
+  it("Float64ArrayConstructors", () => {
+    const ck = new Checker();
+    const r2 = Range2d.createXYXY(5, 2, 4, 7);
+    const f2 = r2.toFloat64Array();
+    const r2A = Range2d.fromFloat64Array(f2);
+    const r2B = Range2d.fromArrayBuffer(f2);
+    ck.testRange2d(r2, r2A);
+    ck.testRange2d(r2, r2B);
+
+    const r3 = Range3d.createXYZXYZ(5, 3, 4, 7, 3, 1);
+    const f3 = r3.toFloat64Array();
+    const r3A = Range3d.fromFloat64Array(f3);
+    const r3B = Range3d.fromArrayBuffer(f3);
+    ck.testRange3d(r3, r3A);
+    ck.testRange3d(r3, r3B);
+
+    r2.freeze();
+    r3.freeze();
+    expect(ck.getNumErrors()).equals(0);
+  });
+  it("Reuse corners", () => {
+    const ck = new Checker();
+    const range = Range3d.createXYZXYZ(1, 2, 3, 7, 8, 9);
+    const cornerA = range.corners();
+    const cornerB: Point3d[] = [];
+    const cornerB0 = range.corners(cornerB);
+    ck.testTrue(cornerB !== cornerB0, "Range corners creates new array if result has wrong size");
+
+    for (let i = 0; i < 8; i++)
+      cornerB.push(Point3d.create(i, i, i));
+    const cornerB1 = range.corners(cornerB);
+    ck.testTrue(cornerB === cornerB1, "Range corners reuses result array");
+    for (let i = 0; i < 8; i++) {
+      ck.testPoint3d(cornerA[i], cornerB[i], "range.corners overwrites");
+      ck.testTrue(range.containsPoint(cornerB[i]));
+    }
     expect(ck.getNumErrors()).equals(0);
   });
 });

@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import * as React from "react";
 import { IModelConnection } from "@bentley/imodeljs-frontend";
@@ -24,6 +24,8 @@ export default class SelectionScopePicker extends React.Component<SelectionScope
   }
   private async initAvailableSelectionScopes() {
     const scopes = await Presentation.selection.scopes.getSelectionScopes(this.props.imodel);
+    // note: the functional selection scope is currently 'hidden' - we need to manually add it here
+    scopes.push({ id: "functional", label: "Functional", description: "Selected associated functional element" });
     this.setState({ availableSelectionScopes: scopes });
   }
   public componentDidUpdate(prevProps: SelectionScopePickerProps, _prevState: SelectionScopePickerState) {

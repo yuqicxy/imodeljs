@@ -34,7 +34,9 @@
     "themeTitle": "Theme",
     "themeDescription": "Toggle the theme between light and dark",
     "autoHideTitle": "Auto-Hide UI",
-    "autoHideDescription": "Toggle the auto-hide of UI after inactivity"
+    "autoHideDescription": "Toggle the auto-hide of UI after inactivity",
+    "dragInteractionTitle": "Drag Interaction",
+    "dragInteractionDescription": "Toggle the toolbar interaction between click and drag"
   },
   "backstage": {
     "command": "Command",
@@ -51,7 +53,8 @@
     "exit": "Exit",
     "imodelopen": "IModel Open",
     "imodelindex": "IModel Index",
-    "fileSelect": "Open Local File"
+    "fileSelect": "Open Local File",
+    "custom": "Custom"
   },
   "zone6": {
     "month": "Month",
@@ -114,12 +117,14 @@
     "warningMessageBox": "Warning",
     "errorMessageBox": "Error",
     "alertMessageBox": "Alert",
+    "noIconMessageBox": "No Icon Message",
     "openMessageBox": "Open Message Box",
     "setLengthFormatMetric": "Set Format Metric",
     "setLengthFormatImperial": "Set Format Imperial",
     "toggleLengthFormat": "Toggle Length Format (Imperial/Metric)",
     "toggleItemDisplay": "Toggle Hide/Show Test",
     "openRadial": "Open Radial Menu",
+    "openCalculator": "Open Calculator",
     "outputMessage": "Call outputMessage",
     "openCloseProperties": "Open/Close Property Grid",
     "openPropertyGrid": "Open Property Grid",
@@ -134,16 +139,31 @@
     "messageDemos": "Message Demos",
     "dialogDemos": "Dialog Demos",
     "viewportDialog": "Viewport Dialog",
+    "spinnerTestDialog": "Spinner Test",
     "openNestedAnimationStage": "Open Stage to Play Animations",
     "reduceWidgetOpacity": "Reduce Widget Opacity",
     "defaultWidgetOpacity": "Default Widget Opacity",
-    "clearSelection": "Clear Selection",
     "saveContentLayout": "Save Content Layout",
-    "restoreContentLayout": "Restore Content Layout"
+    "restoreContentLayout": "Restore Content Layout",
+    "startCursorPopup": "Start Cursor Popup",
+    "addCursorPopups": "Add Cursor Popups",
+    "moreCursorPopups": "More Cursor Popups",
+    "stopCursorPopup": "Stop Cursor Popup",
+    "cmdKeyinDialog": "Command Key-in",
+    "opencmdKeyinDialog": "Open command key-in dialog",
+    "accudrawSubMenu": "Accudraw Demos",
+    "addMenuButton": "Add Menu Button",
+    "hideMenuButton": "Hide Menu Button",
+    "showCalculator": "Show Calculator",
+    "showAngleEditor": "Show Angle Editor",
+    "showLengthEditor": "Show Length Editor",
+    "showHeightEditor": "Show Height Editor",
+    "showContextMenu": "Show Context Menu",
+    "showToolbar": "Show Toolbar"
   },
   "tools": {
     "ToolWithSettings": {
-      "keyin": "ToolWithSettings",
+      "keyin": "Tool With Settings",
       "description": "Demo Tool with Settings",
       "flyover": "Tool with Settings",
       "Prompts": {
@@ -154,6 +174,7 @@
         "Color": "Color",
         "Weight": "Weight",
         "State": "State",
+        "Station": "Station",
         "Coordinate": "Coordinate",
         "Length": "Length",
         "Angle": "Angle"
@@ -166,7 +187,7 @@
       }
     },
     "Tool1": {
-      "keyin": "Tool1",
+      "keyin": "Test Tool1",
       "description": "Test1 tool",
       "flyover": "Tool1",
       "Prompts": {
@@ -174,7 +195,7 @@
       }
     },
     "Tool2": {
-      "keyin": "Tool2",
+      "keyin": "Test Tool2",
       "description": "Test2 tool",
       "flyover": "Tool2",
       "Prompts": {
@@ -193,9 +214,14 @@
       }
     },
     "AppSelect": {
-      "keyin": "Select",
+      "keyin": "App Select Element",
       "description": "Element Selection",
       "flyover": "Select"
+    },
+    "TestUiProvider": {
+      "keyin": "TestUiProvider Toggle",
+      "description": "Toggle test UiProvider",
+      "flyover": "Toggle test UiProvider"
     },
     "select": "Select",
     "fitView": "Fit View",
@@ -240,5 +266,31 @@
   "localFileStage": {
     "localFile": "Local File",
     "selectFile": "Select Local File"
+  },
+  "statusFields": {
+    "displayStyle": "Display Style",
+    "sampleField": "Sample StatusBar Field",
+    "sampleButton": "Sample Button",
+    "unnamedDisplayStyle": "unnamed"
+  },
+  "properties": {
+    "context-menu": {
+      "add-favorite": {
+        "label": "Add to Favorite",
+        "description": "Add this property to Favorite category"
+      },
+      "remove-favorite": {
+        "label": "Remove from Favorite",
+        "description": "Remove this property from Favorite category"
+      }
+    }
+  },
+  "table": {
+    "context-menu": {
+      "sample-item": {
+        "label": "Sample menu item",
+        "description": "A sample of a context menu item"
+      }
+    }
   }
 }

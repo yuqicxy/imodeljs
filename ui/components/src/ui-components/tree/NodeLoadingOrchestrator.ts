@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Tree */
+/** @packageDocumentation
+ * @module Tree
+ */
 
 import { BeInspireTree, BeInspireTreeNode, toNode, toNodes } from "./component/BeInspireTree";
 import { TreeNodeItem } from "./TreeDataProvider";
@@ -23,7 +25,7 @@ import { takeUntil } from "rxjs/internal/operators/takeUntil";
 import { takeWhile } from "rxjs/internal/operators/takeWhile";
 import { tap } from "rxjs/internal/operators/tap";
 
-/** @internal */
+/** @internal @deprecated */
 export interface NodeLoadingOrchestratorCallbacks {
   onLoadProgress: (loaded: number, total: number, cancel: () => void) => void;
   onLoadCanceled: () => void;
@@ -31,7 +33,7 @@ export interface NodeLoadingOrchestratorCallbacks {
 }
 
 /**
- * @internal
+ * @internal @deprecated
  * Loads tree nodes for event handling. Makes sure that the order of
  * subscribers that receive loaded nodes is the same as their subscription order.
  */
@@ -260,7 +262,7 @@ export class NodeLoadingOrchestrator {
 
     const promises = Array.from(take(this._pendingNodeTracker, this._model.props.pageSize!))
       .map(async (node) => this.requestNodeLoad(node));
-    // tslint:disable-next-line: no-floating-promises
+    // tslint:disable-next-line:no-floating-promises
     Promise.all(promises).then((loadedNodes) => {
       const collectedLoadedNodes: Array<BeInspireTreeNode<TreeNodeItem>> = [];
       for (const loadedNode of loadedNodes) {
@@ -309,7 +311,7 @@ export class NodeLoadingOrchestrator {
 }
 
 /**
- * @internal
+ * @internal @deprecated
  * Keeps track of which nodes are queued for loading.
  */
 export class PendingNodeTracker implements Iterable<NodeKey> {
@@ -453,7 +455,7 @@ export class PendingNodeTracker implements Iterable<NodeKey> {
 }
 
 /**
- * @internal
+ * @internal @deprecated
  * Node identifier used by [[NodeSet]]
  */
 export class NodeKey {

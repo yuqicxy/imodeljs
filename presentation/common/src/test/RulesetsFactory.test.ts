@@ -1,8 +1,9 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import { expect } from "chai";
+import * as sinon from "sinon";
 import * as faker from "faker";
 import {
   createRandomCategory, createRandomPrimitiveTypeDescription,
@@ -45,6 +46,21 @@ describe("RulesetsFactory", () => {
       typeName: "double",
     });
 
+    const createDateTimeTypeDescription = (): PrimitiveTypeDescription => ({
+      valueFormat: PropertyValueFormat.Primitive,
+      typeName: "dateTime",
+    });
+
+    const createPoint2dTypeDescription = (): PrimitiveTypeDescription => ({
+      valueFormat: PropertyValueFormat.Primitive,
+      typeName: "point2d",
+    });
+
+    const createPoint3dTypeDescription = (): PrimitiveTypeDescription => ({
+      valueFormat: PropertyValueFormat.Primitive,
+      typeName: "point3d",
+    });
+
     const createNavigationPropertyTypeDescription = (): PrimitiveTypeDescription => ({
       valueFormat: PropertyValueFormat.Primitive,
       typeName: "navigation",
@@ -67,7 +83,7 @@ describe("RulesetsFactory", () => {
       const field = new PropertiesField(createRandomCategory(), "MyProperty",
         "My Property", createStringTypeDescription(), true, 1, [property]);
       const record = new Item([], faker.random.word(), "", recordClass,
-        { MyProperty: "test value" }, { MyProperty: "test display value" }, []);
+        { MyProperty: `test value with double "quotes"` }, { MyProperty: "test display value" }, []);
       const result = factory.createSimilarInstancesRuleset(field, record);
       const expectedRules: Rule[] = [{
         ruleType: RuleTypes.Content,
@@ -76,7 +92,7 @@ describe("RulesetsFactory", () => {
           classes: { schemaName: "MySchema", classNames: ["MyClass"] },
           arePolymorphic: true,
           relatedInstances: [],
-          instanceFilter: `this.MyProperty = "test value"`,
+          instanceFilter: `this.MyProperty = "test value with double ""quotes"""`,
         }],
       }];
       expect(result.ruleset.rules).to.deep.eq(expectedRules);
@@ -208,11 +224,143 @@ describe("RulesetsFactory", () => {
           classes: { schemaName: "MySchema", classNames: ["MyClass"] },
           arePolymorphic: true,
           relatedInstances: [],
-          instanceFilter: `this.MyProperty = 123.456`, // WIP should this use display value instead?
+          instanceFilter: `CompareDoubles(this.MyProperty, 123.456) = 0`,
         }],
       }];
       expect(result.ruleset.rules).to.deep.eq(expectedRules);
       expect(result.description).to.eq(`[My Class].[My Property] = 123.46`);
+    });
+
+    it("creates a valid ruleset for datetime record", () => {
+      const recordClass: ClassInfo = {
+        id: createRandomId(),
+        name: "MySchema:MyClass",
+        label: "My Class",
+      };
+      const property: Property = {
+        property: {
+          classInfo: recordClass,
+          type: "dateTime",
+          name: "MyProperty",
+        },
+        relatedClassPath: [],
+      };
+      const field = new PropertiesField(createRandomCategory(), "MyProperty",
+        "My Property", createDateTimeTypeDescription(), true, 1, [property]);
+      const record = new Item([], faker.random.word(), "", recordClass,
+        { MyProperty: "2007-07-13T07:18:07.000" }, { MyProperty: "633199078870000000" }, []);
+      const result = factory.createSimilarInstancesRuleset(field, record);
+      const expectedRules: Rule[] = [{
+        ruleType: RuleTypes.Content,
+        specifications: [{
+          specType: ContentSpecificationTypes.ContentInstancesOfSpecificClasses,
+          classes: { schemaName: "MySchema", classNames: ["MyClass"] },
+          arePolymorphic: true,
+          relatedInstances: [],
+          instanceFilter: `CompareDateTimes(this.MyProperty, "2007-07-13T07:18:07.000") = 0`,
+        }],
+      }];
+      expect(result.ruleset.rules).to.deep.eq(expectedRules);
+      expect(result.description).to.eq(`[My Class].[My Property] = 633199078870000000`);
+    });
+
+    it("creates a valid ruleset for point2d record", () => {
+      const recordClass: ClassInfo = {
+        id: createRandomId(),
+        name: "MySchema:MyClass",
+        label: "My Class",
+      };
+      const property: Property = {
+        property: {
+          classInfo: recordClass,
+          type: "point2d",
+          name: "MyProperty",
+        },
+        relatedClassPath: [],
+      };
+      const field = new PropertiesField(createRandomCategory(), "MyProperty",
+        "My Property", createPoint2dTypeDescription(), true, 1, [property]);
+      const record = new Item([], faker.random.word(), "", recordClass,
+        { MyProperty: { x: 1, y: 2 } }, { MyProperty: "1, 2" }, []);
+      const result = factory.createSimilarInstancesRuleset(field, record);
+      const expectedRules: Rule[] = [{
+        ruleType: RuleTypes.Content,
+        specifications: [{
+          specType: ContentSpecificationTypes.ContentInstancesOfSpecificClasses,
+          classes: { schemaName: "MySchema", classNames: ["MyClass"] },
+          arePolymorphic: true,
+          relatedInstances: [],
+          instanceFilter: `CompareDoubles(this.MyProperty.x, 1) = 0 AND CompareDoubles(this.MyProperty.y, 2) = 0`,
+        }],
+      }];
+      expect(result.ruleset.rules).to.deep.eq(expectedRules);
+      expect(result.description).to.eq(`[My Class].[My Property] = 1, 2`);
+    });
+
+    it("creates a valid ruleset for point3d record", () => {
+      const recordClass: ClassInfo = {
+        id: createRandomId(),
+        name: "MySchema:MyClass",
+        label: "My Class",
+      };
+      const property: Property = {
+        property: {
+          classInfo: recordClass,
+          type: "point3d",
+          name: "MyProperty",
+        },
+        relatedClassPath: [],
+      };
+      const field = new PropertiesField(createRandomCategory(), "MyProperty",
+        "My Property", createPoint3dTypeDescription(), true, 1, [property]);
+      const record = new Item([], faker.random.word(), "", recordClass,
+        { MyProperty: { x: 1, y: 2, z: 3 } }, { MyProperty: "1, 2, 3" }, []);
+      const result = factory.createSimilarInstancesRuleset(field, record);
+      const expectedRules: Rule[] = [{
+        ruleType: RuleTypes.Content,
+        specifications: [{
+          specType: ContentSpecificationTypes.ContentInstancesOfSpecificClasses,
+          classes: { schemaName: "MySchema", classNames: ["MyClass"] },
+          arePolymorphic: true,
+          relatedInstances: [],
+          instanceFilter: `CompareDoubles(this.MyProperty.x, 1) = 0 AND CompareDoubles(this.MyProperty.y, 2) = 0 AND CompareDoubles(this.MyProperty.z, 3) = 0`,
+        }],
+      }];
+      expect(result.ruleset.rules).to.deep.eq(expectedRules);
+      expect(result.description).to.eq(`[My Class].[My Property] = 1, 2, 3`);
+    });
+
+    it("creates a valid ruleset for point3d record when z value is 0", () => {
+      const recordClass: ClassInfo = {
+        id: createRandomId(),
+        name: "MySchema:MyClass",
+        label: "My Class",
+      };
+      const property: Property = {
+        property: {
+          classInfo: recordClass,
+          type: "point3d",
+          name: "MyProperty",
+        },
+        relatedClassPath: [],
+      };
+      const field = new PropertiesField(createRandomCategory(), "MyProperty",
+        "My Property", createPoint3dTypeDescription(), true, 1, [property]);
+      const record = new Item([], faker.random.word(), "", recordClass,
+        { MyProperty: { x: 1, y: 2, z: 0 } }, { MyProperty: "1, 2, 0" }, []);
+      const result = factory.createSimilarInstancesRuleset(field, record);
+      const expectedRules: Rule[] = [{
+        ruleType: RuleTypes.Content,
+        specifications: [{
+          specType: ContentSpecificationTypes.ContentInstancesOfSpecificClasses,
+          classes: { schemaName: "MySchema", classNames: ["MyClass"] },
+          arePolymorphic: true,
+          relatedInstances: [],
+          instanceFilter: `CompareDoubles(this.MyProperty.x, 1) = 0 AND CompareDoubles(this.MyProperty.y, 2) = 0 AND CompareDoubles(this.MyProperty.z, 0) = 0`,
+        }],
+      }];
+      expect(result.ruleset.rules).to.deep.eq(expectedRules);
+      expect(result.description).to.eq(`[My Class].[My Property] = 1, 2, 0`);
     });
 
     it("creates a valid ruleset for null record", () => {
@@ -315,7 +463,7 @@ describe("RulesetsFactory", () => {
         "Related Property", createStringTypeDescription(), true, 1, [property]);
       const parentField = new NestedContentField(createRandomCategory(), faker.random.word(),
         faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
-        faker.random.number(), createRandomECClassInfo(), relationshipPath, [field]);
+        faker.random.number(), createRandomECClassInfo(), relationshipPath, [field], undefined, faker.random.boolean());
       field.rebuildParentship(parentField);
       const values = {
         [parentField.name]: [{
@@ -388,7 +536,7 @@ describe("RulesetsFactory", () => {
         "Related Property", createStringTypeDescription(), true, 1, [property]);
       const parentField = new NestedContentField(createRandomCategory(), faker.random.word(),
         faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
-        faker.random.number(), createRandomECClassInfo(), relationshipPath, [field]);
+        faker.random.number(), createRandomECClassInfo(), relationshipPath, [field], undefined, faker.random.boolean());
       field.rebuildParentship(parentField);
       const values = {
         [parentField.name]: [{
@@ -682,7 +830,7 @@ describe("RulesetsFactory", () => {
           faker.random.word(), createStringTypeDescription(), true, 1, [property]);
         const parentField = new NestedContentField(createRandomCategory(), faker.random.word(),
           faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
-          faker.random.number(), createRandomECClassInfo(), [], [field]);
+          faker.random.number(), createRandomECClassInfo(), [], [field], undefined, faker.random.boolean());
         field.rebuildParentship(parentField);
         const values = {
           [parentField.name]: [{
@@ -737,7 +885,7 @@ describe("RulesetsFactory", () => {
           faker.random.word(), createStringTypeDescription(), true, 1, [property]);
         const parentField = new NestedContentField(createRandomCategory(), faker.random.word(),
           faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
-          faker.random.number(), createRandomECClassInfo(), relationshipPath, [field]);
+          faker.random.number(), createRandomECClassInfo(), relationshipPath, [field], undefined, faker.random.boolean());
         field.rebuildParentship(parentField);
         const values = {
           [parentField.name]: "invalid",
@@ -746,6 +894,27 @@ describe("RulesetsFactory", () => {
           [field.name]: undefined,
         };
         const record = new Item([], faker.random.words(), "", recordClass, values, displayValues, []);
+        expect(() => factory.createSimilarInstancesRuleset(field, record)).to.throw();
+      });
+
+      it("throws when point2d record has invalid value", () => {
+        const recordClass: ClassInfo = {
+          id: createRandomId(),
+          name: "MySchema:MyClass",
+          label: "My Class",
+        };
+        const property: Property = {
+          property: {
+            classInfo: recordClass,
+            type: "point2d",
+            name: "MyProperty",
+          },
+          relatedClassPath: [],
+        };
+        const field = new PropertiesField(createRandomCategory(), "MyProperty",
+          "My Property", createPoint2dTypeDescription(), true, 1, [property]);
+        const record = new Item([], faker.random.word(), "", recordClass,
+          { MyProperty: "should be {x,y} object" }, { MyProperty: "1, 2" }, []);
         expect(() => factory.createSimilarInstancesRuleset(field, record)).to.throw();
       });
 
@@ -961,7 +1130,7 @@ describe("RulesetsFactory", () => {
         }];
         const parentField = new NestedContentField(createRandomCategory(), faker.random.word(),
           faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
-          faker.random.number(), nestedContentClass, nestedContentRelationshipPath, [field]);
+          faker.random.number(), nestedContentClass, nestedContentRelationshipPath, [field], undefined, faker.random.boolean());
         field.rebuildParentship(parentField);
         const values = {
           [parentField.name]: [{
@@ -1083,7 +1252,7 @@ describe("RulesetsFactory", () => {
           faker.random.word(), createStringTypeDescription(), true, 1, [property]);
         const parentField = new NestedContentField(createRandomCategory(), faker.random.word(),
           faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
-          faker.random.number(), createRandomECClassInfo(), relationshipPath, [field]);
+          faker.random.number(), createRandomECClassInfo(), relationshipPath, [field], undefined, faker.random.boolean());
         field.rebuildParentship(parentField);
         const values = {
           [parentField.name]: [{
@@ -1138,7 +1307,7 @@ describe("RulesetsFactory", () => {
           faker.random.word(), createStringTypeDescription(), true, 1, [property]);
         const parentField = new NestedContentField(createRandomCategory(), faker.random.word(),
           faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
-          faker.random.number(), createRandomECClassInfo(), relationshipPath, [field]);
+          faker.random.number(), createRandomECClassInfo(), relationshipPath, [field], undefined, faker.random.boolean());
         field.rebuildParentship(parentField);
         const values = {
           [parentField.name]: [{
@@ -1202,7 +1371,7 @@ describe("RulesetsFactory", () => {
           faker.random.word(), createStringTypeDescription(), true, 1, [property]);
         const parentField = new NestedContentField(createRandomCategory(), faker.random.word(),
           faker.random.words(), createRandomPrimitiveTypeDescription(), faker.random.boolean(),
-          faker.random.number(), createRandomECClassInfo(), relationshipPath, [field]);
+          faker.random.number(), createRandomECClassInfo(), relationshipPath, [field], undefined, faker.random.boolean());
         field.rebuildParentship(parentField);
         const values = {
           [parentField.name]: [{
@@ -1223,6 +1392,64 @@ describe("RulesetsFactory", () => {
         expect(() => factory.createSimilarInstancesRuleset(field, record)).to.throw();
       });
 
+    });
+
+  });
+
+  describe("createSimilarInstancesRulesetAsync", () => {
+    // note: because `createSimilarInstancesRulesetAsync` basically duplicates
+    // the `createSimilarInstancesRuleset`, majority of its functionality is already
+    // covered by `createSimilarInstancesRuleset` tests
+
+    const createStringTypeDescription = (): PrimitiveTypeDescription => ({
+      valueFormat: PropertyValueFormat.Primitive,
+      typeName: "string",
+    });
+
+    it("uses supplied `computeDisplayValue` callback to calculate display value for description", async () => {
+      const recordClass: ClassInfo = {
+        id: createRandomId(),
+        name: "MySchema:MyClass",
+        label: "My Class",
+      };
+      const property: Property = {
+        property: {
+          classInfo: recordClass,
+          type: "string",
+          name: "MyProperty",
+        },
+        relatedClassPath: [],
+      };
+      const field = new PropertiesField(createRandomCategory(), "MyProperty",
+        "My Property", createStringTypeDescription(), true, 1, [property]);
+      const record = new Item([], faker.random.word(), "", recordClass,
+        { MyProperty: "test value" }, { MyProperty: "test display value" }, []);
+      const callback = sinon.fake(() => "TEST");
+      const result = await factory.createSimilarInstancesRulesetAsync(field, record, callback);
+      expect(callback).to.be.calledOnceWithExactly(field.type.typeName, "test value", "test display value");
+      expect(result.description).to.eq(`[My Class].[My Property] = TEST`);
+    });
+
+    it("uses record display value as display value for description if `computeDisplayValue` callback is not supplied", async () => {
+      const recordClass: ClassInfo = {
+        id: createRandomId(),
+        name: "MySchema:MyClass",
+        label: "My Class",
+      };
+      const property: Property = {
+        property: {
+          classInfo: recordClass,
+          type: "string",
+          name: "MyProperty",
+        },
+        relatedClassPath: [],
+      };
+      const field = new PropertiesField(createRandomCategory(), "MyProperty",
+        "My Property", createStringTypeDescription(), true, 1, [property]);
+      const record = new Item([], faker.random.word(), "", recordClass,
+        { MyProperty: "test value" }, { MyProperty: "test display value" }, []);
+      const result = await factory.createSimilarInstancesRulesetAsync(field, record);
+      expect(result.description).to.eq(`[My Class].[My Property] = test display value`);
     });
 
   });

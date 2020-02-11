@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 import { CompositeFlags } from "./RenderFlags";
 import { assert } from "@bentley/bentleyjs-core";
@@ -34,15 +36,19 @@ export const enum TechniqueId {
   CopyPickBuffers,
   CopyColor,
   CopyColorNoAlpha,
-  CopyStencil,
+  VolClassColorUsingStencil,
   ClearPickAndColor,
   ClipMask,
+  EVSMFromDepth,
   SkyBox,
   SkySphereGradient,
   SkySphereTexture,
   AmbientOcclusion,
   Blur,
   CombineTextures,
+  VolClassCopyZ,
+  VolClassSetBlend,
+  VolClassBlend,
 
   NumBuiltIn,
   COUNT = NumBuiltIn,

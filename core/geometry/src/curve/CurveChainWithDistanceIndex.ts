@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
-/** @module Curve */
+/** @packageDocumentation
+ * @module Curve
+ */
 
 import { Geometry } from "../Geometry";
 import { Point3d, Vector3d } from "../geometry3d/Point3dVector3d";
@@ -180,6 +182,9 @@ class DistanceIndexConstructionContext implements IStrokeHandler {
  * @public
  */
 export class CurveChainWithDistanceIndex extends CurvePrimitive {
+  /** String name for schema properties */
+  public readonly curvePrimitiveType = "curveChainWithDistanceIndex";
+
   private _path: CurveChain;
   private _fragments: PathFragment[];
   private _totalLength: number; // matches final fragment distance1.
@@ -264,6 +269,23 @@ export class CurveChainWithDistanceIndex extends CurvePrimitive {
     }
     return numStroke;
   }
+  /**
+   * Return an array containing only the curve primitives.
+   * * This DEFAULT simply pushes `this` to the collectorArray.
+   * * CurvePrimitiveWithDistanceIndex optionally collects its members.
+   * @param collectorArray array to receive primitives (pushed -- the array is not cleared)
+   * @param smallestPossiblePrimitives if false, CurvePrimitiveWithDistanceIndex returns only itself.  If true, it recurses to its (otherwise hidden) children.
+   */
+  public collectCurvePrimitivesGo(collectorArray: CurvePrimitive[], smallestPossiblePrimitives: boolean) {
+    if (smallestPossiblePrimitives) {
+      for (const c of this._path.children) {
+        c.collectCurvePrimitivesGo(collectorArray, smallestPossiblePrimitives);
+      }
+    } else {
+      collectorArray.push(this);
+    }
+  }
+
   /**
    * construct StrokeCountMap for each child, accumulating data to stroke count map for this primitive.
    * @param options StrokeOptions that determine count
@@ -375,12 +397,13 @@ export class CurveChainWithDistanceIndex extends CurvePrimitive {
    */
   public fractionToPoint(fraction: number, result?: Point3d): Point3d {
     const chainDistance = fraction * this._totalLength;
-    let fragment = this.chainDistanceToFragment(chainDistance, true);
+    const fragment = this.chainDistanceToFragment(chainDistance, true);
     if (fragment) {
       const childFraction = fragment.chainDistanceToAccurateChildFraction(chainDistance);
       return fragment.childCurve.fractionToPoint(childFraction, result);
     }
-    fragment = this.chainDistanceToFragment(chainDistance, true);
+    // no fragment found.  Use _fragments[0]
+    //    fragment = this.chainDistanceToFragment(chainDistance, true);
     return this._fragments[0].childCurve.fractionToPoint(0.0, result);
   }
 

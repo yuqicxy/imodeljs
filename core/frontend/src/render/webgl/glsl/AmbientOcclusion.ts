@@ -1,30 +1,45 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module WebGL */
+/** @packageDocumentation
+ * @module WebGL
+ */
 
 // portions adapted from Cesium.js Copyright 2011 - 2017 Cesium Contributors
 
 import { TextureUnit } from "../RenderFlags";
 import { VariableType, FragmentShaderComponent, VariablePrecision } from "../ShaderBuilder";
 import { ShaderProgram } from "../ShaderProgram";
-import { GLSLFragment, addWindowToTexCoords } from "./Fragment";
+import { assignFragColor, computeLinearDepth, addWindowToTexCoords } from "./Fragment";
 import { createViewportQuadBuilder } from "./ViewportQuad";
 import { AmbientOcclusionGeometry } from "../CachedGeometry";
 import { Texture2DHandle } from "../Texture";
-import { GLSLDecode } from "./Decode";
-import { readDepthAndOrder } from "./FeatureSymbology";
+import { decodeDepthRgb } from "./Decode";
+import { addRenderOrderConstants, readDepthAndOrder } from "./FeatureSymbology";
 import { addViewport } from "./Viewport";
 import { addFrustum } from "./Common";
 
+// This outputs 1 for unlit surfaces, and for polylines and point strings.
+// Otherwise it computes ambient occlusion based on normal reconstructed from pick depth.
 const computeAmbientOcclusion = `
   vec2 tc = windowCoordsToTexCoords(gl_FragCoord.xy);
-  float linearDepth = readDepthAndOrder(tc).y;
+  vec2 depthAndOrder = readDepthAndOrder(tc);
+  float order = depthAndOrder.x;
+  if (order >= kRenderOrder_PlanarBit)
+    order = order - kRenderOrder_PlanarBit;
+
+  if (order < kRenderOrder_LitSurface || order == kRenderOrder_Linear)
+    return vec4(1.0);
+
+  float linearDepth = depthAndOrder.y;
   float nonLinearDepth = computeNonLinearDepth(linearDepth);
+  if (nonLinearDepth > u_maxDistance)
+    return vec4(1.0);
+
   vec3 viewPos = computePositionFromDepth(tc, nonLinearDepth).xyz;
 
-  vec2 pixelSize = 1.0 / u_viewport.zw; // could use uniform for this
+  vec2 pixelSize = 1.0 / u_viewport;
   vec3 viewNormal = computeNormalFromDepth(viewPos, tc, pixelSize);
 
   vec2 sampleDirection = vec2(1.0, 0.0);
@@ -33,9 +48,7 @@ const computeAmbientOcclusion = `
   // Grab some random noise
   // Multiply screen UV (range 0..1) with size of viewport divided by 4 in order to tile the 4x4 noise texture across the screen.
   // Multiply the random 0..1 vec3 by 2 and then substract 1.  This puts the components of the vec3 in the range -1..1.
-  vec3 noiseVec = (TEXTURE(u_noise, tc * vec2(u_viewport.z / 4.0, u_viewport.w / 4.0)).rgb + 1.0) / 2.0;
-
-  // Potential ###TODO: frustumLength (If the current fragment has a distance from the camera greater than this value, ambient occlusion is not computed for the fragment.)
+  vec3 noiseVec = (TEXTURE(u_noise, tc * vec2(u_viewport.x / 4.0, u_viewport.y / 4.0)).rgb + 1.0) / 2.0;
 
   float bias = u_hbaoSettings.x; // Represents an angle in radians. If the dot product between the normal of the sample and the vector to the camera is less than this value, sampling stops in the current direction. This is used to remove shadows from near planar edges.
   float zLengthCap = u_hbaoSettings.y; // If the distance in linear Z from the current sample to first sample is greater than this value, sampling stops in the current direction.
@@ -144,15 +157,16 @@ export function createAmbientOcclusionProgram(context: WebGLRenderingContext): S
   const frag = builder.frag;
 
   addWindowToTexCoords(frag);
-  frag.addFunction(GLSLDecode.depthRgb);
+  frag.addFunction(decodeDepthRgb);
   frag.addFunction(readDepthAndOrder);
   frag.addFunction(computeNonLinearDepth);
   frag.addFunction(computePositionFromDepth);
   frag.addFunction(computeNormalFromDepth);
-  frag.addFunction(GLSLFragment.computeLinearDepth);
+  frag.addFunction(computeLinearDepth);
+  addRenderOrderConstants(frag);
 
   frag.set(FragmentShaderComponent.ComputeBaseColor, computeAmbientOcclusion);
-  frag.set(FragmentShaderComponent.AssignFragData, GLSLFragment.assignFragColor);
+  frag.set(FragmentShaderComponent.AssignFragData, assignFragColor);
 
   frag.addUniform("u_pickDepthAndOrder", VariableType.Sampler2D, (prog) => {
     prog.addGraphicUniform("u_pickDepthAndOrder", (uniform, params) => {
@@ -181,18 +195,24 @@ export function createAmbientOcclusionProgram(context: WebGLRenderingContext): S
 
   frag.addUniform("u_frustumPlanes", VariableType.Vec4, (prog) => {
     prog.addProgramUniform("u_frustumPlanes", (uniform, params) => {
-      uniform.setUniform4fv(params.target.frustumUniforms.frustumPlanes);
+      uniform.setUniform4fv(params.target.uniforms.frustum.planes);
     });
   });
 
   frag.addUniform("u_hbaoSettings", VariableType.Vec4, (prog) => {
     prog.addProgramUniform("u_hbaoSettings", (uniform, params) => {
       const hbaoSettings = new Float32Array([
-        params.target.ambientOcclusionSettings.bias!,
-        params.target.ambientOcclusionSettings.zLengthCap!,
-        params.target.ambientOcclusionSettings.intensity!,
-        params.target.ambientOcclusionSettings.texelStepSize!]);
+        params.target.ambientOcclusionSettings.bias,
+        params.target.ambientOcclusionSettings.zLengthCap,
+        params.target.ambientOcclusionSettings.intensity,
+        params.target.ambientOcclusionSettings.texelStepSize]);
       uniform.setUniform4fv(hbaoSettings);
+    });
+  }, VariablePrecision.High);
+
+  frag.addUniform("u_maxDistance", VariableType.Float, (prog) => {
+    prog.addProgramUniform("u_maxDistance", (uniform, params) => {
+      uniform.setUniform1f(params.target.ambientOcclusionSettings.maxDistance);
     });
   }, VariablePrecision.High);
 

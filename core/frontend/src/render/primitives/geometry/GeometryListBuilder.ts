@@ -1,15 +1,17 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Rendering */
+/** @packageDocumentation
+ * @module Rendering
+ */
 
 import { Transform, Arc3d, LineSegment3d, CurvePrimitive, Loop, Path, Point2d, Point3d, Polyface, IndexedPolyface, LineString3d, Range3d } from "@bentley/geometry-core";
-import { GraphicParams, RenderTexture, Gradient, FeatureTable } from "@bentley/imodeljs-common";
+import { GraphicParams, PackedFeatureTable, RenderTexture, Gradient, FeatureTable } from "@bentley/imodeljs-common";
 import { GraphicBuilder, GraphicType } from "../../GraphicBuilder";
 import { Viewport } from "../../../Viewport";
 import { GeometryOptions } from "../Primitives";
-import { RenderSystem, RenderGraphic, PackedFeatureTable } from "../../System";
+import { RenderSystem, RenderGraphic } from "../../System";
 import { DisplayParams } from "../DisplayParams";
 import { GeometryAccumulator } from "./GeometryAccumulator";
 import { Geometry } from "./GeometryPrimitives";
@@ -56,10 +58,8 @@ export abstract class GeometryListBuilder extends GraphicBuilder {
 
   public addArc(ellipse: Arc3d, isEllipse: boolean, filled: boolean): void {
     let curve;
-    let isLoop = false;
     if (isEllipse || filled) {
       curve = Loop.create(ellipse);
-      isLoop = true;
     } else {
       curve = Path.create(ellipse);
     }
@@ -70,7 +70,7 @@ export abstract class GeometryListBuilder extends GraphicBuilder {
       curve.children.push(gapSegment);
     }
     const displayParams = curve.isAnyRegionType ? this.getMeshDisplayParams() : this.getLinearDisplayParams();
-    if (isLoop)
+    if (curve instanceof Loop)
       this.accum.addLoop(curve, displayParams, this.placement, false);
     else
       this.accum.addPath(curve, displayParams, this.placement, false);

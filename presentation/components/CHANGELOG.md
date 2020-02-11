@@ -1,6 +1,95 @@
 # Change Log - @bentley/presentation-components
 
-This log was last generated on Mon, 01 Jul 2019 19:04:29 GMT and should not be manually modified.
+This log was last generated on Wed, 22 Jan 2020 19:24:12 GMT and should not be manually modified.
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:12 GMT
+
+### Updates
+
+- Create PropertyRecord to represent TreeNodeItem label if node's LabelDefinition is provided
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Apply unified selection in ControlledTree after selection event is handled.
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Exposed UnifiedSelectionTreeEventHandler and made it more customizable
+- Handle newly introduced multi-ECInstance nodes
+- Added a favorite property data provider.
+- Make `rulesetId` for PropertyGridDataProvider optional
+- Avoid duplicate `PropertyRecord` names when content has multiple `Field`s with the same name nested under different parent fields.
+- No longer accessing this.state or this.props in setState updater - flagged by lgtm report
+- Update sinon version.
+- Changed ControlledTree specific hooks and HOCs release tags to beta
+- Adjusted UnifiedSelectionTreeEventHandler according changes to ControlledTree events
+- Added useRulesetRegistration hook and refactores usePresentationNodeLoader hook
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+### Updates
+
+- Fix property data provider failing to create data when content includes empty nested content values
+- Tablet responsive UI
+- Add usePresentationNodeLoader custom hook
+- Added custom hook and HOC that adds filtering support to ControlledTree
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+### Updates
+
+- Added logic to set the scope of Favorite Properties in DataProvider.
+- Disable filtering of table columns created by PresentationTableDataProvider until the provider supports filtering
+- Added useUnifiedSelection hook to enabled unified selection in ControlledTree
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+### Updates
+
+- Fix broken `IPresentationTreeDataProvider` API by making `loadHierarchy` optional.
+- Handle categorized fields inside nested content
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Implemented favorite properties logic in PresentationPropertyDataProvider
+- Add a helper method `IPresentationTreeDataProvider.loadHierarchy()`
+- Added autoExpand property to RelatedPropertiesSpecification and NestedContentField
+- Add module descriptions
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+*Version update only*
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+### Updates
+
+- Fix invalid double display values in similar instances provider description
+- Use the new `RulesetsFactory.createSimilarInstancesRulesetAsync` to produce 'similar instances' ruleset. Use type converters to calculate display values used in 'similar instances' provider description.
+- Added test for ContentBuilder to verify that links property is set for nested PropertyRecord.
+- Added checking for links in the ContentBuilder with tests for it.
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+*Version update only*
 
 ## 1.1.0
 Mon, 01 Jul 2019 19:04:29 GMT

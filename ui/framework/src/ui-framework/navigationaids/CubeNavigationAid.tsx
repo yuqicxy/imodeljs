@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module NavigationAids */
+/** @packageDocumentation
+ * @module NavigationAids
+ */
 
 import * as React from "react";
 
@@ -19,6 +21,7 @@ import { UiFramework } from "../UiFramework";
 import { ViewRotationChangeEventArgs, ViewportComponentEvents } from "@bentley/ui-components";
 import { ContentViewManager } from "../content/ContentViewManager";
 import { ContentControl } from "../content/ContentControl";
+import { connectIModelConnection } from "../redux/connectIModel";
 
 /** NavigationAid that displays an interactive rotation cube that synchronizes with the rotation of the iModel Viewport
  * @alpha
@@ -28,7 +31,10 @@ export class CubeNavigationAidControl extends NavigationAidControl {
 
   constructor(info: ConfigurableCreateInfo, options: any) {
     super(info, options);
-    this.reactElement = <CubeNavigationAid iModelConnection={options.imodel} />;
+    if (options.imodel)
+      this.reactElement = <CubeNavigationAid iModelConnection={options.imodel} />;
+    else
+      this.reactElement = <IModelConnectedCubeNavigationAid />;
   }
 
   public getSize(): string | undefined { return "96px"; }
@@ -444,11 +450,11 @@ export class CubeNavigationAid extends React.Component<CubeNavigationAidProps, C
       return;
     // set animation variables, let css transitions animate it.
     this._animationFrame = setTimeout(this._animation, 16.667);
-    this.setState({
-      startRotMatrix: this.state.endRotMatrix, endRotMatrix,
+    this.setState((prevState) => ({
+      startRotMatrix: prevState.endRotMatrix, endRotMatrix,
       animation: 0,
       face,
-    });
+    }));
   }
 
   private _setRotation = (endRotMatrix: Matrix3d, face: Face) => {
@@ -462,6 +468,11 @@ export class CubeNavigationAid extends React.Component<CubeNavigationAidProps, C
     });
   }
 }
+
+/** CubeNavigationAid that is connected to the IModelConnection property in the Redux store. The application must set up the Redux store and include the FrameworkReducer.
+ * @beta
+ */
+export const IModelConnectedCubeNavigationAid = connectIModelConnection(null, null)(CubeNavigationAid); // tslint:disable-line:variable-name
 
 /** @internal */
 export interface NavCubeFaceProps extends React.AllHTMLAttributes<HTMLDivElement> {
@@ -551,6 +562,8 @@ export class FaceCell extends React.Component<FaceCellProps> {
       onMouseUp={this._handleMouseUp}
       onMouseOver={this._handleMouseOver}
       onMouseOut={this._handleMouseOut}
+      onTouchStart={this._handleTouchStart}
+      onTouchEnd={this._handleTouchEnd}
       data-testid={"nav-cube-face-cell-" + face + "-" + n}
       className={classnames("face-cell", { center, hover, active })}
       {...props}>{children}</div>;
@@ -564,16 +577,34 @@ export class FaceCell extends React.Component<FaceCellProps> {
     this.props.onFaceCellHoverChange(vector, CubeHover.None);
   }
   private _handleMouseDown = (event: React.MouseEvent) => {
-    const { vector } = this.props;
     const { clientX, clientY } = event;
-    this._startMouse = Point2d.create(clientX, clientY);
-    this.props.onFaceCellHoverChange(vector, CubeHover.Active);
+    this.handlePointerDown(clientX, clientY);
   }
   private _handleMouseUp = (event: React.MouseEvent) => {
-    const { vector, face } = this.props;
     const { clientX, clientY } = event;
+    this.handlePointerUp(clientX, clientY);
+  }
+
+  private _handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.targetTouches.length === 1 && this.handlePointerDown(event.targetTouches[0].clientX, event.targetTouches[0].clientY);
+  }
+
+  private _handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.changedTouches.length === 1 && this.handlePointerUp(event.changedTouches[0].clientX, event.changedTouches[0].clientY);
+  }
+
+  private handlePointerDown(x: number, y: number) {
+    const { vector } = this.props;
+    this._startMouse = Point2d.create(x, y);
+    this.props.onFaceCellHoverChange(vector, CubeHover.Active);
+  }
+
+  private handlePointerUp(x: number, y: number) {
+    const { vector, face } = this.props;
     this.props.onFaceCellHoverChange(vector, CubeHover.None);
-    const mouse = Point2d.create(clientX, clientY);
+    const mouse = Point2d.create(x, y);
     if (this._startMouse && this._startMouse.isAlmostEqual(mouse)) {
       const isFace = Math.abs(vector.x) + Math.abs(vector.y) + Math.abs(vector.z) === 1;
       this.props.onFaceCellClick(vector, isFace ? face : Face.None);

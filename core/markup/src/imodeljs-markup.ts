@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 export * from "./Markup";
 export * from "./MarkupTool";
@@ -19,7 +19,7 @@ if ((typeof (BUILD_SEMVER) !== "undefined") && (typeof window !== "undefined") &
 }
 
 /** @docs-package-description
- * The ($markup) package supplies tools for creating, editing, and saving SVG-based markups of iModel.js Viewports.
+ * The imodeljs-markup package supplies tools for creating, editing, and saving SVG-based markups of iModel.js Viewports.
  */
 /**
  * @docs-group-description MarkupApp

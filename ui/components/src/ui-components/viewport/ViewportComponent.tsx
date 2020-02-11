@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Viewport */
+/** @packageDocumentation
+ * @module Viewport
+ */
 
 import * as React from "react";
 import { Id64String } from "@bentley/bentleyjs-core";
@@ -17,7 +19,8 @@ import {
   TentativePoint,
 } from "@bentley/imodeljs-frontend";
 import { Transform, Point3d } from "@bentley/geometry-core";
-import { CommonProps, UiError } from "@bentley/ui-core";
+import { UiError } from "@bentley/ui-abstract";
+import { CommonProps } from "@bentley/ui-core";
 
 import {
   ViewportComponentEvents,
@@ -41,10 +44,10 @@ export interface ViewportProps extends CommonProps {
   viewState?: ViewState;
   /** Function to get a reference to the ScreenViewport */
   viewportRef?: (v: ScreenViewport) => void;
+
   /** @internal */
   onContextMenu?: (e: React.MouseEvent) => boolean;
   /** @internal */
-
   getViewOverlay?: (viewport: ScreenViewport) => React.ReactNode;
   /** @internal used only for testing */
   viewManagerOverride?: ViewManager;
@@ -87,14 +90,14 @@ export class ViewportComponent extends React.Component<ViewportProps, ViewportSt
       throw new UiError(UiComponents.loggerCategory(this), `Parent <div> failed to load`);
 
     const viewState = await this.getViewState();
+    /* istanbul ignore else */
+    if (!this._mounted)
+      return;
 
     const viewManager = this.props.viewManagerOverride ? this.props.viewManagerOverride : /* istanbul ignore next */ IModelApp.viewManager;
     const screenViewport = this.props.screenViewportOverride ? this.props.screenViewportOverride : /* istanbul ignore next */ ScreenViewport;
     this._vp = screenViewport.create(this._viewportDiv.current, viewState);
     viewManager.addViewport(this._vp);
-
-    if (this.props.viewportRef)
-      this.props.viewportRef(this._vp);
 
     ViewportComponentEvents.initialize();
     ViewportComponentEvents.onDrawingViewportChangeEvent.addListener(this._handleDrawingViewportChangeEvent);
@@ -104,6 +107,10 @@ export class ViewportComponent extends React.Component<ViewportProps, ViewportSt
     this._vp.onViewChanged.addListener(this._handleViewChanged);
     this._viewClassFullName = this._vp.view.classFullName;
     this.setState({ viewId: this._vp.view.id });
+
+    /* istanbul ignore else */
+    if (this.props.viewportRef)
+      this.props.viewportRef(this._vp);
   }
 
   public componentWillUnmount() {
@@ -164,7 +171,7 @@ export class ViewportComponent extends React.Component<ViewportProps, ViewportSt
     if (this._vp && viewManager.selectedView === this._vp) {
       this._vp.view.setOrigin(args.origin);
       this._vp.view.setRotation(args.rotation);
-      this._vp.synchWithView(args.complete === true ? true : false);
+      this._vp.synchWithView({ noSaveInUndo: args.complete !== true });
     }
   }
 
@@ -213,7 +220,7 @@ export class ViewportComponent extends React.Component<ViewportProps, ViewportSt
         const frustum = this._vp.getWorldFrustum();
         frustum.multiply(worldTransform);
         this._vp.view.setupFromFrustum(frustum);
-        this._vp.synchWithView(args.complete ? true : false);
+        this._vp.synchWithView({ noSaveInUndo: !args.complete });
       }
     }
   }
@@ -225,7 +232,7 @@ export class ViewportComponent extends React.Component<ViewportProps, ViewportSt
     if (this._vp && viewManager.selectedView === this._vp) {
       // this._vp.view.setStandardRotation(args.standardRotation);
       this._vp.view.setRotationAboutPoint(ViewState.getStandardViewMatrix(args.standardRotation));
-      this._vp.synchWithView(true);
+      this._vp.synchWithView();
     }
   }
 

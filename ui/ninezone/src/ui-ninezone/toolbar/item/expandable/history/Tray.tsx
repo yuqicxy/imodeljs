@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
-/** @module Toolbar */
+/** @packageDocumentation
+ * @module Toolbar
+ */
 
 import * as classnames from "classnames";
 import * as React from "react";
@@ -10,28 +12,34 @@ import { CommonProps, NoChildrenProps, flattenChildren } from "@bentley/ui-core"
 import { Direction, DirectionHelpers } from "../../../../utilities/Direction";
 import "./Tray.scss";
 
+// tslint:disable: deprecation
+
 /** Key to identify history item.
  * @alpha
+ * @deprecated History tray removed from design standard.
  */
 export type HistoryKey = number | string;
 
 /** A single entry in items history.
  * @alpha
+ * @deprecated History tray removed from design standard.
  */
 export interface HistoryEntry<TItem> {
   /** Entry key. */
-  key: HistoryKey;
+  key: HistoryKey; // tslint:disable-line: deprecation
   /** Entry item. */
   item: TItem;
 }
 
 /** History defines actual structure of history items.
  * @alpha
+ * @deprecated History tray removed from design standard.
  */
-export type History<TItem> = Array<HistoryEntry<TItem>>;
+export type History<TItem> = Array<HistoryEntry<TItem>>; // tslint:disable-line: deprecation
 
 /** Helper to manage history entries.
  * @alpha
+ * @deprecated History tray removed from design standard.
  */
 export class HistoryManager {
   public constructor(public readonly maxItemCount: number) {
@@ -41,15 +49,14 @@ export class HistoryManager {
    * Adds specified item to history and returns a new state of history.
    * @note Immutable operation.
    */
-  public addItem<TItem extends {}>(key: HistoryKey, item: TItem, history: History<TItem>): History<TItem> {
+  public addItem<TItem extends {}>(key: HistoryKey, item: TItem, history: History<TItem>): History<TItem> { // tslint:disable-line: deprecation
     const itemToRemove = history.findIndex((entry) => {
       return entry.key === key;
     });
-    const newHistory = itemToRemove < 0 ? [...history] :
-      [
-        ...history.slice(0, itemToRemove),
-        ...history.slice(itemToRemove + 1),
-      ];
+    const newHistory = itemToRemove < 0 ? [...history] : [
+      ...history.slice(0, itemToRemove),
+      ...history.slice(itemToRemove + 1),
+    ];
 
     if (newHistory.unshift({ key, item }) > this.maxItemCount)
       newHistory.pop();
@@ -60,12 +67,14 @@ export class HistoryManager {
 
 /** History manager as defined by 9-Zone UI specification.
  * @alpha
+ * @deprecated History tray removed from design standard.
  */
 // tslint:disable-next-line:variable-name
-export const DefaultHistoryManager = new HistoryManager(4);
+export const DefaultHistoryManager = new HistoryManager(4); // tslint:disable-line: deprecation
 
 /** Properties of [[HistoryTray]] component.
  * @alpha
+ * @deprecated History tray removed from design standard.
  */
 export interface HistoryTrayProps extends CommonProps, NoChildrenProps {
   /** Extend direction of tray. */
@@ -80,8 +89,9 @@ export interface HistoryTrayProps extends CommonProps, NoChildrenProps {
 
 /** History tray used in [[ExpandableItem]] component.
  * @alpha
+ * @deprecated History tray removed from design standard.
  */
-export class HistoryTray extends React.PureComponent<HistoryTrayProps> {
+export class HistoryTray extends React.PureComponent<HistoryTrayProps> { // tslint:disable-line: deprecation
   public render() {
     const items = flattenChildren(this.props.items);
     const count = React.Children.count(items);

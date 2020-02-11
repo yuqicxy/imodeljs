@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 // This script is used to ignore arguments. It is needed because the "rush build" command passes the
@@ -11,18 +11,18 @@ const yargs = require("yargs");
 
 // Get the arguments using the ubiquitous yargs package.
 function getArgs() {
-    const args = yargs
-        .option("verbose", {
-            alias: "v"
-        })
-        .option("detail", {
-            alias: "d",
-            type: "number",
-        })
-        .help().argv;
-    return args;
+  const args = yargs
+    .option("verbose", {
+      alias: "v"
+    })
+    .option("detail", {
+      alias: "d",
+      type: "number",
+    })
+    .help().argv;
+  return args;
 }
 
 cmdLineArgs = getArgs();
 if (cmdLineArgs.verbose || cmdLineArgs.detail > 2)
-    console.log("ignoring these arguments", cmdLineArgs);
+  console.log("ignoring these arguments", cmdLineArgs);

@@ -1,12 +1,13 @@
 /*---------------------------------------------------------------------------------------------
-* Copyright (c) 2019 Bentley Systems, Incorporated. All rights reserved.
-* Licensed under the MIT License. See LICENSE.md in the project root for license terms.
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 
 import { assert, expect } from "chai";
 import { Schema } from "../../src/Metadata/Schema";
 import { PropertyCategory } from "../../src/Metadata/PropertyCategory";
 import { SchemaContext } from "../../src/Context";
+import { createEmptyXmlDocument } from "../TestUtils/SerializationHelper";
 
 describe("PropertyCategory", () => {
   describe("deserialization", () => {
@@ -72,6 +73,35 @@ describe("PropertyCategory", () => {
       assert.isDefined(propCat);
       const propCatSerialization = propCat.toJson(true, true);
       expect(propCatSerialization.priority).equal(5);
+    });
+  });
+
+  describe("toXml", () => {
+    const newDom = createEmptyXmlDocument();
+    const schemaJson = {
+      $schema: "https://dev.bentley.com/json_schemas/ec/32/ecschema",
+      name: "TestSchema",
+      version: "1.2.3",
+      items: {
+        TestPropertyCategory: {
+          schemaItemType: "PropertyCategory",
+          type: "string",
+          typeName: "test",
+          priority: 5,
+        },
+      },
+    };
+
+    it("should serialize properly", async () => {
+      const ecschema = await Schema.fromJson(schemaJson, new SchemaContext());
+      assert.isDefined(ecschema);
+      const testPropCategory = await ecschema.getItem<PropertyCategory>("TestPropertyCategory");
+      assert.isDefined(testPropCategory);
+
+      const serialized = await testPropCategory!.toXml(newDom);
+      expect(serialized.nodeName).to.eql("PropertyCategory");
+      expect(serialized.getAttribute("typeName")).to.eql("TestPropertyCategory");
+      expect(serialized.getAttribute("priority")).to.eql("5");
     });
   });
 });
